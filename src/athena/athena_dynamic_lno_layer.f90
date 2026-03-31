@@ -1,4 +1,4 @@
-module athena__laplace_nop_layer
+module athena__dynamic_lno_layer
   !! Module containing implementation of a Laplace Neural Operator layer
   !!
   !! This module implements a Laplace Neural Operator (LNO) layer that
@@ -13,38 +13,43 @@ module athena__laplace_nop_layer
   !!
   !! where:
   !!   - \(\mathbf{u} \in \mathbb{R}^{n_{in}}\) is the discretised input
-  !!   - \(\mathbf{E} \in \mathbb{R}^{M \times n_{in}}\) is the Laplace
-  !!     encoder basis:  \(E_{k,j}=\exp(-s_k\,t_j)\),
-  !!     \(s_k = k\pi\), \(t_j = (j{-}1)/(n_{in}{-}1)\)
-  !!   - \(\mathbf{R} \in \mathbb{R}^{M \times M}\) are learnable spectral
-  !!     mixing weights
-  !!   - \(\mathbf{D} \in \mathbb{R}^{n_{out} \times M}\) is the Laplace
-  !!     decoder basis:  \(D_{i,k}=\exp(-s_k\,\tau_i)\),
+  !!   - \(\boldsymbol{\mu} \in \mathbb{R}^{M}\) are learnable Laplace-domain
+  !!     poles that define dynamic bases via \(H(s)=\sum_n \beta_n/(s-\mu_n)\)
+  !!   - \(\mathbf{E}(\boldsymbol{\mu}) \in \mathbb{R}^{M \times n_{in}}\) is
+  !!     the pole-residue encoder: \(E_{k,j}=\exp(-\mu_k\,t_j)\),
+  !!     \(t_j = (j{-}1)/(n_{in}{-}1)\)
+  !!   - \(\boldsymbol{\beta} \in \mathbb{R}^{M}\) are learnable residues;
+  !!     \(\mathrm{diag}(\boldsymbol{\beta})\) replaces the former full mixing R
+  !!   - \(\mathbf{D}(\boldsymbol{\mu}) \in \mathbb{R}^{n_{out} \times M}\) is
+  !!     the pole-residue decoder: \(D_{i,k}=\exp(-\mu_k\,\tau_i)\),
   !!     \(\tau_i = (i{-}1)/(n_{out}{-}1)\)
   !!   - \(\mathbf{W} \in \mathbb{R}^{n_{out} \times n_{in}}\) are the
   !!     local (bypass) weights
   !!   - \(\mathbf{b} \in \mathbb{R}^{n_{out}}\) is the bias
   !!   - \(\sigma\) is the activation function
-  !!   - \(M\) = num_modes, the number of Laplace spectral modes
+  !!   - \(M\) = num_modes, the number of spectral poles
+  !!
+  !! Bases \(\mathbf{E}\) and \(\mathbf{D}\) are rebuilt from the current poles
+  !! at every forward call via \texttt{rebuild\_bases}.
   !!
   !! Number of parameters (learnable):
-  !!   \(M^2 + n_{out}\,n_{in}\) without bias,
-  !!   \(M^2 + n_{out}\,n_{in} + n_{out}\) with bias.
+  !!   \(2M + n_{out}\,n_{in}\) without bias,
+  !!   \(2M + n_{out}\,n_{in} + n_{out}\) with bias.
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: learnable_layer_type, base_layer_type
   use athena__misc_types, only: base_actv_type, base_init_type, &
        onnx_node_type, onnx_initialiser_type, onnx_tensor_type
-  use diffstruc, only: array_type, matmul, operator(+)
+  use diffstruc, only: array_type, matmul, operator(+), operator(*)
   implicit none
 
 
   private
 
-  public :: laplace_nop_layer_type
-  public :: read_laplace_nop_layer
+  public :: dynamic_lno_layer_type
+  public :: read_dynamic_lno_layer
 
 
-  type, extends(learnable_layer_type) :: laplace_nop_layer_type
+  type, extends(learnable_layer_type) :: dynamic_lno_layer_type
      !! Type for a Laplace Neural Operator layer
      integer :: num_inputs
      !! Number of inputs (discretisation points)
@@ -53,9 +58,11 @@ module athena__laplace_nop_layer
      integer :: num_modes
      !! Number of Laplace spectral modes
      type(array_type) :: encoder_basis
-     !! Fixed Laplace encoder basis E [num_modes x num_inputs]
+     !! Dynamic Laplace encoder basis E [num_modes x num_inputs],
+     !! rebuilt from learnable poles at each forward call
      type(array_type) :: decoder_basis
-     !! Fixed Laplace decoder basis D [num_outputs x num_modes]
+     !! Dynamic Laplace decoder basis D [num_outputs x num_modes],
+     !! rebuilt from learnable poles at each forward call
      type(array_type), dimension(1) :: z
      !! Temporary array for pre-activation values
    contains
@@ -64,13 +71,14 @@ module athena__laplace_nop_layer
      procedure, pass(this) :: init => init_nop_laplace
      procedure, pass(this) :: print_to_unit => print_to_unit_nop_laplace
      procedure, pass(this) :: read => read_nop_laplace
+     procedure, pass(this) :: rebuild_bases => rebuild_bases_nop_laplace
 
      procedure, pass(this) :: forward => forward_nop_laplace
 
      final :: finalise_nop_laplace
-  end type laplace_nop_layer_type
+  end type dynamic_lno_layer_type
 
-  interface laplace_nop_layer_type
+  interface dynamic_lno_layer_type
      module function layer_setup( &
           num_outputs, num_modes, num_inputs, use_bias, &
           activation, &
@@ -83,9 +91,9 @@ module athena__laplace_nop_layer
        class(*), optional, intent(in) :: activation
        class(*), optional, intent(in) :: kernel_initialiser, bias_initialiser
        integer, optional, intent(in) :: verbose
-       type(laplace_nop_layer_type) :: layer
+       type(dynamic_lno_layer_type) :: layer
      end function layer_setup
-  end interface laplace_nop_layer_type
+  end interface dynamic_lno_layer_type
 
 
 
@@ -94,7 +102,7 @@ contains
 !###############################################################################
   subroutine finalise_nop_laplace(this)
     implicit none
-    type(laplace_nop_layer_type), intent(inout) :: this
+    type(dynamic_lno_layer_type), intent(inout) :: this
 
     if(allocated(this%input_shape)) deallocate(this%input_shape)
     if(allocated(this%output)) deallocate(this%output)
@@ -109,11 +117,11 @@ contains
 !###############################################################################
   pure function get_num_params_nop_laplace(this) result(num_params)
     implicit none
-    class(laplace_nop_layer_type), intent(in) :: this
+    class(dynamic_lno_layer_type), intent(in) :: this
     integer :: num_params
 
-    ! R: num_modes^2, W: n_out * n_in, b: n_out (optional)
-    num_params = this%num_modes * this%num_modes + &
+    ! mu: num_modes, beta: num_modes, W: n_out * n_in, b: n_out (optional)
+    num_params = 2 * this%num_modes + &
          this%num_outputs * this%num_inputs
     if(this%use_bias) num_params = num_params + this%num_outputs
 
@@ -140,7 +148,7 @@ contains
     class(*), optional, intent(in) :: kernel_initialiser, bias_initialiser
     integer, optional, intent(in) :: verbose
 
-    type(laplace_nop_layer_type) :: layer
+    type(dynamic_lno_layer_type) :: layer
 
     integer :: verbose_ = 0
     logical :: use_bias_ = .true.
@@ -191,7 +199,7 @@ contains
     use athena__initialiser, only: get_default_initialiser, initialiser_setup
     implicit none
 
-    class(laplace_nop_layer_type), intent(inout) :: this
+    class(dynamic_lno_layer_type), intent(inout) :: this
     integer, intent(in) :: num_outputs
     integer, intent(in) :: num_modes
     logical, intent(in) :: use_bias
@@ -250,13 +258,13 @@ contains
   subroutine init_nop_laplace(this, input_shape, verbose)
     implicit none
 
-    class(laplace_nop_layer_type), intent(inout) :: this
+    class(dynamic_lno_layer_type), intent(inout) :: this
     integer, dimension(:), intent(in) :: input_shape
     integer, optional, intent(in) :: verbose
 
-    integer :: num_inputs, j, k, i, idx
+    integer :: num_inputs, k
     integer :: verbose_ = 0
-    real(real32) :: pi_val, s, t
+    real(real32) :: pi_val
 
     if(present(verbose)) verbose_ = verbose
 
@@ -274,71 +282,124 @@ contains
     !---------------------------------------------------------------------------
     ! Allocate learnable parameters
     !
-    ! params(1): R  spectral mixing weights [num_modes x num_modes]
-    ! params(2): W  local bypass weights    [num_outputs x num_inputs]
-    ! params(3): b  bias                    [num_outputs]  (optional)
+    ! params(1): mu  learnable poles        [num_modes]
+    ! params(2): beta learnable residues    [num_modes]
+    ! params(3): W   local bypass weights   [num_outputs x num_inputs]
+    ! params(4): b   bias                   [num_outputs]  (optional)
     !---------------------------------------------------------------------------
-    allocate(this%weight_shape(2,2))
-    this%weight_shape(:,1) = [ this%num_modes, this%num_modes ]
-    this%weight_shape(:,2) = [ this%num_outputs, this%num_inputs ]
+    allocate(this%weight_shape(2,3))
+    this%weight_shape(:,1) = [ this%num_modes, 1 ]
+    this%weight_shape(:,2) = [ this%num_modes, 1 ]
+    this%weight_shape(:,3) = [ this%num_outputs, this%num_inputs ]
 
     if(this%use_bias)then
        this%bias_shape = [ this%num_outputs ]
-       allocate(this%params(3))
+       allocate(this%params(4))
     else
-       allocate(this%params(2))
+       allocate(this%params(3))
     end if
 
-    ! R: spectral mixing weights
-    call this%params(1)%allocate([this%num_modes, this%num_modes, 1])
+    ! mu: learnable poles
+    call this%params(1)%allocate([this%num_modes, 1, 1])
     call this%params(1)%set_requires_grad(.true.)
     this%params(1)%fix_pointer = .true.
     this%params(1)%is_sample_dependent = .false.
     this%params(1)%is_temporary = .false.
 
-    ! W: local bypass weights
-    call this%params(2)%allocate([this%num_outputs, this%num_inputs, 1])
+    ! beta: learnable residues
+    call this%params(2)%allocate([this%num_modes, 1, 1])
     call this%params(2)%set_requires_grad(.true.)
     this%params(2)%fix_pointer = .true.
     this%params(2)%is_sample_dependent = .false.
     this%params(2)%is_temporary = .false.
 
+    ! W: local bypass weights
+    call this%params(3)%allocate([this%num_outputs, this%num_inputs, 1])
+    call this%params(3)%set_requires_grad(.true.)
+    this%params(3)%fix_pointer = .true.
+    this%params(3)%is_sample_dependent = .false.
+    this%params(3)%is_temporary = .false.
+
     num_inputs = this%num_inputs
     if(this%use_bias)then
        num_inputs = this%num_inputs + 1
-       call this%params(3)%allocate([this%bias_shape, 1])
-       call this%params(3)%set_requires_grad(.true.)
-       this%params(3)%fix_pointer = .true.
-       this%params(3)%is_sample_dependent = .false.
-       this%params(3)%is_temporary = .false.
+       call this%params(4)%allocate([this%bias_shape, 1])
+       call this%params(4)%set_requires_grad(.true.)
+       this%params(4)%fix_pointer = .true.
+       this%params(4)%is_sample_dependent = .false.
+       this%params(4)%is_temporary = .false.
     end if
 
 
     !---------------------------------------------------------------------------
     ! Initialise learnable parameters
+    !
+    ! Poles: mu_n = n*pi (matches original fixed Laplace frequencies, gives
+    !         the same initial spectral basis as the prior fixed construction)
+    ! Residues: kernel initialiser (small random values)
+    ! W: kernel initialiser
+    ! b: bias initialiser
     !---------------------------------------------------------------------------
+    do k = 1, this%num_modes
+       this%params(1)%val(k, 1) = real(k, real32) * pi_val
+    end do
     call this%kernel_init%initialise( &
-         this%params(1)%val(:,1), &
+         this%params(2)%val(:,1), &
          fan_in = this%num_modes, fan_out = this%num_modes, &
          spacing = [ this%num_modes ] &
     )
     call this%kernel_init%initialise( &
-         this%params(2)%val(:,1), &
+         this%params(3)%val(:,1), &
          fan_in = num_inputs, fan_out = this%num_outputs, &
          spacing = [ this%num_outputs ] &
     )
     if(this%use_bias)then
        call this%bias_init%initialise( &
-            this%params(3)%val(:,1), &
+            this%params(4)%val(:,1), &
             fan_in = num_inputs, fan_out = this%num_outputs &
        )
     end if
 
 
     !---------------------------------------------------------------------------
-    ! Build fixed encoder basis E [num_modes x num_inputs]
-    !   E(k,j) = exp(-s_k * t_j)
-    !   s_k = k * pi,  t_j = (j-1)/(n_in-1)
+    ! Build initial encoder/decoder bases from initial pole values
+    !---------------------------------------------------------------------------
+    call this%rebuild_bases()
+
+
+    !---------------------------------------------------------------------------
+    ! Allocate output arrays
+    !---------------------------------------------------------------------------
+    if(allocated(this%output)) deallocate(this%output)
+    allocate(this%output(1,1))
+    if(this%z(1)%allocated) call this%z(1)%deallocate()
+
+  end subroutine init_nop_laplace
+!###############################################################################
+
+
+!###############################################################################
+  subroutine rebuild_bases_nop_laplace(this)
+    !! Rebuild the dynamic Laplace encoder/decoder bases from the current
+    !! learnable pole values (params(1)).
+    !!
+    !! Called at the start of each forward pass so that the computation graph
+    !! always uses up-to-date poles.  The rebuilt bases are non-tracked
+    !! (requires_grad = .false.); gradient flow for the residues beta goes
+    !! through the diffstruc * operator, and gradient flow for the bypass
+    !! weights W goes through matmul.
+    !!
+    !!   E(mu)[n,j] = exp(-mu_n * t_j),  t_j = (j-1)/(n_in-1)
+    !!   D(mu)[i,n] = exp(-mu_n * tau_i), tau_i = (i-1)/(n_out-1)
+    implicit none
+
+    class(dynamic_lno_layer_type), intent(inout) :: this
+
+    integer :: j, k, i, idx
+    real(real32) :: s, t
+
+    !---------------------------------------------------------------------------
+    ! Encoder E [num_modes x num_inputs]
     !---------------------------------------------------------------------------
     if(this%encoder_basis%allocated) call this%encoder_basis%deallocate()
     call this%encoder_basis%allocate( &
@@ -355,17 +416,14 @@ contains
           t = 0.0_real32
        end if
        do k = 1, this%num_modes
-          s = real(k, real32) * pi_val
+          s = this%params(1)%val(k, 1)
           idx = k + (j-1) * this%num_modes
           this%encoder_basis%val(idx, 1) = exp(-s * t)
        end do
     end do
 
-
     !---------------------------------------------------------------------------
-    ! Build fixed decoder basis D [num_outputs x num_modes]
-    !   D(i,k) = exp(-s_k * tau_i)
-    !   s_k = k * pi,  tau_i = (i-1)/(n_out-1)
+    ! Decoder D [num_outputs x num_modes]
     !---------------------------------------------------------------------------
     if(this%decoder_basis%allocated) call this%decoder_basis%deallocate()
     call this%decoder_basis%allocate( &
@@ -376,7 +434,7 @@ contains
     this%decoder_basis%is_temporary = .false.
 
     do k = 1, this%num_modes
-       s = real(k, real32) * pi_val
+       s = this%params(1)%val(k, 1)
        do i = 1, this%num_outputs
           if(this%num_outputs .gt. 1) then
              t = real(i-1, real32) / real(this%num_outputs-1, real32)
@@ -388,15 +446,7 @@ contains
        end do
     end do
 
-
-    !---------------------------------------------------------------------------
-    ! Allocate output arrays
-    !---------------------------------------------------------------------------
-    if(allocated(this%output)) deallocate(this%output)
-    allocate(this%output(1,1))
-    if(this%z(1)%allocated) call this%z(1)%deallocate()
-
-  end subroutine init_nop_laplace
+  end subroutine rebuild_bases_nop_laplace
 !###############################################################################
 
 
@@ -405,7 +455,7 @@ contains
     use coreutils, only: to_upper
     implicit none
 
-    class(laplace_nop_layer_type), intent(in) :: this
+    class(dynamic_lno_layer_type), intent(in) :: this
     integer, intent(in) :: unit
 
     write(unit,'(3X,"NUM_INPUTS = ",I0)') this%num_inputs
@@ -417,10 +467,11 @@ contains
     end if
 
     write(unit,'("WEIGHTS")')
-    write(unit,'(5(E16.8E2))') this%params(1)%val(:,1)   ! R
-    write(unit,'(5(E16.8E2))') this%params(2)%val(:,1)   ! W
+    write(unit,'(5(E16.8E2))') this%params(1)%val(:,1)   ! poles
+    write(unit,'(5(E16.8E2))') this%params(2)%val(:,1)   ! residues
+    write(unit,'(5(E16.8E2))') this%params(3)%val(:,1)   ! W
     if(this%use_bias)then
-       write(unit,'(5(E16.8E2))') this%params(3)%val(:,1) ! b
+       write(unit,'(5(E16.8E2))') this%params(4)%val(:,1) ! b
     end if
     write(unit,'("END WEIGHTS")')
 
@@ -436,7 +487,7 @@ contains
     use athena__initialiser, only: initialiser_setup
     implicit none
 
-    class(laplace_nop_layer_type), intent(inout) :: this
+    class(dynamic_lno_layer_type), intent(inout) :: this
     integer, intent(in) :: unit
     integer, optional, intent(in) :: verbose
 
@@ -529,8 +580,8 @@ contains
     else
        call move(unit, param_line - iline, iostat=stat)
 
-       ! Read R (num_modes^2 values)
-       num_vals = num_modes * num_modes
+       ! Read poles (num_modes values)
+       num_vals = num_modes
        allocate(data_list(num_vals), source=0._real32)
        c = 1
        k = 1
@@ -542,6 +593,21 @@ contains
           c = c + k
        end do
        this%params(1)%val(:,1) = data_list
+       deallocate(data_list)
+
+       ! Read residues (num_modes values)
+       num_vals = num_modes
+       allocate(data_list(num_vals), source=0._real32)
+       c = 1
+       k = 1
+       do while(c.le.num_vals)
+          read(unit,'(A)',iostat=stat) buffer
+          if(stat.ne.0) exit
+          k = icount(buffer)
+          read(buffer,*,iostat=stat) (data_list(j),j=c,c+k-1)
+          c = c + k
+       end do
+       this%params(2)%val(:,1) = data_list
        deallocate(data_list)
 
        ! Read W (num_outputs * num_inputs values)
@@ -556,7 +622,7 @@ contains
           read(buffer,*,iostat=stat) (data_list(j),j=c,c+k-1)
           c = c + k
        end do
-       this%params(2)%val(:,1) = data_list
+       this%params(3)%val(:,1) = data_list
        deallocate(data_list)
 
        ! Read b if use_bias
@@ -571,7 +637,7 @@ contains
              read(buffer,*,iostat=stat) (data_list(j),j=c,c+k-1)
              c = c + k
           end do
-          this%params(3)%val(:,1) = data_list(1:num_outputs)
+          this%params(4)%val(:,1) = data_list(1:num_outputs)
           deallocate(data_list)
        end if
 
@@ -580,6 +646,9 @@ contains
           call stop_program("END WEIGHTS not where expected")
           return
        end if
+
+       ! Rebuild encoder/decoder bases from the loaded pole values
+       call this%rebuild_bases()
     end if
 
     call move(unit, final_line - iline, iostat=stat)
@@ -595,7 +664,7 @@ contains
 
 
 !###############################################################################
-  function read_laplace_nop_layer(unit, verbose) result(layer)
+  function read_dynamic_lno_layer(unit, verbose) result(layer)
     implicit none
     integer, intent(in) :: unit
     integer, optional, intent(in) :: verbose
@@ -603,11 +672,11 @@ contains
     integer :: verbose_ = 0
 
     if(present(verbose)) verbose_ = verbose
-    allocate(layer, source=laplace_nop_layer_type( &
+    allocate(layer, source=dynamic_lno_layer_type( &
          num_outputs=0, num_modes=1))
     call layer%read(unit, verbose=verbose_)
 
-  end function read_laplace_nop_layer
+  end function read_dynamic_lno_layer
 !###############################################################################
 
 
@@ -615,25 +684,33 @@ contains
   subroutine forward_nop_laplace(this, input)
     !! Forward propagation for the Laplace Neural Operator layer
     !!
-    !! Computes:
-    !!   v = sigma( D @ R @ E @ u  +  W @ u  +  b )
+    !! Computes via pole-residue spectral decomposition:
+    !!   v = sigma( D(mu) @ diag(beta) @ E(mu) @ u  +  W @ u  +  b )
+    !!
+    !! Bases E(mu) and D(mu) are rebuilt from current poles at each call.
+    !! The element-wise residue scaling uses the diffstruc * broadcast:
+    !!   beta [M,1] * encoded [M,batch] -> [M,batch]
     implicit none
 
-    class(laplace_nop_layer_type), intent(inout) :: this
+    class(dynamic_lno_layer_type), intent(inout) :: this
     class(array_type), dimension(:,:), intent(in) :: input
 
     type(array_type), pointer :: ptr, ptr_spec, ptr_local
 
 
-    ! Spectral pathway:  D @ R @ E @ u
+    ! Rebuild E(mu) and D(mu) from current poles
+    !---------------------------------------------------------------------------
+    call this%rebuild_bases()
+
+    ! Spectral pathway:  D(mu) @ diag(beta) @ E(mu) @ u
     !---------------------------------------------------------------------------
     ptr_spec => matmul(this%encoder_basis, input(1,1))  ! [M, batch]
-    ptr_spec => matmul(this%params(1), ptr_spec)         ! [M, batch]
-    ptr_spec => matmul(this%decoder_basis, ptr_spec)     ! [n_out, batch]
+    ptr_spec => this%params(2) * ptr_spec               ! [M, batch] residue scaling
+    ptr_spec => matmul(this%decoder_basis, ptr_spec)    ! [n_out, batch]
 
     ! Local bypass:  W @ u
     !---------------------------------------------------------------------------
-    ptr_local => matmul(this%params(2), input(1,1))      ! [n_out, batch]
+    ptr_local => matmul(this%params(3), input(1,1))     ! [n_out, batch]
 
     ! Combine
     !---------------------------------------------------------------------------
@@ -642,7 +719,7 @@ contains
     ! Add bias
     !---------------------------------------------------------------------------
     if(this%use_bias)then
-       ptr => ptr + this%params(3)
+       ptr => ptr + this%params(4)
     end if
 
     ! Apply activation
@@ -662,4 +739,4 @@ contains
   end subroutine forward_nop_laplace
 !###############################################################################
 
-end module athena__laplace_nop_layer
+end module athena__dynamic_lno_layer

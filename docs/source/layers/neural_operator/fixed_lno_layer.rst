@@ -1,13 +1,13 @@
-.. _laplace-nop-layer:
+.. _fixed-lno-layer:
 
-Laplace Neural Operator Layer
-=============================
+Fixed Laplace Neural Operator Layer
+===================================
 
-``laplace_nop_layer_type``
+``fixed_lno_layer_type``
 
 .. code-block:: fortran
 
-  laplace_nop_layer_type(
+  fixed_lno_layer_type(
     num_outputs,
     num_modes,
     num_inputs=...,
@@ -18,31 +18,32 @@ Laplace Neural Operator Layer
   )
 
 
-The ``laplace_nop_layer_type`` derived type provides a Laplace neural operator layer.
-It combines a local bypass with a spectral pathway defined on fixed Laplace bases:
+The ``fixed_lno_layer_type`` derived type provides a Laplace neural operator layer.
+It combines a local bypass with a spectral pathway defined via a learnable pole–residue decomposition:
 
 .. math::
 
-   \mathbf{v} = \sigma\left(\mathbf{D}\mathbf{R}\mathbf{E}\mathbf{u} + \mathbf{W}\mathbf{u} + \mathbf{b}\right)
+   \mathbf{v} = \sigma\left(\mathbf{D}(\boldsymbol{\mu})\,\mathrm{diag}(\boldsymbol{\beta})\,\mathbf{E}(\boldsymbol{\mu})\,\mathbf{u} + \mathbf{W}\mathbf{u} + \mathbf{b}\right)
 
 where:
 
 * :math:`\mathbf{u} \in \mathbb{R}^{n_{in}}` is the input sampled on a grid
-* :math:`\mathbf{E} \in \mathbb{R}^{M \times n_{in}}` is the fixed Laplace encoder basis
-* :math:`\mathbf{R} \in \mathbb{R}^{M \times M}` is the learnable spectral mixing matrix
-* :math:`\mathbf{D} \in \mathbb{R}^{n_{out} \times M}` is the fixed Laplace decoder basis
+* :math:`\boldsymbol{\mu} \in \mathbb{R}^{M}` are learnable Laplace-domain poles
+* :math:`\mathbf{E}(\boldsymbol{\mu}) \in \mathbb{R}^{M \times n_{in}}` is the pole-residue encoder: :math:`E_{k,j}=\exp(-\mu_k\,t_j)`, :math:`t_j = (j{-}1)/(n_{in}{-}1)`
+* :math:`\boldsymbol{\beta} \in \mathbb{R}^{M}` are learnable residues forming :math:`\mathrm{diag}(\boldsymbol{\beta})`
+* :math:`\mathbf{D}(\boldsymbol{\mu}) \in \mathbb{R}^{n_{out} \times M}` is the pole-residue decoder: :math:`D_{i,k}=\exp(-\mu_k\,\tau_i)`, :math:`\tau_i = (i{-}1)/(n_{out}{-}1)`
 * :math:`\mathbf{W} \in \mathbb{R}^{n_{out} \times n_{in}}` is the learnable local bypass matrix
 * :math:`\mathbf{b} \in \mathbb{R}^{n_{out}}` is the bias vector when ``use_bias=.true.``
 * :math:`M` is ``num_modes``
 * :math:`\sigma` is the activation function
 
-The encoder and decoder bases are constructed from Laplace modes using exponentially decaying basis functions, while the learnable matrix :math:`\mathbf{R}` mixes those modes in the spectral domain.
+The encoder and decoder bases are rebuilt from the current poles at each forward pass via ``rebuild_bases``.
 
 Arguments
 ---------
 
 * **num_outputs** (``integer``): Number of output discretisation points.
-* **num_modes** (``integer``): Number of Laplace spectral modes.
+* **num_modes** (``integer``): Number of spectral poles.
 * **num_inputs** (``integer``): Number of input discretisation points. If not provided, it is inferred when the layer is initialised.
 * **use_bias** (``logical``): If ``.false.``, the layer will not use a bias term. Default: ``.true.``.
 * **activation** (``class(*)``): Activation function for the layer.
@@ -51,11 +52,7 @@ Arguments
   * See :ref:`Activation Functions <activation-functions>` for available options.
   * Default: ``none_actv_type``.
 
-* **kernel_initialiser** (``class(*)``): Initialiser for the learnable spectral matrix :math:`\mathbf{R}` and bypass weights :math:`\mathbf{W}` (see :ref:`Initialisers <initialisers>`).
-
-  * If ``activation`` is ``selu_actv_type``, default: ``lecun_normal_init_type``.
-  * If ``activation`` is a version of ``relu_actv_type``, default: ``he_normal_init_type``.
-  * For all other activations, default: ``glorot_uniform_init_type``.
+* **kernel_initialiser** (``class(*)``): Initialiser for the learnable residues :math:`\boldsymbol{\beta}` and local bypass weights :math:`\mathbf{W}` (see :ref:`Initialisers <initialisers>`).
 
 * **bias_initialiser** (``class(*)``): Initialiser for the biases (see :ref:`Initialisers <initialisers>`). Default: ``zeros_init_type``.
 
@@ -70,19 +67,20 @@ Parameters
 
 The layer contains the following learnable parameters:
 
-* **R**: Spectral mixing matrix of shape ``(num_modes, num_modes)``.
+* **μ**: Spectral poles of shape ``(num_modes)``.
+* **β**: Residues of shape ``(num_modes)``.
 * **W**: Local bypass matrix of shape ``(num_outputs, num_inputs)``.
 * **b**: Bias vector of shape ``(num_outputs)`` when ``use_bias=.true.``.
 
 The following tensors are fixed after initialisation and are not learnable:
 
-* **E**: Encoder basis of shape ``(num_modes, num_inputs)``.
-* **D**: Decoder basis of shape ``(num_outputs, num_modes)``.
+* **E(μ)**: Encoder basis of shape ``(num_modes, num_inputs)``.
+* **D(μ)**: Decoder basis of shape ``(num_outputs, num_modes)``.
 
 Total learnable parameters:
 
-* With bias: ``num_modes * num_modes + num_outputs * num_inputs + num_outputs``
-* Without bias: ``num_modes * num_modes + num_outputs * num_inputs``
+* With bias: ``2*num_modes + num_outputs*num_inputs + num_outputs``
+* Without bias: ``2*num_modes + num_outputs*num_inputs``
 
 Examples
 --------
@@ -94,7 +92,7 @@ Examples
    use athena
    type(network_type) :: network
 
-   call network%add(laplace_nop_layer_type( &
+   call network%add(fixed_lno_layer_type( &
         num_inputs=128, &
         num_outputs=128, &
         num_modes=16, &
@@ -105,13 +103,13 @@ Examples
 
 .. code-block:: fortran
 
-   call network%add(laplace_nop_layer_type( &
+   call network%add(fixed_lno_layer_type( &
         num_inputs=256, &
         num_outputs=256, &
         num_modes=32, &
         activation="swish" &
    ))
-   call network%add(laplace_nop_layer_type( &
+   call network%add(fixed_lno_layer_type( &
         num_outputs=128, &
         num_modes=16, &
         activation="swish" &
@@ -132,4 +130,5 @@ See Also
 --------
 
 * :ref:`neural_operator_layer_type <neural-operator-layer>` - Simpler mean-field neural operator layer
+* :ref:`dynamic_lno_layer_type <dynamic-lno-layer>` - More flexible Laplace neural operator layer with learnable bases
 * :ref:`full_layer_type <full-layer>` - Standard dense layer

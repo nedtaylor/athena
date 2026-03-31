@@ -171,8 +171,8 @@ module athena
   !-----------------------------------------------------------------------------
   use athena__neural_operator_layer, only: &
        neural_operator_layer_type, read_neural_operator_layer
-  use athena__laplace_nop_layer, only: &
-       laplace_nop_layer_type, read_laplace_nop_layer
+  use athena__dynamic_lno_layer, only: dynamic_lno_layer_type, read_dynamic_lno_layer
+  use athena__fixed_lno_layer, only: fixed_lno_layer_type, read_fixed_lno_layer
   use athena__graph_nop_layer, only: &
        graph_nop_layer_type, read_graph_nop_layer
   use athena__spectral_filter_layer, only: &

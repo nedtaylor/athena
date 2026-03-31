@@ -119,5 +119,6 @@ Notes
 See Also
 --------
 
-* :ref:`laplace_nop_layer_type <nop-laplace-layer>` - Laplace neural operator layer with spectral mixing
+* :ref:`fixed_lno_layer_type <laplace-nop-layer>` - Laplace neural operator layer with fixed encoder/decoder bases and spectral mixing
+* :ref:`dynamic_lno_layer_type <dynamic-lno-layer>` - More flexible Laplace neural operator layer with learnable bases
 * :ref:`full_layer_type <full-layer>` - Standard dense layer
