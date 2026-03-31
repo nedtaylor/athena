@@ -30,7 +30,7 @@ module athena__fixed_lno_layer
   !! Number of parameters (learnable):
   !!   \(M^2 + n_{out}\,n_{in}\) without bias,
   !!   \(M^2 + n_{out}\,n_{in} + n_{out}\) with bias.
-  use coreutils, only: real32, stop_program
+  use coreutils, only: real32, stop_program, pi
   use athena__base_layer, only: learnable_layer_type, base_layer_type
   use athena__misc_types, only: base_actv_type, base_init_type, &
        onnx_node_type, onnx_initialiser_type, onnx_tensor_type
@@ -45,7 +45,7 @@ module athena__fixed_lno_layer
 
 
   type, extends(learnable_layer_type) :: fixed_lno_layer_type
-     !! Type for a Laplace Neural Operator layer
+     !! Type for a fixed-basis Laplace Neural Operator layer
      integer :: num_inputs
      !! Number of inputs (discretisation points)
      integer :: num_outputs
@@ -59,15 +59,15 @@ module athena__fixed_lno_layer
      type(array_type), dimension(1) :: z
      !! Temporary array for pre-activation values
    contains
-     procedure, pass(this) :: get_num_params => get_num_params_nop_laplace
-     procedure, pass(this) :: set_hyperparams => set_hyperparams_nop_laplace
-     procedure, pass(this) :: init => init_nop_laplace
-     procedure, pass(this) :: print_to_unit => print_to_unit_nop_laplace
-     procedure, pass(this) :: read => read_nop_laplace
+     procedure, pass(this) :: get_num_params => get_num_params_fixed_lno
+     procedure, pass(this) :: set_hyperparams => set_hyperparams_fixed_lno
+     procedure, pass(this) :: init => init_fixed_lno
+     procedure, pass(this) :: print_to_unit => print_to_unit_fixed_lno
+     procedure, pass(this) :: read => read_fixed_lno
 
-     procedure, pass(this) :: forward => forward_nop_laplace
+     procedure, pass(this) :: forward => forward_fixed_lno
 
-     final :: finalise_nop_laplace
+     final :: finalise_fixed_lno
   end type fixed_lno_layer_type
 
   interface fixed_lno_layer_type
@@ -92,7 +92,7 @@ module athena__fixed_lno_layer
 contains
 
 !###############################################################################
-  subroutine finalise_nop_laplace(this)
+  subroutine finalise_fixed_lno(this)
     implicit none
     type(fixed_lno_layer_type), intent(inout) :: this
 
@@ -102,12 +102,12 @@ contains
     if(this%encoder_basis%allocated) call this%encoder_basis%deallocate()
     if(this%decoder_basis%allocated) call this%decoder_basis%deallocate()
 
-  end subroutine finalise_nop_laplace
+  end subroutine finalise_fixed_lno
 !###############################################################################
 
 
 !###############################################################################
-  pure function get_num_params_nop_laplace(this) result(num_params)
+  pure function get_num_params_fixed_lno(this) result(num_params)
     implicit none
     class(fixed_lno_layer_type), intent(in) :: this
     integer :: num_params
@@ -117,7 +117,7 @@ contains
          this%num_outputs * this%num_inputs
     if(this%use_bias) num_params = num_params + this%num_outputs
 
-  end function get_num_params_nop_laplace
+  end function get_num_params_fixed_lno
 !###############################################################################
 
 
@@ -180,7 +180,7 @@ contains
 
 
 !###############################################################################
-  subroutine set_hyperparams_nop_laplace( &
+  subroutine set_hyperparams_fixed_lno( &
        this, num_outputs, num_modes, &
        use_bias, &
        activation, &
@@ -202,8 +202,8 @@ contains
 
     character(len=256) :: buffer
 
-    this%name = "nop_laplace"
-    this%type = "nopl"
+    this%name = "fixed_lno"
+    this%type = "nop"
     this%input_rank = 1
     this%output_rank = 1
     this%use_bias = use_bias
@@ -237,17 +237,17 @@ contains
 
     if(present(verbose))then
        if(abs(verbose).gt.0)then
-          write(*,'("NOP_LAPLACE activation: ",A)') &
+          write(*,'("fixed_lno activation: ",A)') &
                trim(this%activation%name)
        end if
     end if
 
-  end subroutine set_hyperparams_nop_laplace
+  end subroutine set_hyperparams_fixed_lno
 !###############################################################################
 
 
 !###############################################################################
-  subroutine init_nop_laplace(this, input_shape, verbose)
+  subroutine init_fixed_lno(this, input_shape, verbose)
     implicit none
 
     class(fixed_lno_layer_type), intent(inout) :: this
@@ -256,11 +256,9 @@ contains
 
     integer :: num_inputs, j, k, i, idx
     integer :: verbose_ = 0
-    real(real32) :: pi_val, s, t
+    real(real32) :: s, t
 
     if(present(verbose)) verbose_ = verbose
-
-    pi_val = acos(-1.0_real32)
 
     !---------------------------------------------------------------------------
     ! Set shapes
@@ -355,7 +353,7 @@ contains
           t = 0.0_real32
        end if
        do k = 1, this%num_modes
-          s = real(k, real32) * pi_val
+          s = real(k, real32) * pi
           idx = k + (j-1) * this%num_modes
           this%encoder_basis%val(idx, 1) = exp(-s * t)
        end do
@@ -376,7 +374,7 @@ contains
     this%decoder_basis%is_temporary = .false.
 
     do k = 1, this%num_modes
-       s = real(k, real32) * pi_val
+       s = real(k, real32) * pi
        do i = 1, this%num_outputs
           if(this%num_outputs .gt. 1) then
              t = real(i-1, real32) / real(this%num_outputs-1, real32)
@@ -396,12 +394,12 @@ contains
     allocate(this%output(1,1))
     if(this%z(1)%allocated) call this%z(1)%deallocate()
 
-  end subroutine init_nop_laplace
+  end subroutine init_fixed_lno
 !###############################################################################
 
 
 !###############################################################################
-  subroutine print_to_unit_nop_laplace(this, unit)
+  subroutine print_to_unit_fixed_lno(this, unit)
     use coreutils, only: to_upper
     implicit none
 
@@ -424,12 +422,12 @@ contains
     end if
     write(unit,'("END WEIGHTS")')
 
-  end subroutine print_to_unit_nop_laplace
+  end subroutine print_to_unit_fixed_lno
 !###############################################################################
 
 
 !###############################################################################
-  subroutine read_nop_laplace(this, unit, verbose)
+  subroutine read_fixed_lno(this, unit, verbose)
     use athena__tools_infile, only: assign_val, assign_vec, move
     use coreutils, only: to_lower, to_upper, icount
     use athena__activation, only: read_activation
@@ -525,7 +523,7 @@ contains
     call this%init(input_shape=[num_inputs])
 
     if(param_line.eq.0)then
-       write(0,*) "WARNING: WEIGHTS card in NOP_LAPLACE not found"
+       write(0,*) "WARNING: WEIGHTS card in " // trim(this%name) // " not found"
     else
        call move(unit, param_line - iline, iostat=stat)
 
@@ -590,7 +588,7 @@ contains
        return
     end if
 
-  end subroutine read_nop_laplace
+  end subroutine read_fixed_lno
 !###############################################################################
 
 
@@ -612,7 +610,7 @@ contains
 
 
 !###############################################################################
-  subroutine forward_nop_laplace(this, input)
+  subroutine forward_fixed_lno(this, input)
     !! Forward propagation for the Laplace Neural Operator layer
     !!
     !! Computes:
@@ -659,7 +657,7 @@ contains
     end if
     this%output(1,1)%is_temporary = .false.
 
-  end subroutine forward_nop_laplace
+  end subroutine forward_fixed_lno
 !###############################################################################
 
 end module athena__fixed_lno_layer

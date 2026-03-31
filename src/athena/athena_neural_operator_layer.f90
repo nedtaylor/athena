@@ -272,7 +272,7 @@ contains
 
 
     this%name = "neural_operator"
-    this%type = "nrop"
+    this%type = "nop"
     this%input_rank = 1
     this%output_rank = 1
     this%use_bias = use_bias
@@ -610,7 +610,7 @@ contains
     ! Read weights if WEIGHTS card was found
     !---------------------------------------------------------------------------
     if(param_line.eq.0)then
-       write(0,*) "WARNING: WEIGHTS card in NEURAL_OPERATOR not found"
+       write(0,*) "WARNING: WEIGHTS card in " // trim(this%name) // " not found"
     else
        call move(unit, param_line - iline, iostat=stat)
 

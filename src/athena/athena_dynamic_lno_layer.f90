@@ -35,7 +35,7 @@ module athena__dynamic_lno_layer
   !! Number of parameters (learnable):
   !!   \(2M + n_{out}\,n_{in}\) without bias,
   !!   \(2M + n_{out}\,n_{in} + n_{out}\) with bias.
-  use coreutils, only: real32, stop_program
+  use coreutils, only: real32, stop_program, pi
   use athena__base_layer, only: learnable_layer_type, base_layer_type
   use athena__misc_types, only: base_actv_type, base_init_type, &
        onnx_node_type, onnx_initialiser_type, onnx_tensor_type
@@ -50,7 +50,7 @@ module athena__dynamic_lno_layer
 
 
   type, extends(learnable_layer_type) :: dynamic_lno_layer_type
-     !! Type for a Laplace Neural Operator layer
+     !! Type for a pole-residue Laplace Neural Operator layer
      integer :: num_inputs
      !! Number of inputs (discretisation points)
      integer :: num_outputs
@@ -66,16 +66,16 @@ module athena__dynamic_lno_layer
      type(array_type), dimension(1) :: z
      !! Temporary array for pre-activation values
    contains
-     procedure, pass(this) :: get_num_params => get_num_params_nop_laplace
-     procedure, pass(this) :: set_hyperparams => set_hyperparams_nop_laplace
-     procedure, pass(this) :: init => init_nop_laplace
-     procedure, pass(this) :: print_to_unit => print_to_unit_nop_laplace
-     procedure, pass(this) :: read => read_nop_laplace
-     procedure, pass(this) :: rebuild_bases => rebuild_bases_nop_laplace
+     procedure, pass(this) :: get_num_params => get_num_params_dynamic_lno
+     procedure, pass(this) :: set_hyperparams => set_hyperparams_dynamic_lno
+     procedure, pass(this) :: init => init_dynamic_lno
+     procedure, pass(this) :: print_to_unit => print_to_unit_dynamic_lno
+     procedure, pass(this) :: read => read_dynamic_lno
+     procedure, pass(this) :: rebuild_bases => rebuild_bases_dynamic_lno
 
-     procedure, pass(this) :: forward => forward_nop_laplace
+     procedure, pass(this) :: forward => forward_dynamic_lno
 
-     final :: finalise_nop_laplace
+     final :: finalise_dynamic_lno
   end type dynamic_lno_layer_type
 
   interface dynamic_lno_layer_type
@@ -100,7 +100,7 @@ module athena__dynamic_lno_layer
 contains
 
 !###############################################################################
-  subroutine finalise_nop_laplace(this)
+  subroutine finalise_dynamic_lno(this)
     implicit none
     type(dynamic_lno_layer_type), intent(inout) :: this
 
@@ -110,12 +110,12 @@ contains
     if(this%encoder_basis%allocated) call this%encoder_basis%deallocate()
     if(this%decoder_basis%allocated) call this%decoder_basis%deallocate()
 
-  end subroutine finalise_nop_laplace
+  end subroutine finalise_dynamic_lno
 !###############################################################################
 
 
 !###############################################################################
-  pure function get_num_params_nop_laplace(this) result(num_params)
+  pure function get_num_params_dynamic_lno(this) result(num_params)
     implicit none
     class(dynamic_lno_layer_type), intent(in) :: this
     integer :: num_params
@@ -125,7 +125,7 @@ contains
          this%num_outputs * this%num_inputs
     if(this%use_bias) num_params = num_params + this%num_outputs
 
-  end function get_num_params_nop_laplace
+  end function get_num_params_dynamic_lno
 !###############################################################################
 
 
@@ -188,7 +188,7 @@ contains
 
 
 !###############################################################################
-  subroutine set_hyperparams_nop_laplace( &
+  subroutine set_hyperparams_dynamic_lno( &
        this, num_outputs, num_modes, &
        use_bias, &
        activation, &
@@ -210,8 +210,8 @@ contains
 
     character(len=256) :: buffer
 
-    this%name = "nop_laplace"
-    this%type = "nopl"
+    this%name = "dynamic_lno"
+    this%type = "nop"
     this%input_rank = 1
     this%output_rank = 1
     this%use_bias = use_bias
@@ -245,17 +245,17 @@ contains
 
     if(present(verbose))then
        if(abs(verbose).gt.0)then
-          write(*,'("NOP_LAPLACE activation: ",A)') &
+          write(*,'("dynamic_lno activation: ",A)') &
                trim(this%activation%name)
        end if
     end if
 
-  end subroutine set_hyperparams_nop_laplace
+  end subroutine set_hyperparams_dynamic_lno
 !###############################################################################
 
 
 !###############################################################################
-  subroutine init_nop_laplace(this, input_shape, verbose)
+  subroutine init_dynamic_lno(this, input_shape, verbose)
     implicit none
 
     class(dynamic_lno_layer_type), intent(inout) :: this
@@ -264,11 +264,8 @@ contains
 
     integer :: num_inputs, k
     integer :: verbose_ = 0
-    real(real32) :: pi_val
 
     if(present(verbose)) verbose_ = verbose
-
-    pi_val = acos(-1.0_real32)
 
     !---------------------------------------------------------------------------
     ! Set shapes
@@ -341,7 +338,7 @@ contains
     ! b: bias initialiser
     !---------------------------------------------------------------------------
     do k = 1, this%num_modes
-       this%params(1)%val(k, 1) = real(k, real32) * pi_val
+       this%params(1)%val(k, 1) = real(k, real32) * pi
     end do
     call this%kernel_init%initialise( &
          this%params(2)%val(:,1), &
@@ -374,12 +371,12 @@ contains
     allocate(this%output(1,1))
     if(this%z(1)%allocated) call this%z(1)%deallocate()
 
-  end subroutine init_nop_laplace
+  end subroutine init_dynamic_lno
 !###############################################################################
 
 
 !###############################################################################
-  subroutine rebuild_bases_nop_laplace(this)
+  subroutine rebuild_bases_dynamic_lno(this)
     !! Rebuild the dynamic Laplace encoder/decoder bases from the current
     !! learnable pole values (params(1)).
     !!
@@ -446,12 +443,12 @@ contains
        end do
     end do
 
-  end subroutine rebuild_bases_nop_laplace
+  end subroutine rebuild_bases_dynamic_lno
 !###############################################################################
 
 
 !###############################################################################
-  subroutine print_to_unit_nop_laplace(this, unit)
+  subroutine print_to_unit_dynamic_lno(this, unit)
     use coreutils, only: to_upper
     implicit none
 
@@ -475,12 +472,12 @@ contains
     end if
     write(unit,'("END WEIGHTS")')
 
-  end subroutine print_to_unit_nop_laplace
+  end subroutine print_to_unit_dynamic_lno
 !###############################################################################
 
 
 !###############################################################################
-  subroutine read_nop_laplace(this, unit, verbose)
+  subroutine read_dynamic_lno(this, unit, verbose)
     use athena__tools_infile, only: assign_val, assign_vec, move
     use coreutils, only: to_lower, to_upper, icount
     use athena__activation, only: read_activation
@@ -576,7 +573,7 @@ contains
     call this%init(input_shape=[num_inputs])
 
     if(param_line.eq.0)then
-       write(0,*) "WARNING: WEIGHTS card in NOP_LAPLACE not found"
+       write(0,*) "WARNING: WEIGHTS card in " // trim(this%name) // " not found"
     else
        call move(unit, param_line - iline, iostat=stat)
 
@@ -659,7 +656,7 @@ contains
        return
     end if
 
-  end subroutine read_nop_laplace
+  end subroutine read_dynamic_lno
 !###############################################################################
 
 
@@ -681,7 +678,7 @@ contains
 
 
 !###############################################################################
-  subroutine forward_nop_laplace(this, input)
+  subroutine forward_dynamic_lno(this, input)
     !! Forward propagation for the Laplace Neural Operator layer
     !!
     !! Computes via pole-residue spectral decomposition:
@@ -736,7 +733,7 @@ contains
     end if
     this%output(1,1)%is_temporary = .false.
 
-  end subroutine forward_nop_laplace
+  end subroutine forward_dynamic_lno
 !###############################################################################
 
 end module athena__dynamic_lno_layer

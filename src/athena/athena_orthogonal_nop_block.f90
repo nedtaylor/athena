@@ -214,7 +214,7 @@ contains
     character(len=256) :: buffer
 
     this%name = "orthogonal_nop"
-    this%type = "onop"
+    this%type = "nop"
     this%input_rank = 1
     this%output_rank = 1
     this%use_bias = use_bias
@@ -602,7 +602,7 @@ contains
     call this%init(input_shape=[num_inputs])
 
     if(param_line.eq.0)then
-       write(0,*) "WARNING: WEIGHTS card in ORTHOGONAL_NOP not found"
+       write(0,*) "WARNING: WEIGHTS card in " // trim(this%name) // " not found"
     else
        call move(unit, param_line - iline, iostat=stat)
 

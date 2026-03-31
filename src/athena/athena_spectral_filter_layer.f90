@@ -32,7 +32,7 @@ module athena__spectral_filter_layer
   !! Number of parameters (learnable):
   !!   \(M + n_{out}\,n_{in}\) without bias,
   !!   \(M + n_{out}\,n_{in} + n_{out}\) with bias.
-  use coreutils, only: real32, stop_program
+  use coreutils, only: real32, stop_program, pi
   use athena__base_layer, only: learnable_layer_type, base_layer_type
   use athena__misc_types, only: base_actv_type, base_init_type, &
        onnx_node_type, onnx_initialiser_type, onnx_tensor_type
@@ -258,11 +258,8 @@ contains
 
     integer :: num_inputs, j, k, i, idx
     integer :: verbose_ = 0
-    real(real32) :: pi_val
 
     if(present(verbose)) verbose_ = verbose
-
-    pi_val = acos(-1.0_real32)
 
     !---------------------------------------------------------------------------
     ! Set shapes
@@ -351,7 +348,7 @@ contains
        do k = 1, this%num_modes
           idx = k + (j-1) * this%num_modes
           this%forward_basis%val(idx, 1) = cos( &
-               pi_val * real(k-1, real32) * &
+               pi * real(k-1, real32) * &
                (real(j, real32) - 0.5_real32) / &
                real(this%num_inputs, real32) &
           )
@@ -375,7 +372,7 @@ contains
        do i = 1, this%num_outputs
           idx = i + (k-1) * this%num_outputs
           this%inverse_basis%val(idx, 1) = cos( &
-               pi_val * real(k-1, real32) * &
+               pi * real(k-1, real32) * &
                (real(i, real32) - 0.5_real32) / &
                real(this%num_outputs, real32) &
           )
