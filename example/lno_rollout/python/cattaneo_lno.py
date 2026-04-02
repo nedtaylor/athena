@@ -1364,7 +1364,7 @@ class CattaneoLNO(nn.Module):
         c_star = Ve / math.sqrt(Fo + 1e-15)
         return c_star
 
-    def check_stability(self, dt_star: float, dx_star: float, 
+    def check_stability(self, dt_star: float, dx_star: float,
                        c_star: torch.Tensor) -> torch.Tensor:
         """
         Check CFL condition in dimensionless form.
@@ -1628,23 +1628,23 @@ class AdaptiveLossWeights(nn.Module):
         # In uncertainty strategy, we learn the log variances
         if self.strategy == 'uncertainty':
             self.log_vars = nn.Parameter(torch.zeros(num_losses))
-            
+
     def update(self, current_losses: torch.Tensor):
-        
+
         if self.strategy == 'magnitude':
             # Update EMA of losses
             self.ema_losses = self.ema_decay * self.ema_losses + (1 - self.ema_decay) * current_losses.detach()
-            
+
             # Compute inverse magnitude weights with temperature
             eps = 1e-8
             avg_loss = self.ema_losses.mean()
             raw_weights = (avg_loss / (self.ema_losses + eps)) ** self.temperature
             # raw_weights = ((self.ema_losses + eps) / (avg_loss + eps)) ** (self.temperature)
-            
+
             # Clamp and normalize
             raw_weights = torch.clamp(raw_weights, 0.001, 100.0)
             self.weights = raw_weights / raw_weights.sum() * self.num_losses
-            
+
         elif self.strategy == 'uncertainty':
             # Weights are derived from learned log variances: w_i = exp(-log_var_i)
             with torch.no_grad():
@@ -1804,7 +1804,7 @@ class CattaneoPhysicsLoss(nn.Module):
 
         return raw_characteristic
 
-    
+
     def boundary_residual_star(self, T_star: torch.Tensor,
                                bc_left_star: torch.Tensor,
                                bc_right_star: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -1974,7 +1974,7 @@ class CattaneoPhysicsLoss(nn.Module):
             'Fo': Fo,
         }
 
-def create_cattaneo_model(grid_size: int, L: float = 1.0, 
+def create_cattaneo_model(grid_size: int, L: float = 1.0,
                           alpha_ref: float = 1e-4,
                           T_ref: float = 200.0, delta_T: float = 100.0,
                           tau_ref: float = 1e-9,
