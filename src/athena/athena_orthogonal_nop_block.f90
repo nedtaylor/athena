@@ -52,10 +52,6 @@ module athena__orthogonal_nop_block
      !! Number of outputs (discretisation points)
      integer :: num_basis = 0
      !! Number of orthogonal basis functions (k)
-     type(array_type) :: phi
-     !! Orthogonalised basis matrix [num_inputs, num_basis] (not learnable)
-     type(array_type) :: phi_T
-     !! Transposed basis [num_basis, num_inputs] (not learnable)
      type(array_type), dimension(1) :: z
      !! Temporary array for pre-activation values
    contains
@@ -66,7 +62,7 @@ module athena__orthogonal_nop_block
      procedure, pass(this) :: read => read_ono
 
      procedure, pass(this) :: forward => forward_ono
-     procedure, pass(this) :: orthogonalise_basis => orthogonalise_basis_ono
+     procedure, pass(this) :: get_bases => get_bases_ono
      procedure, pass(this) :: get_orthogonality_metric
 
      final :: finalise_ono
@@ -102,8 +98,6 @@ contains
     if(allocated(this%input_shape)) deallocate(this%input_shape)
     if(allocated(this%output)) deallocate(this%output)
     if(this%z(1)%allocated) call this%z(1)%deallocate()
-    if(this%phi%allocated) call this%phi%deallocate()
-    if(this%phi_T%allocated) call this%phi_T%deallocate()
 
   end subroutine finalise_ono
 !###############################################################################
@@ -355,12 +349,6 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Build orthogonal basis from B
-    !---------------------------------------------------------------------------
-    call this%orthogonalise_basis()
-
-
-    !---------------------------------------------------------------------------
     ! Allocate output arrays
     !---------------------------------------------------------------------------
     if(allocated(this%output)) deallocate(this%output)
@@ -372,11 +360,11 @@ contains
 
 
 !###############################################################################
-  subroutine orthogonalise_basis_ono(this)
+  function get_bases_ono(this) result(phi)
     !! Orthogonalise the basis matrix B using modified Gram-Schmidt
-    !! and store result in this%phi and this%phi_T.
     implicit none
     class(orthogonal_nop_block_type), intent(inout) :: this
+    type(array_type) :: phi
 
     integer :: n, k, i, j
     real(real32), allocatable :: B(:,:), Q(:,:)
@@ -406,30 +394,16 @@ contains
     end do
 
     ! Store phi [n x k]
-    if(this%phi%allocated) call this%phi%deallocate()
-    call this%phi%allocate([n, k, 1])
-    this%phi%is_sample_dependent = .false.
-    this%phi%requires_grad = .false.
-    this%phi%fix_pointer = .true.
-    this%phi%is_temporary = .false.
-    this%phi%val(:,1) = reshape(Q, [n * k])
-
-    ! Store phi_T [k x n]  (transpose)
-    if(this%phi_T%allocated) call this%phi_T%deallocate()
-    call this%phi_T%allocate([k, n, 1])
-    this%phi_T%is_sample_dependent = .false.
-    this%phi_T%requires_grad = .false.
-    this%phi_T%fix_pointer = .true.
-    this%phi_T%is_temporary = .false.
-    do j = 1, n
-       do i = 1, k
-          this%phi_T%val(i + (j-1)*k, 1) = Q(j, i)
-       end do
-    end do
+    call phi%allocate([n, k, 1])
+    phi%is_sample_dependent = .false.
+    phi%requires_grad = .false.
+    phi%fix_pointer = .true.
+    phi%is_temporary = .false.
+    phi%val(:,1) = reshape(Q, [n * k])
 
     deallocate(B, Q)
 
-  end subroutine orthogonalise_basis_ono
+  end function get_bases_ono
 !###############################################################################
 
 
@@ -666,9 +640,6 @@ contains
        end if
     end if
 
-    ! Rebuild orthogonal basis from loaded B weights
-    call this%orthogonalise_basis()
-
     call move(unit, final_line - iline, iostat=stat)
     read(unit,'(A)') buffer
     if(trim(adjustl(buffer)).ne."END "//to_upper(trim(this%name)))then
@@ -733,8 +704,6 @@ contains
     type(array_type), pointer :: ptr, ptr_spec, ptr_bypass
     type(array_type), pointer :: ptr_encoded, ptr_mixed, ptr_decoded
 
-    ! Rebuild orthogonal basis from current B weights (for diagnostics)
-    call this%orthogonalise_basis()
 
     ! Spectral pathway: Phi @ R @ Phi^T @ u
     ! Uses autodiff-tracked ono_encode/ono_decode for basis gradients

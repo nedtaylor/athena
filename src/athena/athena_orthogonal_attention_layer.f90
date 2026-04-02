@@ -66,8 +66,6 @@ module athena__orthogonal_attention_layer
      !! Number of orthogonal basis functions (k)
      integer :: key_dim = 0
      !! Dimension of query/key projections (d_k)
-     type(array_type) :: phi
-     !! Orthogonalised basis matrix [num_inputs, num_basis] (not learnable)
      type(array_type), dimension(1) :: z
      !! Temporary array for pre-activation values
    contains
@@ -78,7 +76,7 @@ module athena__orthogonal_attention_layer
      procedure, pass(this) :: read => read_ono_attn
 
      procedure, pass(this) :: forward => forward_ono_attn
-     procedure, pass(this) :: orthogonalise_basis
+     procedure, pass(this) :: get_bases => get_bases_ono_attn
 
      final :: finalise_ono_attn
   end type orthogonal_attention_layer_type
@@ -114,7 +112,6 @@ contains
     if(allocated(this%input_shape)) deallocate(this%input_shape)
     if(allocated(this%output)) deallocate(this%output)
     if(this%z(1)%allocated) call this%z(1)%deallocate()
-    if(this%phi%allocated) call this%phi%deallocate()
 
   end subroutine finalise_ono_attn
 !###############################################################################
@@ -406,12 +403,6 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Build orthogonal basis from B via QR decomposition
-    !---------------------------------------------------------------------------
-    call this%orthogonalise_basis()
-
-
-    !---------------------------------------------------------------------------
     ! Allocate output arrays
     !---------------------------------------------------------------------------
     if(allocated(this%output)) deallocate(this%output)
@@ -423,12 +414,11 @@ contains
 
 
 !###############################################################################
-  subroutine orthogonalise_basis(this)
+  function get_bases_ono_attn(this) result(phi)
     !! Orthogonalise the basis matrix B using modified Gram-Schmidt
-    !! and store the result in this%phi.
-    !! Also computes and prints the orthogonality metric max(|Phi^T Phi - I|).
     implicit none
     class(orthogonal_attention_layer_type), intent(inout) :: this
+    type(array_type) :: phi
 
     integer :: n, k, i, j
     real(real32), allocatable :: B(:,:), Q(:,:)
@@ -460,17 +450,16 @@ contains
     end do
 
     ! Store in phi as a fixed array_type
-    if(this%phi%allocated) call this%phi%deallocate()
-    call this%phi%allocate([n, k, 1])
-    this%phi%is_sample_dependent = .false.
-    this%phi%requires_grad = .false.
-    this%phi%fix_pointer = .true.
-    this%phi%is_temporary = .false.
-    this%phi%val(:,1) = reshape(Q, [n * k])
+    call phi%allocate([n, k, 1])
+    phi%is_sample_dependent = .false.
+    phi%requires_grad = .false.
+    phi%fix_pointer = .true.
+    phi%is_temporary = .false.
+    phi%val(:,1) = reshape(Q, [n * k])
 
     deallocate(B, Q)
 
-  end subroutine orthogonalise_basis
+  end function get_bases_ono_attn
 !###############################################################################
 
 
@@ -705,9 +694,6 @@ contains
        end if
     end if
 
-    ! Rebuild orthogonal basis from the loaded B weights
-    call this%orthogonalise_basis()
-
     call move(unit, final_line - iline, iostat=stat)
     read(unit,'(A)') buffer
     if(trim(adjustl(buffer)).ne."END "//to_upper(trim(this%name)))then
@@ -769,8 +755,6 @@ contains
     n = this%num_inputs
     nb = this%num_basis
 
-    ! Rebuild orthogonal basis from current B weights (for diagnostics)
-    call this%orthogonalise_basis()
 
     !---------------------------------------------------------------------------
     ! Attention scores from Q and K projections

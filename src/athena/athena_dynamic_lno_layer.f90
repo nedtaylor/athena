@@ -72,7 +72,7 @@ module athena__dynamic_lno_layer
      procedure, pass(this) :: init => init_dynamic_lno
      procedure, pass(this) :: print_to_unit => print_to_unit_dynamic_lno
      procedure, pass(this) :: read => read_dynamic_lno
-     procedure, pass(this) :: rebuild_bases => rebuild_bases_dynamic_lno
+     procedure, pass(this) :: get_bases => get_bases_dynamic_lno
 
      procedure, pass(this) :: forward => forward_dynamic_lno
 
@@ -360,12 +360,6 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Build initial encoder/decoder bases from initial pole values
-    !---------------------------------------------------------------------------
-    call this%rebuild_bases()
-
-
-    !---------------------------------------------------------------------------
     ! Allocate output arrays
     !---------------------------------------------------------------------------
     if(allocated(this%output)) deallocate(this%output)
@@ -377,7 +371,7 @@ contains
 
 
 !###############################################################################
-  subroutine rebuild_bases_dynamic_lno(this)
+  function get_bases_dynamic_lno(this) result(bases)
     !! Rebuild the dynamic Laplace encoder/decoder bases from the current
     !! learnable pole values (params(1)).
     !!
@@ -392,6 +386,7 @@ contains
     implicit none
 
     class(dynamic_lno_layer_type), intent(inout) :: this
+    type(array_type), dimension(2) :: bases
 
     integer :: j, k, i, idx
     real(real32) :: s, t
@@ -399,13 +394,11 @@ contains
     !---------------------------------------------------------------------------
     ! Encoder E [num_modes x num_inputs]
     !---------------------------------------------------------------------------
-    if(this%encoder_basis%allocated) call this%encoder_basis%deallocate()
-    call this%encoder_basis%allocate( &
-         [this%num_modes, this%num_inputs, 1])
-    this%encoder_basis%is_sample_dependent = .false.
-    this%encoder_basis%requires_grad = .false.
-    this%encoder_basis%fix_pointer = .true.
-    this%encoder_basis%is_temporary = .false.
+    call bases(1)%allocate( [this%num_modes, this%num_inputs, 1] )
+    bases(1)%is_sample_dependent = .false.
+    bases(1)%requires_grad = .false.
+    bases(1)%fix_pointer = .true.
+    bases(1)%is_temporary = .false.
 
     do j = 1, this%num_inputs
        if(this%num_inputs .gt. 1) then
@@ -416,20 +409,18 @@ contains
        do k = 1, this%num_modes
           s = this%params(1)%val(k, 1)
           idx = k + (j-1) * this%num_modes
-          this%encoder_basis%val(idx, 1) = exp(-s * t)
+          bases(1)%val(idx, 1) = exp(-s * t)
        end do
     end do
 
     !---------------------------------------------------------------------------
     ! Decoder D [num_outputs x num_modes]
     !---------------------------------------------------------------------------
-    if(this%decoder_basis%allocated) call this%decoder_basis%deallocate()
-    call this%decoder_basis%allocate( &
-         [this%num_outputs, this%num_modes, 1])
-    this%decoder_basis%is_sample_dependent = .false.
-    this%decoder_basis%requires_grad = .false.
-    this%decoder_basis%fix_pointer = .true.
-    this%decoder_basis%is_temporary = .false.
+    call bases(2)%allocate( [this%num_outputs, this%num_modes, 1] )
+    bases(2)%is_sample_dependent = .false.
+    bases(2)%requires_grad = .false.
+    bases(2)%fix_pointer = .true.
+    bases(2)%is_temporary = .false.
 
     do k = 1, this%num_modes
        s = this%params(1)%val(k, 1)
@@ -440,11 +431,11 @@ contains
              t = 0.0_real32
           end if
           idx = i + (k-1) * this%num_outputs
-          this%decoder_basis%val(idx, 1) = exp(-s * t)
+          bases(2)%val(idx, 1) = exp(-s * t)
        end do
     end do
 
-  end subroutine rebuild_bases_dynamic_lno
+  end function get_bases_dynamic_lno
 !###############################################################################
 
 
@@ -645,8 +636,6 @@ contains
           return
        end if
 
-       ! Rebuild encoder/decoder bases from the loaded pole values
-       call this%rebuild_bases()
     end if
 
     call move(unit, final_line - iline, iostat=stat)
@@ -695,10 +684,6 @@ contains
 
     type(array_type), pointer :: ptr, ptr_spec, ptr_local
 
-
-    ! Rebuild bases for diagnostics (phi inspection)
-    !---------------------------------------------------------------------------
-    call this%rebuild_bases()
 
     ! Spectral pathway:  D(mu) @ diag(beta) @ E(mu) @ u
     ! Uses autodiff-tracked lno_encode/lno_decode for pole gradients
