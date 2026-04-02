@@ -2572,6 +2572,7 @@ contains
                  output(1,1)%val(:,start_index:end_index:1) &
             ))
     end select
+    accuracy = accuracy / real(end_index - start_index + 1, real32)
 
   end function accuracy_eval
 !###############################################################################
@@ -3382,7 +3383,8 @@ contains
   module subroutine train( &
        this, input, output, num_epochs, batch_size, &
        plateau_threshold, shuffle_batches, batch_print_step, verbose, &
-       print_precision, scientific_print &
+       print_precision, scientific_print, early_stopping, &
+       val_input, val_output &
   )
     !! Train the network
     !!
@@ -3416,6 +3418,12 @@ contains
     !! Number of decimal places to print for training metrics
     logical, optional, intent(in) :: scientific_print
     !! Whether to print training metrics in scientific notation
+    logical, optional, intent(in) :: early_stopping
+    !! Whether to stop training early if convergence is detected
+    class(*), dimension(..), optional, intent(in) :: val_input
+    !! Validation input data
+    class(*), dimension(:,:), optional, intent(in) :: val_output
+    !! Validation expected output data
 
     ! Training parameters
     real(real32) :: batch_loss, batch_accuracy, avg_loss, avg_accuracy
@@ -3438,6 +3446,8 @@ contains
     !! Shuffle batches
     logical :: use_accuracy
     !! Whether accuracy evaluation is available
+    logical :: early_stopping_
+    !! Whether to stop training early if convergence is detected
 
     ! Printing parameters
     integer :: batch_print_step_
@@ -3448,6 +3458,8 @@ contains
     !! Whether to print metrics in scientific notation
     character(len=64) :: loss_str, accuracy_str
     !! Formatted metrics for printing
+    character(len=128) :: val_str
+    !! Formatted validation metrics for printing
 
     ! Training loop variables
     integer :: epoch, batch, start_index, end_index
@@ -3457,11 +3469,27 @@ contains
 
     integer :: i, j, s
     !! Loop index
+    integer :: tmp_batch_size
+    !! Temporary integer to store batch size during validation
+    integer :: current_batch_size, target_batch_size
+    !! Actual batch size for the current batch and the target batch size
     logical, allocatable :: mode_store(:)
     !! Storage for inference mode booleans
 
     class(*), allocatable :: data_poly(:,:)
     type(array_type), pointer :: loss => null()
+
+    ! Validation variables
+    logical :: use_validation
+    !! Whether validation data is provided
+    integer :: val_num_samples
+    !! Number of validation samples
+    integer :: val_sample
+    !! Loop index for validation
+    real(real32) :: val_loss, val_accuracy, val_loss_sum, val_accuracy_sum
+    !! Validation loss and accuracy
+    type(array_type), dimension(:,:), allocatable :: saved_expected_array
+    !! Saved training expected output (for restoring after validation)
 
 #ifdef _OPENMP
     type(network_type) :: this_copy
@@ -3478,6 +3506,18 @@ contains
     end if
     use_accuracy = associated(this%get_accuracy)
     accuracy_str = ""
+    val_str = ""
+
+    !---------------------------------------------------------------------------
+    ! Check validation data
+    !---------------------------------------------------------------------------
+    use_validation = present(val_input) .and. present(val_output)
+    if(present(val_input) .neqv. present(val_output))then
+       call stop_program( &
+            "both val_input and val_output must be provided for validation" &
+       )
+       return
+    end if
 
 
     !---------------------------------------------------------------------------
@@ -3489,6 +3529,7 @@ contains
     shuffle_batches_ = .true.
     scientific_print_ = .false.
     print_precision_ = 3
+    early_stopping_ = .true.
     if(present(plateau_threshold)) plateau_threshold_ = plateau_threshold
     if(present(shuffle_batches)) shuffle_batches_ = shuffle_batches
     if(present(batch_print_step)) batch_print_step_ = batch_print_step
@@ -3496,6 +3537,7 @@ contains
     if(present(print_precision)) print_precision_ = max(print_precision, 0)
     if(present(scientific_print)) scientific_print_ = scientific_print
     if(present(batch_size)) this%batch_size = batch_size
+    if(present(early_stopping)) early_stopping_ = early_stopping
 
 
     !---------------------------------------------------------------------------
@@ -3521,18 +3563,7 @@ contains
     !---------------------------------------------------------------------------
     ! If parallel, initialise slices
     !---------------------------------------------------------------------------
-    select type(output)
-    type is(graph_type)
-       num_batches = size(output,dim=2) / this%batch_size
-    class is(array_type)
-       if(this%use_graph_output)then
-          num_batches = size(output,dim=2) / this%batch_size
-       else
-          num_batches = size(output(1,1)%val,dim=2) / this%batch_size
-       end if
-    class default
-       num_batches = size(output,dim=2) / this%batch_size
-    end select
+    num_batches = (num_samples + this%batch_size - 1) / this%batch_size
     allocate(batch_order(num_batches))
     do batch = 1, num_batches
        batch_order(batch) = batch
@@ -3543,6 +3574,7 @@ contains
     ! Set/reset batch size for training
     !---------------------------------------------------------------------------
     call this%set_batch_size(this%batch_size)
+    target_batch_size = this%batch_size
 
 
     !---------------------------------------------------------------------------
@@ -3573,7 +3605,11 @@ contains
           ! Set batch start and end index
           !---------------------------------------------------------------------
           start_index = (batch_order(batch) - 1) * this%batch_size + 1
-          end_index = batch_order(batch) * this%batch_size
+          end_index = min(batch_order(batch) * this%batch_size, num_samples)
+          current_batch_size = end_index - start_index + 1
+          if(current_batch_size.ne.target_batch_size)then
+             call this%set_batch_size(current_batch_size)
+          end if
 
 
           ! Forward pass
@@ -3581,11 +3617,11 @@ contains
           select case(this%use_graph_input)
           case(.true.)
              data_poly = get_sample( &
-                  this%input_graph, start_index, end_index, this%batch_size &
+                  this%input_graph, start_index, end_index, current_batch_size &
              )
           case default
              data_poly = get_sample( &
-                  this%input_array, start_index, end_index, this%batch_size, &
+                  this%input_array, start_index, end_index, current_batch_size, &
                   as_graph = .false. &
              )
           end select
@@ -3610,23 +3646,10 @@ contains
 
 
           ! Average metric over batch size and store
-          ! Check metric convergence
           !---------------------------------------------------------------------
           avg_loss = avg_loss + batch_loss
-          call this%metrics(1)%append(batch_loss)
-          do i = 1, 1
-             call this%metrics(i)%check(plateau_threshold_, converged)
-             if(converged.ne.0)then
-                exit epoch_loop
-             end if
-          end do
           if(use_accuracy)then
              avg_accuracy = avg_accuracy + batch_accuracy
-             call this%metrics(2)%append(batch_accuracy / this%batch_size)
-             call this%metrics(2)%check(plateau_threshold_, converged)
-             if(converged.ne.0)then
-                exit epoch_loop
-             end if
           end if
 
 
@@ -3648,7 +3671,7 @@ contains
              )
              if(use_accuracy)then
                 accuracy_str = ", accuracy=" // trim(format_training_real( &
-                     avg_accuracy / real(batch * this%batch_size, real32), &
+                     avg_accuracy / real(batch, real32), &
                      print_precision_, scientific_print_ &
                 ))
              end if
@@ -3673,6 +3696,94 @@ contains
           end if
 
        end do batch_loop
+       call this%metrics(1)%append(avg_loss / real(num_batches, real32))
+       if(use_accuracy)then
+          call this%metrics(2)%append(avg_accuracy / real(num_batches, real32))
+       end if
+
+
+       !------------------------------------------------------------------------
+       ! Validation evaluation at end of epoch
+       !------------------------------------------------------------------------
+       val_str = ""
+       if(use_validation)then
+
+          ! Save training expected output
+          call move_alloc(this%expected_array, saved_expected_array)
+
+          ! Save validation output to network
+          call this%save_output( val_output )
+
+          ! Save validation input
+          val_num_samples = this%save_input( val_input )
+
+          ! Set batch size to 1 and enable inference mode
+          call this%set_batch_size(1)
+          call this%set_inference_mode()
+
+          ! Evaluate validation loss and accuracy
+          val_loss_sum = 0._real32
+          val_accuracy_sum = 0._real32
+          do val_sample = 1, val_num_samples
+             select case(this%use_graph_input)
+             case(.true.)
+                data_poly = get_sample( &
+                     this%input_graph, val_sample, val_sample, 1 &
+                )
+             case default
+                data_poly = get_sample_array( &
+                     this%input_array, val_sample, val_sample, 1, &
+                     as_graph = .false. &
+                )
+             end select
+             call this%forward(data_poly)
+             deallocate(data_poly)
+
+             loss => this%loss_eval(val_sample, val_sample)
+             val_loss_sum = val_loss_sum + sum(loss%val)
+             call loss%nullify_graph()
+             deallocate(loss)
+             nullify(loss)
+
+             if(use_accuracy)then
+                val_accuracy_sum = val_accuracy_sum + &
+                     this%accuracy_eval(val_output, val_sample, val_sample)
+             end if
+          end do
+
+          val_loss = val_loss_sum / real(val_num_samples, real32)
+          val_accuracy = val_accuracy_sum / real(val_num_samples, real32)
+
+          ! Build validation print string
+          val_str = ", val_loss=" // trim(format_training_real( &
+               val_loss, print_precision_, scientific_print_ &
+          ))
+          if(use_accuracy)then
+             val_str = trim(val_str) // ", val_accuracy=" // &
+                  trim(format_training_real( &
+                       val_accuracy, print_precision_, scientific_print_ &
+                  ))
+          end if
+
+          ! Restore training expected output
+          if(allocated(this%expected_array))then
+             do i = 1, size(this%expected_array, 1)
+                do j = 1, size(this%expected_array, 2)
+                   call this%expected_array(i,j)%deallocate()
+                end do
+             end do
+             deallocate(this%expected_array)
+          end if
+          call move_alloc(saved_expected_array, this%expected_array)
+
+          ! Restore training input
+          num_samples = this%save_input( input )
+
+          ! Restore training batch size and inference mode
+          call this%set_batch_size(target_batch_size)
+          call this%set_training_mode()
+
+       end if
 
 
        ! Print epoch summary results
@@ -3687,13 +3798,15 @@ contains
              ))
           end if
           write(6,'("epoch=",I0,&
-               &", lr=",ES0.2,", loss=",A,A)' &
+               &", lr=",ES0.2,", loss=",A,A,A)' &
           ) &
                this%epoch, &
                this%optimiser%lr_decay%get_lr( &
                     this%optimiser%learning_rate, this%optimiser%iter &
                ), &
-               trim(loss_str), trim(accuracy_str)
+               trim(loss_str), trim(accuracy_str), trim(val_str)
+       else if(use_validation)then
+          write(6,'("epoch=",I0,A)') this%epoch, trim(val_str)
        end if
 
 
@@ -3702,10 +3815,27 @@ contains
        !------------------------------------------------------------------------
        call this%post_epoch_hook( &
             this%epoch, &
-            avg_loss / real(num_batches, real32), &
-            avg_accuracy / max(real(num_batches * this%batch_size, real32), &
-                 1._real32) &
+            this%metrics(1)%val, &
+            this%metrics(2)%val &
        )
+
+       !------------------------------------------------------------------------
+       ! Check for convergence and stop early if enabled
+       ! When validation data is provided, check validation loss for plateau
+       !------------------------------------------------------------------------
+       if(early_stopping_)then
+          if(use_validation)then
+             if(val_loss .lt. plateau_threshold_ .and. &
+                  plateau_threshold_ .gt. 0._real32) exit epoch_loop
+          else
+             call this%metrics(1)%check(plateau_threshold_, converged)
+             if(converged.ne.0) exit epoch_loop
+          end if
+          if(use_accuracy)then
+             call this%metrics(2)%check(plateau_threshold_, converged)
+             if(converged.ne.0) exit epoch_loop
+          end if
+       end if
 
     end do epoch_loop
 

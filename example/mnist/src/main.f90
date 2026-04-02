@@ -49,7 +49,7 @@ program mnist_example
   ! data loading and preoprocessing
   real(real32), allocatable, dimension(:,:,:,:) :: input_images, test_images
   integer, allocatable, dimension(:) :: labels, test_labels
-  real(real32), allocatable, dimension(:,:) :: input_labels
+  real(real32), allocatable, dimension(:,:) :: input_labels, val_labels
   character(1024) :: train_file, test_file
 
   ! neural network size and shape variables
@@ -176,11 +176,18 @@ program mnist_example
      input_labels(labels(i),i) = 1._real32
   end do
 
+  allocate(val_labels(num_classes,num_samples_test), source = 0._real32)
+  do i=1,num_samples_test
+     val_labels(test_labels(i),i) = 1._real32
+  end do
+
   write(6,*) "Starting training..."
   call network%train(input_images, input_labels, num_epochs, batch_size, &
        plateau_threshold = plateau_threshold, &
        shuffle_batches = shuffle_dataset, &
-       batch_print_step = batch_print_step, verbose = verbosity)
+       batch_print_step = batch_print_step, verbose = verbosity, &
+       val_input = test_images, val_output = val_labels &
+  )
 
 
   !-----------------------------------------------------------------------------

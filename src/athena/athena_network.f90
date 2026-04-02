@@ -467,7 +467,8 @@ module athena__network
      module subroutine train( &
           this, input, output, num_epochs, batch_size, &
           plateau_threshold, shuffle_batches, batch_print_step, verbose, &
-          print_precision, scientific_print &
+          print_precision, scientific_print, early_stopping, &
+          val_input, val_output &
      )
        !! Train the network
        class(network_type), intent(inout) :: this
@@ -492,6 +493,12 @@ module athena__network
        !! Number of decimal places to print for training metrics
        logical, optional, intent(in) :: scientific_print
        !! Whether to print training metrics in scientific notation
+       logical, optional, intent(in) :: early_stopping
+       !! Whether to stop training early if learning plateau is detected
+       class(*), dimension(..), optional, intent(in) :: val_input
+       !! Validation input data
+       class(*), dimension(:,:), optional, intent(in) :: val_output
+       !! Validation expected output data
      end subroutine train
 
      !! Interface for testing the network
