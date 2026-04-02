@@ -1,17 +1,17 @@
 module cattaneo_lno_athena_blocks
   !! Custom building blocks for a Python-matched Cattaneo-LNO scaffold.
   !!
-  !! Laplace-specific scaffolding now lives in custom_laplace_layer so
+  !! Laplace-specific scaffolding now lives in athena_dynamic_lno_layer_adapter so
   !! the remaining blocks here only cover the non-spectral parts of the model.
   use coreutils, only: real32
   use athena, only: conv1d_layer_type
   use cattaneo_lno_athena_runtime_utils, only: conv1d_forward_real, concat_channels, softplus_real
-  use custom_laplace_layer, only: custom_laplace_block_type
+  use athena_dynamic_lno_layer_adapter, only: dynamic_lno_block_athena_type
   implicit none
 
   private
 
-  public :: custom_laplace_block_type
+  public :: dynamic_lno_block_athena_type
   public :: conv1d_gru_cell_athena_type
   public :: memory_fusion_athena_type
   public :: wave_diffusion_head_athena_type

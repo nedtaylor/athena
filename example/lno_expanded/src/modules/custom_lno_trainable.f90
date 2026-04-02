@@ -10,6 +10,10 @@ module custom_lno_trainable
   public :: custom_lno_predict
   public :: custom_lno_train
   public :: custom_lno_rollout
+  public :: numerical_gradient_check
+  public :: set_runtime_conditions
+  public :: set_runtime_conditions_field
+  public :: load_weights_from_file
 
   real(real32), parameter :: PI = 3.14159265358979323846_real32
   real(real32), parameter :: EPS_NORM = 1.0e-5_real32
@@ -37,13 +41,25 @@ module custom_lno_trainable
        real(real32) :: pole_max = 100.0_real32
        real(real32) :: pole_offset_scale = 0.1_real32
        real(real32) :: causal_safety = 1.0_real32
-       real(real32) :: max_correction_frac = 1.0e-2_real32
+       real(real32) :: max_correction_frac = 1.0_real32
        real(real32) :: fo_scalar = 1.0_real32
        real(real32) :: tau_dt_scalar = 1.0_real32
        real(real32) :: ve_scalar = 1.0_real32
+       real(real32), allocatable :: tau_dt_ext(:)   ! per grid point on extended grid (ge)
+       real(real32), allocatable :: ve_ext(:)       ! per grid point on extended grid (ge)
        real(real32) :: causal_max_dist_norm = huge(1.0_real32)
        real(real32) :: bc_left_norm = 0.0_real32
        real(real32) :: bc_right_norm = 0.0_real32
+      real(real32) :: lambda_gain = 1.0_real32
+      real(real32) :: lambda_coeff_reg = 0.05_real32
+      real(real32) :: lambda_cattaneo = 1.0_real32
+      real(real32) :: lambda_energy = 0.1_real32
+      real(real32) :: lambda_characteristic = 0.1_real32
+      real(real32) :: lambda_contraction = 0.1_real32
+      real(real32) :: input_noise_std = 0.0_real32
+      real(real32) :: physics_warmup_factor = 0.0_real32
+      real(real32) :: lambda_phys_balance = 1.0_real32
+      real(real32) :: data_loss_floor_star_sq = 1.0e-10_real32
        logical :: use_causal_mask = .true.
        character(len=32) :: spectral_filter = 'exponential'
 
@@ -353,14 +369,14 @@ contains
       gparam = grad%coeff3_b * scale
       model%coeff3_b = model%coeff3_b * (1.0_real32 - model%lr * model%weight_decay)
       model%m_coeff3_b = model%beta1 * model%m_coeff3_b + (1.0_real32 - model%beta1) * gparam
+      model%v_coeff3_b = model%beta2 * model%v_coeff3_b + (1.0_real32 - model%beta2) * gparam * gparam
+      model%coeff3_b = model%coeff3_b - model%lr * (model%m_coeff3_b / bc1) / (sqrt(model%v_coeff3_b / bc2) + EPS_ADAM)
       call adam_update_1d(model%coeff4_w, model%m_coeff4_w, model%v_coeff4_w, grad%coeff4_w * scale, model, bc1, bc2)
       gparam = grad%coeff4_b * scale
       model%coeff4_b = model%coeff4_b * (1.0_real32 - model%lr * model%weight_decay)
       model%m_coeff4_b = model%beta1 * model%m_coeff4_b + (1.0_real32 - model%beta1) * gparam
       model%v_coeff4_b = model%beta2 * model%v_coeff4_b + (1.0_real32 - model%beta2) * gparam * gparam
       model%coeff4_b = model%coeff4_b - model%lr * (model%m_coeff4_b / bc1) / (sqrt(model%v_coeff4_b / bc2) + EPS_ADAM)
-      model%v_coeff3_b = model%beta2 * model%v_coeff3_b + (1.0_real32 - model%beta2) * gparam * gparam
-      model%coeff3_b = model%coeff3_b - model%lr * (model%m_coeff3_b / bc1) / (sqrt(model%v_coeff3_b / bc2) + EPS_ADAM)
       call adam_update_2d(model%corr1_w, model%m_corr1_w, model%v_corr1_w, grad%corr1_w * scale, model, bc1, bc2)
       call adam_update_1d(model%corr1_b, model%m_corr1_b, model%v_corr1_b, grad%corr1_b * scale, model, bc1, bc2)
       call adam_update_2d(model%corr2_w, model%m_corr2_w, model%v_corr2_w, grad%corr2_w * scale, model, bc1, bc2)
@@ -433,6 +449,18 @@ contains
        end if
     end do
   end subroutine random_normal_1d
+
+   subroutine add_input_noise(vec, std)
+      real(real32), intent(inout) :: vec(:)
+      real(real32), intent(in) :: std
+      real(real32), allocatable :: noise(:)
+
+      if (std <= 0.0_real32) return
+      allocate(noise(size(vec)))
+      call random_normal_1d(noise, 0.0_real32, std)
+      vec = vec + noise
+      deallocate(noise)
+   end subroutine add_input_noise
 
   subroutine random_normal_2d(arr, mean, std)
     real(real32), intent(out) :: arr(:,:)
@@ -563,23 +591,134 @@ contains
       sec_diff(ge) = t_ext(ge - 1) - t_ext(ge)
    end subroutine compute_sec_diff_extended
 
+   subroutine compute_sec_diff_replicate(field, sec_diff)
+      real(real32), intent(in) :: field(:)
+      real(real32), intent(out) :: sec_diff(:)
+
+      integer :: g, i
+
+      g = size(field)
+      if (g <= 1) then
+         sec_diff = 0.0_real32
+         return
+      end if
+
+      sec_diff(1) = field(2) - field(1)
+      if (g > 2) then
+         do i = 2, g - 1
+            sec_diff(i) = field(i + 1) - 2.0_real32 * field(i) + field(i - 1)
+         end do
+      end if
+      sec_diff(g) = field(g - 1) - field(g)
+   end subroutine compute_sec_diff_replicate
+
+   subroutine compute_forward_diff_replicate(field, dx_star, diff)
+      real(real32), intent(in) :: field(:)
+      real(real32), intent(in) :: dx_star
+      real(real32), intent(out) :: diff(:)
+
+      integer :: g, i
+      real(real32) :: inv_dx_star
+
+      g = size(field)
+      if (g <= 1) then
+         diff = 0.0_real32
+         return
+      end if
+
+      inv_dx_star = 1.0_real32 / max(dx_star, 1.0e-20_real32)
+      do i = 1, g - 1
+         diff(i) = (field(i + 1) - field(i)) * inv_dx_star
+      end do
+      diff(g) = diff(g - 1)
+   end subroutine compute_forward_diff_replicate
+
+   subroutine adjoint_forward_diff_replicate(vec, dx_star, adj)
+      real(real32), intent(in) :: vec(:)
+      real(real32), intent(in) :: dx_star
+      real(real32), intent(out) :: adj(:)
+
+      integer :: g, i
+      real(real32) :: inv_dx_star
+
+      g = size(vec)
+      adj = 0.0_real32
+      if (g <= 1) return
+
+      inv_dx_star = 1.0_real32 / max(dx_star, 1.0e-20_real32)
+      do i = 1, g - 1
+         adj(i) = adj(i) - vec(i) * inv_dx_star
+         adj(i + 1) = adj(i + 1) + vec(i) * inv_dx_star
+      end do
+      adj(g - 1) = adj(g - 1) - vec(g) * inv_dx_star
+      adj(g) = adj(g) + vec(g) * inv_dx_star
+   end subroutine adjoint_forward_diff_replicate
+
    subroutine set_runtime_conditions(model, bc_left_norm, bc_right_norm, alpha_scalar, tau_scalar, dt, dx)
       type(custom_lno_model_type), intent(inout) :: model
       real(real32), intent(in) :: bc_left_norm, bc_right_norm, alpha_scalar, tau_scalar, dt, dx
-      real(real32) :: domain_length
+      real(real32) :: L
+      integer :: ge
 
       model%bc_left_norm = bc_left_norm
       model%bc_right_norm = bc_right_norm
-      domain_length = max(dx * real(model%grid_size, real32), 1.0e-20_real32)
+      ! Python uses L = model.scaler.L = 1.0 for Ve computation (NOT dx * grid_size)
+      L = 1.0_real32
+      ge = model%extended_grid
       model%fo_scalar = min(500.0_real32, max(1.0e-6_real32, alpha_scalar * dt / max(dx * dx, 1.0e-20_real32)))
       model%tau_dt_scalar = tau_scalar / max(dt, 1.0e-20_real32)
-      model%ve_scalar = sqrt(max(alpha_scalar * tau_scalar, 0.0_real32)) / domain_length
+      model%ve_scalar = sqrt(max(alpha_scalar * tau_scalar, 0.0_real32)) / L
+      ! Also fill extended-grid arrays with uniform values for forward_with_cache
+      if (.not. allocated(model%tau_dt_ext)) allocate(model%tau_dt_ext(ge))
+      if (.not. allocated(model%ve_ext)) allocate(model%ve_ext(ge))
+      model%tau_dt_ext = model%tau_dt_scalar
+      model%ve_ext = model%ve_scalar
       if (model%use_causal_mask) then
-         model%causal_max_dist_norm = model%causal_safety * dt * sqrt(max(alpha_scalar / max(tau_scalar, 1.0e-30_real32), 0.0_real32)) / domain_length
+         model%causal_max_dist_norm = model%causal_safety * dt * sqrt(max(alpha_scalar / max(tau_scalar, 1.0e-30_real32), 0.0_real32)) / L
       else
          model%causal_max_dist_norm = huge(1.0_real32)
       end if
    end subroutine set_runtime_conditions
+
+   subroutine set_runtime_conditions_field(model, bc_left_norm, bc_right_norm, alpha_scalar, tau_field, dt, dx)
+      !! Set physics with per-grid-point tau. Computes tau_dt_ext and ve_ext on extended grid.
+      type(custom_lno_model_type), intent(inout) :: model
+      real(real32), intent(in) :: bc_left_norm, bc_right_norm, alpha_scalar, dt, dx
+      real(real32), intent(in) :: tau_field(:)  ! [grid_size] per-point tau
+      real(real32) :: L
+      integer :: g, ge, i
+
+      g = model%grid_size
+      ge = model%extended_grid
+      model%bc_left_norm = bc_left_norm
+      model%bc_right_norm = bc_right_norm
+      L = 1.0_real32
+      model%fo_scalar = min(500.0_real32, max(1.0e-6_real32, alpha_scalar * dt / max(dx * dx, 1.0e-20_real32)))
+      ! Also set scalar versions using first grid point for diagnostics
+      model%tau_dt_scalar = tau_field(1) / max(dt, 1.0e-20_real32)
+      model%ve_scalar = sqrt(max(alpha_scalar * tau_field(1), 0.0_real32)) / L
+
+      ! Allocate extended-grid arrays if needed
+      if (.not. allocated(model%tau_dt_ext)) allocate(model%tau_dt_ext(ge))
+      if (.not. allocated(model%ve_ext)) allocate(model%ve_ext(ge))
+
+      ! Fill interior (positions 2..g+1 in Fortran 1-based) from tau_field
+      do i = 1, g
+         model%tau_dt_ext(i + 1) = tau_field(i) / max(dt, 1.0e-20_real32)
+         model%ve_ext(i + 1) = sqrt(max(alpha_scalar * tau_field(i), 0.0_real32)) / L
+      end do
+      ! Replicate-pad edges (matching Python F.pad mode='replicate')
+      model%tau_dt_ext(1) = model%tau_dt_ext(2)
+      model%tau_dt_ext(ge) = model%tau_dt_ext(ge - 1)
+      model%ve_ext(1) = model%ve_ext(2)
+      model%ve_ext(ge) = model%ve_ext(ge - 1)
+
+      if (model%use_causal_mask) then
+         model%causal_max_dist_norm = model%causal_safety * dt * sqrt(max(alpha_scalar / max(tau_field(1), 1.0e-30_real32), 0.0_real32)) / L
+      else
+         model%causal_max_dist_norm = huge(1.0_real32)
+      end if
+   end subroutine set_runtime_conditions_field
 
    real(real32) function cosine_annealed_lr(initial_lr, epoch_index, num_epochs, min_ratio)
       real(real32), intent(in) :: initial_lr, min_ratio
@@ -743,6 +882,15 @@ contains
     model%v_gate2_b = 0.0_real32
     model%m_relax_log_strength = 0.0_real32
     model%v_relax_log_strength = 0.0_real32
+
+    write(*,'(A)') '--- Physics template diagnostics ---'
+    write(*,'(A,ES12.4)') '  fo_scalar: ', model%fo_scalar
+    write(*,'(A,ES12.4)') '  tau_dt_scalar: ', model%tau_dt_scalar
+    write(*,'(A,ES12.4)') '  ve_scalar: ', model%ve_scalar
+    write(*,'(A,ES12.4)') '  a_target (Fo/(1+tau_dt)): ', model%fo_scalar / (1.0_real32 + model%tau_dt_scalar)
+    write(*,'(A,ES12.4)') '  b_target (tau_dt/(1+tau_dt)): ', model%tau_dt_scalar / (1.0_real32 + model%tau_dt_scalar)
+    write(*,'(A,F6.1,A,ES12.4)') '  bound_a (', model%max_correction_frac * 100.0_real32, '% * |a_target|): ', &
+         model%max_correction_frac * abs(model%fo_scalar / (1.0_real32 + model%tau_dt_scalar))
   end subroutine custom_lno_init
 
    subroutine forward_with_cache(model, input, output, caches, x0, x_final)
@@ -761,7 +909,7 @@ contains
    real(real32), allocatable :: corr_in_mat(:,:), corr_h1(:,:), corr_h2(:,:)
    real(real32), allocatable :: gate_in_mat(:,:), gate_h1(:,:)
     real(real32), allocatable :: gated_inc(:), relax_dir(:), gate(:), g_inc(:)
-   real(real32) :: a_target, b_target, bound_a, bound_b, relax_strength, gate_scale, fo_log
+   real(real32) :: bound_a, relax_strength, gate_scale, fo_log
 
     g = model%grid_size
     ge = model%extended_grid
@@ -799,19 +947,20 @@ contains
 
     x_final = x
 
-    a_target = model%fo_scalar / (1.0_real32 + model%tau_dt_scalar)
-    b_target = model%tau_dt_scalar / (1.0_real32 + model%tau_dt_scalar)
-    bound_a = model%max_correction_frac * max(abs(a_target), 1.0e-6_real32)
-   bound_b = model%max_correction_frac * max(abs(b_target), 1.0e-6_real32)
-
     coeff_in_mat(1:w, :) = x
     coeff_in_mat(w + 1, :) = fo_log
-    coeff_in_mat(w + 2, :) = model%ve_scalar
+    ! Per-grid-point Ve from model%ve_ext (spatially varying tau support)
+    do i = 1, ge
+       coeff_in_mat(w + 2, i) = model%ve_ext(i)
+    end do
     coeff_h1 = silu(matmul(model%coeff1_w, coeff_in_mat) + spread(model%coeff1_b, dim=2, ncopies=ge))
     coeff_h2 = silu(matmul(model%coeff2_w, coeff_h1) + spread(model%coeff2_b, dim=2, ncopies=ge))
     do i = 1, ge
-       a_theta_ext(i) = a_target + bound_a * tanh(dot_product(model%coeff3_w, coeff_h2(:, i)) + model%coeff3_b)
-       b_theta_ext(i) = b_target + bound_b * tanh(dot_product(model%coeff4_w, coeff_h2(:, i)) + model%coeff4_b)
+       ! Per-grid-point physics targets
+       a_theta_ext(i) = model%fo_scalar / (1.0_real32 + model%tau_dt_ext(i))
+       b_theta_ext(i) = model%tau_dt_ext(i) / (1.0_real32 + model%tau_dt_ext(i))
+       bound_a = model%max_correction_frac * max(abs(a_theta_ext(i)), 1.0e-6_real32)
+       a_theta_ext(i) = a_theta_ext(i) + bound_a * tanh(dot_product(model%coeff3_w, coeff_h2(:, i)) + model%coeff3_b)
        t_inc_init_ext(i) = a_theta_ext(i) * sec_diff_ext(i) + b_theta_ext(i) * diff_ext(i)
     end do
 
@@ -915,10 +1064,39 @@ contains
        cache%kernel_x(k, :, :) = matmul(cache%act_out, transpose(cache%kernels(k, :, :)))
     end do
 
-    out = 0.0_real32
-    do k = 1, m
-       out = out + matmul(transpose(cache%weights(k, :, :)), cache%kernel_x(k, :, :))
-    end do
+    ! Python einsum('bcs,kts,kio->bot') treats c (in x) and i (in weights.
+    ! as INDEPENDENT summation indices. So the computation is:
+    !   out[o,t] = Σ_k (Σ_s kernels[k,t,s] * Σ_c x[c,s]) * (Σ_i W[k,i,o])
+    block
+      real(real32) :: x_chan_sum(g), kx_sum(m, g), w_chan_sum(m, w)
+
+      ! Sum x over all channels at each position
+      x_chan_sum = sum(cache%act_out, dim=1)   ! [ge]
+
+      ! Apply kernel to channel-summed input
+      do k = 1, m
+         do i = 1, g
+            kx_sum(k, i) = dot_product(cache%kernels(k, i, :), x_chan_sum)
+         end do
+      end do
+
+      ! Sum weights over input channels per mode/output
+      do k = 1, m
+         do co = 1, w
+            w_chan_sum(k, co) = sum(cache%weights(k, :, co))
+         end do
+      end do
+
+      ! Combine: out(o, t) = Σ_k kx_sum(k, t) * w_chan_sum(k, o)
+      out = 0.0_real32
+      do k = 1, m
+         do co = 1, w
+            do i = 1, g
+               out(co, i) = out(co, i) + kx_sum(k, i) * w_chan_sum(k, co)
+            end do
+         end do
+      end do
+    end block
     x = out
     deallocate(out)
   end subroutine lno_block_forward
@@ -933,16 +1111,23 @@ contains
       call free_caches(caches, x0, x_final)
   end subroutine custom_lno_predict
 
-   subroutine compute_gradients(model, input, target, grad, sample_loss)
+   subroutine compute_gradients(model, input, target, grad, sample_loss, include_auxiliary_losses, data_loss_out, physics_loss_out, &
+         contraction_reference, contraction_weight)
       type(custom_lno_model_type), intent(in) :: model
       real(real32), intent(in) :: input(:), target(:)
       type(grad_accum_type), intent(inout) :: grad
       real(real32), intent(out) :: sample_loss
+      logical, intent(in), optional :: include_auxiliary_losses
+      real(real32), intent(out), optional :: data_loss_out, physics_loss_out
+      real(real32), intent(in), optional :: contraction_reference(:)
+      real(real32), intent(in), optional :: contraction_weight
 
       type(block_cache_type), allocatable :: caches(:)
       real(real32), allocatable :: x0(:,:), x_final(:,:), pred(:), dx(:,:), dprev(:,:)
       real(real32), allocatable :: t_n(:), t_nm1(:), t_n_ext(:), t_nm1_ext(:)
       real(real32), allocatable :: sec_diff_ext(:), diff_ext(:), signal_gate(:), dy(:)
+      real(real32), allocatable :: t_full(:), sec_diff_full(:), residual(:), sec_diff_residual(:)
+      real(real32), allocatable :: characteristic(:), char_adj(:), diff_full(:)
       real(real32), allocatable :: coeff1_pre(:,:), coeff1_act(:,:), coeff2_pre(:,:), coeff2_act(:,:), raw_a(:), raw_b(:)
       real(real32), allocatable :: t_iter(:,:), corr_delta(:,:)
       real(real32), allocatable :: corr1_pre(:,:,:), corr1_act(:,:,:), corr2_pre(:,:,:), corr2_act(:,:,:)
@@ -951,10 +1136,17 @@ contains
       real(real32), allocatable :: d_h1(:), d_h1_pre(:), d_h2(:), d_h2_pre(:)
       real(real32), allocatable :: d_gate_h1(:), d_gate_h1_pre(:), xmean_grad(:)
       real(real32), allocatable :: dkernel_x(:,:,:), dkernels(:,:,:), draw(:,:,:), dact(:,:), dz(:,:), dnorm(:,:)
-      real(real32) :: loss_scale, a_target, b_target, bound_a, bound_b, relax_strength, fo_log
+      real(real32) :: a_target, b_target, bound_a, bound_b, relax_strength, fo_log
       real(real32) :: d_gated, d_gate_pre, d_tinc, raw_a_grad, raw_b_grad
       real(real32) :: centered_sum, xhat_sum, sig, dpole, pole_preact, pole_offset_grad
+      real(real32) :: loss_shape, loss_gain, loss_data, loss_coeff_reg
+      real(real32) :: loss_cattaneo, loss_energy, loss_characteristic, physics_loss
+      real(real32) :: pred_energy, inc_target_sq_mean, inc_scale_sq, gain_ratio, gain_denom
+      real(real32) :: conservation, cfl, dx_star, physics_factor
+      real(real32) :: sample_data_loss, sample_physics_loss, coeff_reg_term, a_theta_val
+      real(real32) :: contraction_term, contraction_prev_energy, contraction_curr_energy, contraction_weight_local
       integer :: g, ge, w, m, gh, ch, i, b, k, c, ci, co, step_idx, idx
+      logical :: use_auxiliary_losses_local
 
       g = model%grid_size
       ge = model%extended_grid
@@ -966,6 +1158,7 @@ contains
       call zero_gradients(grad)
       allocate(pred(g), dx(w, ge), dprev(w, ge))
       allocate(t_n(g), t_nm1(g), t_n_ext(ge), t_nm1_ext(ge), sec_diff_ext(ge), diff_ext(ge), signal_gate(ge), dy(g))
+      allocate(t_full(g), sec_diff_full(g), residual(g), sec_diff_residual(g), characteristic(g), char_adj(g), diff_full(g))
       allocate(coeff1_pre(w, ge), coeff1_act(w, ge), coeff2_pre(ch, ge), coeff2_act(ch, ge), raw_a(ge), raw_b(ge))
       allocate(t_iter(0:model%num_corrections, ge), corr_delta(model%num_corrections, ge))
       allocate(corr1_pre(w, model%num_corrections, ge), corr1_act(w, model%num_corrections, ge))
@@ -975,7 +1168,8 @@ contains
       allocate(d_h1(w), d_h1_pre(w), d_h2(ch), d_h2_pre(ch), d_gate_h1(gh), d_gate_h1_pre(gh), xmean_grad(w))
 
       call forward_with_cache(model, input, pred, caches, x0, x_final)
-      sample_loss = sum((pred - target) ** 2) / real(g, real32)
+      use_auxiliary_losses_local = .false.
+      if (present(include_auxiliary_losses)) use_auxiliary_losses_local = include_auxiliary_losses
 
       t_n = input(1:g)
       t_nm1 = input(g + 1:2 * g)
@@ -988,7 +1182,7 @@ contains
       a_target = model%fo_scalar / (1.0_real32 + model%tau_dt_scalar)
       b_target = model%tau_dt_scalar / (1.0_real32 + model%tau_dt_scalar)
       bound_a = model%max_correction_frac * max(abs(a_target), 1.0e-6_real32)
-      bound_b = model%max_correction_frac * max(abs(b_target), 1.0e-6_real32)
+      bound_b = 0.0_real32  ! b_theta fixed at physics target (matching Python)
 
       do i = 1, ge
          coeff_in(1:w) = x_final(:, i)
@@ -999,8 +1193,8 @@ contains
          coeff2_pre(:, i) = matmul(model%coeff2_w, coeff1_act(:, i)) + model%coeff2_b
          coeff2_act(:, i) = silu(coeff2_pre(:, i))
          raw_a(i) = dot_product(model%coeff3_w, coeff2_act(:, i)) + model%coeff3_b
-         raw_b(i) = dot_product(model%coeff4_w, coeff2_act(:, i)) + model%coeff4_b
-         t_iter(0, i) = (a_target + bound_a * tanh(raw_a(i))) * sec_diff_ext(i) + (b_target + bound_b * tanh(raw_b(i))) * diff_ext(i)
+         raw_b(i) = 0.0_real32
+         t_iter(0, i) = (a_target + bound_a * tanh(raw_a(i))) * sec_diff_ext(i) + b_target * diff_ext(i)
       end do
 
       signal_gate = abs(t_iter(0, :)) / max(maxval(abs(t_iter(0, :))), 1.0e-12_real32)
@@ -1027,10 +1221,80 @@ contains
          gate(i) = sigmoid(dot_product(model%gate2_w, gate1_act(:, i)) + model%gate2_b)
       end do
 
-      loss_scale = 2.0_real32 / real(g, real32)
-      do i = 1, g
-         dy(i) = loss_scale * (pred(i) - target(i))
-      end do
+      loss_shape = sum((pred - target) ** 2) / real(g, real32)
+      dy = 2.0_real32 * (pred - target) / real(g, real32)
+      loss_gain = 0.0_real32
+      loss_data = loss_shape
+      loss_coeff_reg = 0.0_real32
+      loss_cattaneo = 0.0_real32
+      loss_energy = 0.0_real32
+      loss_characteristic = 0.0_real32
+      physics_loss = 0.0_real32
+      sample_data_loss = loss_shape
+      sample_physics_loss = 0.0_real32
+      sample_loss = loss_shape
+      contraction_weight_local = 0.0_real32
+      t_full = t_n + pred
+
+      if (present(contraction_weight)) contraction_weight_local = max(0.0_real32, contraction_weight)
+      if (contraction_weight_local > 0.0_real32 .and. present(contraction_reference)) then
+         contraction_prev_energy = sum((t_n - contraction_reference) ** 2) / real(g, real32)
+         contraction_curr_energy = sum((t_full - contraction_reference) ** 2) / real(g, real32)
+         contraction_term = max(0.0_real32, contraction_curr_energy - contraction_prev_energy)
+         sample_loss = sample_loss + contraction_weight_local * contraction_term
+         if (contraction_curr_energy > contraction_prev_energy) then
+            dy = dy + contraction_weight_local * 2.0_real32 * (t_full - contraction_reference) / real(g, real32)
+         end if
+      end if
+
+      if (use_auxiliary_losses_local) then
+         physics_factor = model%physics_warmup_factor * model%lambda_phys_balance
+
+         inc_target_sq_mean = sum(target ** 2) / real(g, real32)
+         inc_scale_sq = max(inc_target_sq_mean, model%data_loss_floor_star_sq)
+         pred_energy = sum(pred ** 2) / real(g, real32)
+         gain_ratio = sqrt(max(pred_energy / max(inc_scale_sq, 1.0e-20_real32), 1.0e-12_real32))
+         loss_gain = (gain_ratio - 1.0_real32) ** 2
+         gain_denom = real(g, real32) * max(inc_scale_sq, 1.0e-20_real32) * max(gain_ratio, 1.0e-12_real32)
+         ! Gain loss is part of loss_data (ALWAYS active, not gated by physics warmup).
+         ! Python: loss_data = loss_shape + lambda_gain * loss_gain (no warmup gating)
+         dy = dy + model%lambda_gain * (2.0_real32 * (gain_ratio - 1.0_real32) / gain_denom) * pred
+         loss_data = loss_shape + model%lambda_gain * loss_gain
+         sample_data_loss = loss_data
+
+         call compute_sec_diff_replicate(t_full, sec_diff_full)
+         residual = model%tau_dt_scalar * (pred - (t_n - t_nm1)) + pred - model%fo_scalar * sec_diff_full
+         loss_cattaneo = sum(residual ** 2) / real(g, real32)
+         call compute_sec_diff_replicate(residual, sec_diff_residual)
+
+         conservation = sum(pred - model%fo_scalar * sec_diff_full) / real(g, real32)
+         loss_energy = conservation ** 2
+
+         dx_star = 1.0_real32 / real(max(1, g), real32)
+         call compute_forward_diff_replicate(t_full, dx_star, diff_full)
+         cfl = sqrt(max(model%fo_scalar / max(model%tau_dt_scalar, 1.0e-30_real32), 0.0_real32))
+         characteristic = pred + cfl * diff_full
+         loss_characteristic = sum(characteristic ** 2) / real(g, real32)
+         call adjoint_forward_diff_replicate(characteristic, dx_star, char_adj)
+
+         physics_loss = model%lambda_cattaneo * loss_cattaneo + model%lambda_energy * loss_energy + &
+              model%lambda_characteristic * loss_characteristic
+         sample_physics_loss = physics_loss
+         dy = dy + physics_factor * ( &
+              model%lambda_cattaneo * (2.0_real32 / real(g, real32) * ((model%tau_dt_scalar + 1.0_real32) * residual - model%fo_scalar * sec_diff_residual)) + &
+              model%lambda_energy * (2.0_real32 * conservation / real(g, real32)) + &
+              model%lambda_characteristic * (2.0_real32 / real(g, real32) * (characteristic + cfl * char_adj)) )
+
+         do i = 1, g
+            a_theta_val = a_target + bound_a * tanh(raw_a(i + 1))
+            loss_coeff_reg = loss_coeff_reg + ((a_theta_val - a_target) / max(abs(a_target), 1.0e-6_real32)) ** 2
+         end do
+         loss_coeff_reg = loss_coeff_reg / real(g, real32)
+         sample_loss = loss_data + physics_factor * physics_loss + model%lambda_coeff_reg * loss_coeff_reg
+      end if
+
+      if (present(data_loss_out)) data_loss_out = sample_data_loss
+      if (present(physics_loss_out)) physics_loss_out = sample_physics_loss
 
       dx = 0.0_real32
       do i = 1, g
@@ -1079,7 +1343,14 @@ contains
             d_tinc = d_tinc + dot_product(model%corr1_w(:, w + 1), d_h1_pre)
          end do
 
-         raw_a_grad = d_tinc * sec_diff_ext(idx) * bound_a * (1.0_real32 - tanh(raw_a(idx)) ** 2)
+          coeff_reg_term = 0.0_real32
+          if (use_auxiliary_losses_local .and. model%lambda_coeff_reg > 0.0_real32) then
+             a_theta_val = a_target + bound_a * tanh(raw_a(idx))
+             coeff_reg_term = model%lambda_coeff_reg * 2.0_real32 / real(g, real32) * &
+             (a_theta_val - a_target) * bound_a * (1.0_real32 - tanh(raw_a(idx)) ** 2) / &
+             max(abs(a_target), 1.0e-6_real32) ** 2
+          end if
+          raw_a_grad = d_tinc * sec_diff_ext(idx) * bound_a * (1.0_real32 - tanh(raw_a(idx)) ** 2) + coeff_reg_term
          raw_b_grad = d_tinc * diff_ext(idx) * bound_b * (1.0_real32 - tanh(raw_b(idx)) ** 2)
          grad%coeff3_w = grad%coeff3_w + raw_a_grad * coeff2_act(:, idx)
          grad%coeff3_b = grad%coeff3_b + raw_a_grad
@@ -1176,9 +1447,9 @@ contains
       end do
 
       call free_caches(caches, x0, x_final)
-      deallocate(pred, dx, dprev, t_n, t_nm1, t_n_ext, t_nm1_ext, sec_diff_ext, diff_ext, signal_gate, dy, coeff1_pre, coeff1_act, coeff2_pre, coeff2_act, raw_a, raw_b, &
-           t_iter, corr_delta, corr1_pre, corr1_act, corr2_pre, corr2_act, gate1_pre, gate1_act, gate, relax_dir, coeff_in, corr_in, gate_in, d_h1, d_h1_pre, d_h2, d_h2_pre, &
-           d_gate_h1, d_gate_h1_pre, xmean_grad)
+    deallocate(pred, dx, dprev, t_n, t_nm1, t_n_ext, t_nm1_ext, sec_diff_ext, diff_ext, signal_gate, dy, t_full, sec_diff_full, residual, sec_diff_residual, &
+       characteristic, char_adj, diff_full, coeff1_pre, coeff1_act, coeff2_pre, coeff2_act, raw_a, raw_b, t_iter, corr_delta, corr1_pre, corr1_act, corr2_pre, corr2_act, &
+       gate1_pre, gate1_act, gate, relax_dir, coeff_in, corr_in, gate_in, d_h1, d_h1_pre, d_h2, d_h2_pre, d_gate_h1, d_gate_h1_pre, xmean_grad)
   end subroutine compute_gradients
 
   subroutine adam_update_1d(param, m_buf, v_buf, grad, model, bc1, bc2)
@@ -1255,16 +1526,17 @@ contains
       if (allocated(x_final)) deallocate(x_final)
   end subroutine free_caches
 
-   subroutine compute_rollout_window_gradients(model, trajectory, start_step, rollout_steps, alpha_scalar, tau_scalar, bc_left_norm, bc_right_norm, dt, dx, grad, loss)
+    subroutine compute_rollout_window_gradients(model, trajectory, start_step, rollout_steps, alpha_scalar, tau_scalar, bc_left_norm, bc_right_norm, dt, dx, grad, loss, tau_field)
     type(custom_lno_model_type), intent(inout) :: model
     real(real32), intent(in) :: trajectory(:,:)
     integer, intent(in) :: start_step, rollout_steps
       real(real32), intent(in) :: alpha_scalar, tau_scalar, bc_left_norm, bc_right_norm, dt, dx
     type(grad_accum_type), intent(inout) :: grad
     real(real32), intent(out) :: loss
+      real(real32), intent(in), optional :: tau_field(:)
 
     integer :: g, k, available_steps
-    real(real32), allocatable :: prev_state(:), curr_state(:), input_vec(:), pred_inc(:), target_inc(:)
+   real(real32), allocatable :: prev_state(:), curr_state(:), input_vec(:), pred_inc(:), target_inc(:), steady_state(:)
     real(real32) :: step_loss
     type(grad_accum_type) :: step_grad
 
@@ -1274,20 +1546,28 @@ contains
     loss = 0.0_real32
     if (available_steps < 1) return
 
-   call set_runtime_conditions(model, bc_left_norm, bc_right_norm, alpha_scalar, tau_scalar, dt, dx)
+   if (present(tau_field)) then
+      call set_runtime_conditions_field(model, bc_left_norm, bc_right_norm, alpha_scalar, tau_field, dt, dx)
+   else
+      call set_runtime_conditions(model, bc_left_norm, bc_right_norm, alpha_scalar, tau_scalar, dt, dx)
+   end if
 
-    allocate(prev_state(g), curr_state(g), input_vec(2 * g), pred_inc(g), target_inc(g))
+    allocate(prev_state(g), curr_state(g), input_vec(2 * g), pred_inc(g), target_inc(g), steady_state(g))
     call allocate_gradients(model, step_grad)
 
     prev_state = trajectory(:, start_step)
     curr_state = trajectory(:, start_step + 1)
+    do k = 1, g
+       steady_state(k) = bc_left_norm + (bc_right_norm - bc_left_norm) * model%xi(k)
+    end do
 
     do k = 1, available_steps
        input_vec(1:g) = curr_state
        input_vec(g + 1:2 * g) = prev_state
        target_inc = trajectory(:, start_step + k + 1) - curr_state
 
-       call compute_gradients(model, input_vec, target_inc, step_grad, step_loss)
+       call compute_gradients(model, input_vec, target_inc, step_grad, step_loss, &
+            contraction_reference=steady_state, contraction_weight=model%lambda_contraction)
        call add_gradients(grad, step_grad)
        loss = loss + step_loss
 
@@ -1300,15 +1580,16 @@ contains
     loss = loss / real(available_steps, real32)
 
     call deallocate_gradients(step_grad)
-    deallocate(prev_state, curr_state, input_vec, pred_inc, target_inc)
+      deallocate(prev_state, curr_state, input_vec, pred_inc, target_inc, steady_state)
   end subroutine compute_rollout_window_gradients
 
-   subroutine compute_rollout_validation_loss(model, trajectory, rollout_steps, alpha_scalar, tau_scalar, bc_left_norm, bc_right_norm, dt, dx, loss)
+    subroutine compute_rollout_validation_loss(model, trajectory, rollout_steps, alpha_scalar, tau_scalar, bc_left_norm, bc_right_norm, dt, dx, loss, tau_field)
       type(custom_lno_model_type), intent(inout) :: model
     real(real32), intent(in) :: trajectory(:,:)
     integer, intent(in) :: rollout_steps
       real(real32), intent(in) :: alpha_scalar, tau_scalar, bc_left_norm, bc_right_norm, dt, dx
     real(real32), intent(out) :: loss
+      real(real32), intent(in), optional :: tau_field(:)
 
     integer :: g, k, available_steps
     real(real32), allocatable :: prev_state(:), curr_state(:), input_vec(:), pred_inc(:), target_inc(:)
@@ -1318,7 +1599,11 @@ contains
     loss = 0.0_real32
     if (available_steps < 1) return
 
-   call set_runtime_conditions(model, bc_left_norm, bc_right_norm, alpha_scalar, tau_scalar, dt, dx)
+   if (present(tau_field)) then
+      call set_runtime_conditions_field(model, bc_left_norm, bc_right_norm, alpha_scalar, tau_field, dt, dx)
+   else
+      call set_runtime_conditions(model, bc_left_norm, bc_right_norm, alpha_scalar, tau_scalar, dt, dx)
+   end if
 
     allocate(prev_state(g), curr_state(g), input_vec(2 * g), pred_inc(g), target_inc(g))
     prev_state = trajectory(:, 1)
@@ -1343,7 +1628,8 @@ contains
           train_trajectories, train_trajectory_tau, train_trajectory_bc_left, train_trajectory_bc_right, &
           val_trajectories, val_trajectory_tau, val_trajectory_bc_left, val_trajectory_bc_right, &
         rollout_weight, rollout_steps, rollout_steps_min, rollout_warmup_epochs, use_cosine_schedule, &
-        lambda_steady_state, steady_state_every_n_batches)
+                  lambda_steady_state, steady_state_every_n_batches, physics_warmup_epochs, &
+                  train_tau_field, val_tau_field, train_trajectory_tau_field, val_trajectory_tau_field)
     type(custom_lno_model_type), intent(inout) :: model
     real(real32), intent(in) :: train_inputs(:,:), train_targets(:,:)
     real(real32), intent(in) :: val_inputs(:,:), val_targets(:,:)
@@ -1355,19 +1641,28 @@ contains
       real(real32), intent(in), optional :: train_trajectory_tau(:), train_trajectory_bc_left(:), train_trajectory_bc_right(:)
       real(real32), intent(in), optional :: val_trajectory_tau(:), val_trajectory_bc_left(:), val_trajectory_bc_right(:)
       real(real32), intent(in), optional :: rollout_weight, lambda_steady_state
-      integer, intent(in), optional :: rollout_steps, rollout_steps_min, rollout_warmup_epochs, steady_state_every_n_batches
+      real(real32), intent(in), optional :: train_tau_field(:,:), val_tau_field(:,:)
+      real(real32), intent(in), optional :: train_trajectory_tau_field(:,:), val_trajectory_tau_field(:,:)
+         integer, intent(in), optional :: rollout_steps, rollout_steps_min, rollout_warmup_epochs, steady_state_every_n_batches, physics_warmup_epochs
       logical, intent(in), optional :: use_cosine_schedule
 
       integer :: epoch, n_train, n_val, i, j, start_idx, end_idx, idx, batch_count, sample_idx, traj_idx
       integer :: batch_number, steady_state_stride, steady_state_idx
-      integer :: current_rollout_steps, current_rollout_steps_min, max_rollout_start, rollout_start, current_rollout_warmup_epochs
+         integer :: current_rollout_steps, current_rollout_steps_min, max_rollout_start, rollout_start, current_rollout_warmup_epochs
+         integer :: current_physics_warmup_epochs
+      integer :: best_epoch
     integer, allocatable :: perm(:)
-    real(real32) :: train_loss, val_loss, batch_loss, sample_loss, rollout_loss, current_rollout_weight
-      real(real32) :: val_rollout_loss, traj_rollout_loss, r, warmup_linear, warmup_frac, initial_lr, current_lambda_steady_state
+      real(real32) :: train_loss, val_loss, batch_loss, sample_loss, rollout_loss, current_rollout_weight
+         real(real32) :: val_rollout_loss, traj_rollout_loss, r, warmup_linear, warmup_frac, initial_lr, current_lambda_steady_state
+         real(real32) :: batch_data_loss, batch_physics_loss, sample_data_loss, sample_physics_loss, lam_phys
+         real(real32) :: best_val_metric, current_val_metric
       logical :: use_rollout_training, use_rollout_validation, enable_cosine_schedule
+      logical :: use_train_tau_field, use_val_tau_field, use_train_traj_tau_field, use_val_traj_tau_field
+      logical :: have_best_model
     type(grad_accum_type) :: batch_grad
     type(grad_accum_type) :: sample_grad
-      real(real32), allocatable :: steady_state_input(:), steady_state_target(:)
+      type(custom_lno_model_type) :: best_model
+         real(real32), allocatable :: steady_state_input(:), steady_state_target(:), noisy_input(:)
 
     n_train = size(train_inputs, 2)
     n_val = size(val_inputs, 2)
@@ -1386,17 +1681,31 @@ contains
     if (present(rollout_steps_min)) current_rollout_steps_min = max(1, rollout_steps_min)
     current_rollout_warmup_epochs = 1
     if (present(rollout_warmup_epochs)) current_rollout_warmup_epochs = max(1, rollout_warmup_epochs)
+   current_physics_warmup_epochs = 10
+   if (present(physics_warmup_epochs)) current_physics_warmup_epochs = max(0, physics_warmup_epochs)
 
-   allocate(steady_state_input(2 * model%grid_size), steady_state_target(model%grid_size))
+   allocate(steady_state_input(2 * model%grid_size), steady_state_target(model%grid_size), noisy_input(2 * model%grid_size))
    steady_state_target = 0.0_real32
 
     use_rollout_training = present(train_trajectories) .and. present(train_trajectory_tau) .and. present(train_trajectory_bc_left) .and. &
          present(train_trajectory_bc_right) .and. present(rollout_weight) .and. present(rollout_steps)
     use_rollout_validation = present(val_trajectories) .and. present(val_trajectory_tau) .and. present(val_trajectory_bc_left) .and. &
          present(val_trajectory_bc_right) .and. present(rollout_steps)
+       use_train_tau_field = present(train_tau_field)
+       use_val_tau_field = present(val_tau_field)
+       use_train_traj_tau_field = present(train_trajectory_tau_field)
+       use_val_traj_tau_field = present(val_trajectory_tau_field)
+      best_val_metric = huge(1.0_real32)
+      have_best_model = .false.
+      best_epoch = 0
 
     do epoch = 1, num_epochs
        if (enable_cosine_schedule) model%lr = cosine_annealed_lr(initial_lr, epoch - 1, num_epochs, 0.01_real32)
+       if (current_physics_warmup_epochs <= 0) then
+          model%physics_warmup_factor = 1.0_real32
+       else
+          model%physics_warmup_factor = min(1.0_real32, real(max(0, epoch - 1), real32) / real(current_physics_warmup_epochs, real32))
+       end if
        call random_permutation(perm)
        train_loss = 0.0_real32
        if (use_rollout_training) then
@@ -1416,18 +1725,40 @@ contains
           batch_number = 1 + (start_idx - 1) / max(1, batch_size)
           batch_count = end_idx - start_idx + 1
           batch_loss = 0.0_real32
+          batch_data_loss = 0.0_real32
+          batch_physics_loss = 0.0_real32
           call zero_gradients(batch_grad)
           do sample_idx = start_idx, end_idx
              idx = perm(sample_idx)
-             call set_runtime_conditions(model, train_bc_left(idx), train_bc_right(idx), alpha_scalar, train_tau(idx), dt, dx)
-             call compute_gradients(model, train_inputs(:, idx), train_targets(:, idx), sample_grad, sample_loss)
+             if (use_train_tau_field) then
+                call set_runtime_conditions_field(model, train_bc_left(idx), train_bc_right(idx), alpha_scalar, train_tau_field(:, idx), dt, dx)
+             else
+                call set_runtime_conditions(model, train_bc_left(idx), train_bc_right(idx), alpha_scalar, train_tau(idx), dt, dx)
+             end if
+             noisy_input = train_inputs(:, idx)
+             call add_input_noise(noisy_input, model%input_noise_std)
+             call compute_gradients(model, noisy_input, train_targets(:, idx), sample_grad, sample_loss, &
+                  include_auxiliary_losses=.true., data_loss_out=sample_data_loss, physics_loss_out=sample_physics_loss)
              call add_gradients(batch_grad, sample_grad)
              batch_loss = batch_loss + sample_loss
+             batch_data_loss = batch_data_loss + sample_data_loss
+             batch_physics_loss = batch_physics_loss + sample_physics_loss
           end do
+          call scale_gradients(batch_grad, 1.0_real32 / real(batch_count, real32))
+          batch_loss = batch_loss / real(batch_count, real32)
+          if (model%physics_warmup_factor > 0.0_real32 .and. batch_physics_loss > 1.0e-12_real32) then
+             lam_phys = (batch_data_loss / real(batch_count, real32)) / max(batch_physics_loss / real(batch_count, real32), 1.0e-12_real32)
+             lam_phys = min(100.0_real32, max(0.01_real32, lam_phys))
+             model%lambda_phys_balance = 0.9_real32 * model%lambda_phys_balance + 0.1_real32 * lam_phys
+          end if
           if (current_lambda_steady_state > 0.0_real32 .and. mod(batch_number - 1, steady_state_stride) == 0) then
              steady_state_idx = perm(start_idx)
              call build_steady_state_input(model, train_bc_left(steady_state_idx), train_bc_right(steady_state_idx), steady_state_input)
-             call set_runtime_conditions(model, train_bc_left(steady_state_idx), train_bc_right(steady_state_idx), alpha_scalar, train_tau(steady_state_idx), dt, dx)
+             if (use_train_tau_field) then
+                call set_runtime_conditions_field(model, train_bc_left(steady_state_idx), train_bc_right(steady_state_idx), alpha_scalar, train_tau_field(:, steady_state_idx), dt, dx)
+             else
+                call set_runtime_conditions(model, train_bc_left(steady_state_idx), train_bc_right(steady_state_idx), alpha_scalar, train_tau(steady_state_idx), dt, dx)
+             end if
              call compute_gradients(model, steady_state_input, steady_state_target, sample_grad, sample_loss)
              call scale_gradients(sample_grad, current_lambda_steady_state)
              call add_gradients(batch_grad, sample_grad)
@@ -1440,13 +1771,18 @@ contains
              call random_number(r)
              rollout_start = 1 + int(r * real(max_rollout_start, real32))
              rollout_start = max(1, min(max_rollout_start, rollout_start))
-             call compute_rollout_window_gradients(model, train_trajectories(:, :, traj_idx), rollout_start, current_rollout_steps, alpha_scalar, &
-                  train_trajectory_tau(traj_idx), train_trajectory_bc_left(traj_idx), train_trajectory_bc_right(traj_idx), dt, dx, sample_grad, rollout_loss)
+               if (use_train_traj_tau_field) then
+                call compute_rollout_window_gradients(model, train_trajectories(:, :, traj_idx), rollout_start, current_rollout_steps, alpha_scalar, &
+                   train_trajectory_tau(traj_idx), train_trajectory_bc_left(traj_idx), train_trajectory_bc_right(traj_idx), dt, dx, sample_grad, rollout_loss, &
+                   tau_field=train_trajectory_tau_field(:, traj_idx))
+               else
+                call compute_rollout_window_gradients(model, train_trajectories(:, :, traj_idx), rollout_start, current_rollout_steps, alpha_scalar, &
+                   train_trajectory_tau(traj_idx), train_trajectory_bc_left(traj_idx), train_trajectory_bc_right(traj_idx), dt, dx, sample_grad, rollout_loss)
+               end if
              call scale_gradients(sample_grad, current_rollout_weight)
              call add_gradients(batch_grad, sample_grad)
              batch_loss = batch_loss + current_rollout_weight * rollout_loss
           end if
-          call scale_gradients(batch_grad, 1.0_real32 / real(batch_count, real32))
           call apply_gradients(model, batch_grad)
           train_loss = train_loss + batch_loss
        end do
@@ -1455,31 +1791,82 @@ contains
        val_loss = 0.0_real32
        do j = 1, n_val
           block
-             real(real32) :: pred_local(model%grid_size)
-             call set_runtime_conditions(model, val_bc_left(j), val_bc_right(j), alpha_scalar, val_tau(j), dt, dx)
+             real(real32) :: pred_local(model%grid_size), pred_rms, tgt_rms
+             real(real32) :: diag_t_n_ext(model%extended_grid), diag_t_nm1_ext(model%extended_grid)
+             real(real32) :: diag_sec_diff(model%extended_grid), diag_diff(model%extended_grid)
+             real(real32) :: diag_a_target, diag_bound_a, diag_phys_rms, diag_ginc_rms
+             real(real32) :: diag_ginc(model%grid_size), diag_bc_inc_l, diag_bc_inc_r
+             if (use_val_tau_field) then
+                call set_runtime_conditions_field(model, val_bc_left(j), val_bc_right(j), alpha_scalar, val_tau_field(:, j), dt, dx)
+             else
+                call set_runtime_conditions(model, val_bc_left(j), val_bc_right(j), alpha_scalar, val_tau(j), dt, dx)
+             end if
              call custom_lno_predict(model, val_inputs(:, j), pred_local)
              val_loss = val_loss + sum((pred_local - val_targets(:, j)) ** 2) / real(model%grid_size, real32)
+             if ((epoch == 1 .or. epoch == num_epochs) .and. j <= 3) then
+                pred_rms = sqrt(sum(pred_local ** 2) / real(model%grid_size, real32))
+                tgt_rms = sqrt(sum(val_targets(:, j) ** 2) / real(model%grid_size, real32))
+                ! Compute physics template and g_inc diagnostics
+                call extend_with_bc(val_inputs(1:model%grid_size, j), model%bc_left_norm, model%bc_right_norm, diag_t_n_ext)
+                call extend_with_bc(val_inputs(model%grid_size+1:2*model%grid_size, j), model%bc_left_norm, model%bc_right_norm, diag_t_nm1_ext)
+                call compute_sec_diff_extended(diag_t_n_ext, diag_sec_diff)
+                diag_diff = diag_t_n_ext - diag_t_nm1_ext
+                diag_a_target = model%fo_scalar / (1.0_real32 + model%tau_dt_scalar)
+                diag_bound_a = model%max_correction_frac * abs(diag_a_target)
+                diag_phys_rms = sqrt(sum((diag_a_target * diag_sec_diff(2:model%grid_size+1))**2) / real(model%grid_size, real32))
+                diag_bc_inc_l = model%bc_left_norm - val_inputs(1, j)
+                diag_bc_inc_r = model%bc_right_norm - val_inputs(model%grid_size, j)
+                do i = 1, model%grid_size
+                   diag_ginc(i) = diag_bc_inc_l + (diag_bc_inc_r - diag_bc_inc_l) * model%xi(i)
+                end do
+                diag_ginc_rms = sqrt(sum(diag_ginc ** 2) / real(model%grid_size, real32))
+                write(*,'(A,I0,A,I0,A,ES10.3,A,ES10.3,A,ES10.3,A,ES10.3)') '  [diag] epoch=', epoch, ' val_sample=', j, &
+                   ' pred_rms=', pred_rms, ' tgt_rms=', tgt_rms, ' phys_tmpl_rms=', diag_phys_rms, ' ginc_rms=', diag_ginc_rms
+             end if
           end block
        end do
        val_loss = val_loss / real(n_val, real32)
        if (use_rollout_validation) then
           val_rollout_loss = 0.0_real32
           do traj_idx = 1, size(val_trajectories, 3)
-             call compute_rollout_validation_loss(model, val_trajectories(:, :, traj_idx), rollout_steps, alpha_scalar, &
-                  val_trajectory_tau(traj_idx), val_trajectory_bc_left(traj_idx), val_trajectory_bc_right(traj_idx), dt, dx, traj_rollout_loss)
+             if (use_val_traj_tau_field) then
+                call compute_rollout_validation_loss(model, val_trajectories(:, :, traj_idx), rollout_steps, alpha_scalar, &
+                     val_trajectory_tau(traj_idx), val_trajectory_bc_left(traj_idx), val_trajectory_bc_right(traj_idx), dt, dx, traj_rollout_loss, &
+                     tau_field=val_trajectory_tau_field(:, traj_idx))
+             else
+                call compute_rollout_validation_loss(model, val_trajectories(:, :, traj_idx), rollout_steps, alpha_scalar, &
+                     val_trajectory_tau(traj_idx), val_trajectory_bc_left(traj_idx), val_trajectory_bc_right(traj_idx), dt, dx, traj_rollout_loss)
+             end if
              val_rollout_loss = val_rollout_loss + traj_rollout_loss
           end do
           val_rollout_loss = val_rollout_loss / real(size(val_trajectories, 3), real32)
-          write(*,'(A,I0,A,ES12.4,A,ES12.4,A,ES12.4)') 'epoch=', epoch, ', train_loss=', train_loss, &
-               ', val_loss=', val_loss, ', val_rollout_loss=', val_rollout_loss
+          current_val_metric = val_rollout_loss
+            write(*,'(A,I0,A,ES12.4,A,ES12.4,A,ES12.4,A,F6.3,A,ES12.4)') 'epoch=', epoch, ', train_loss=', train_loss, &
+               ', val_loss=', val_loss, ', val_rollout_loss=', val_rollout_loss, ', phys_warmup=', model%physics_warmup_factor, &
+               ', lambda_phys=', model%lambda_phys_balance
        else
-          write(*,'(A,I0,A,ES12.4,A,ES12.4)') 'epoch=', epoch, ', train_loss=', train_loss, ', val_loss=', val_loss
+          current_val_metric = val_loss
+            write(*,'(A,I0,A,ES12.4,A,ES12.4,A,F6.3,A,ES12.4)') 'epoch=', epoch, ', train_loss=', train_loss, ', val_loss=', val_loss, &
+               ', phys_warmup=', model%physics_warmup_factor, ', lambda_phys=', model%lambda_phys_balance
+       end if
+
+       if (.not. have_best_model .or. current_val_metric < best_val_metric) then
+          best_val_metric = current_val_metric
+          best_epoch = epoch
+          best_model = model
+          have_best_model = .true.
+          write(*,'(A,I0,A,ES12.4)') '  saved best checkpoint at epoch ', best_epoch, ' with metric=', best_val_metric
        end if
     end do
 
+    if (have_best_model) then
+       model = best_model
+       write(*,'(A,I0,A,ES12.4)') 'Restored best checkpoint from epoch ', best_epoch, ' with metric=', best_val_metric
+    end if
+
        call deallocate_gradients(sample_grad)
        call deallocate_gradients(batch_grad)
-     deallocate(steady_state_input, steady_state_target)
+       deallocate(steady_state_input, steady_state_target, noisy_input)
       deallocate(perm)
   end subroutine custom_lno_train
 
@@ -1500,19 +1887,24 @@ contains
     end do
   end subroutine random_permutation
 
-   subroutine custom_lno_rollout(model, init_state, rollout_steps, history, temp_ref, delta_t, alpha_scalar, tau_scalar, bc_left_norm, bc_right_norm, dt, dx)
+   subroutine custom_lno_rollout(model, init_state, rollout_steps, history, temp_ref, delta_t, alpha_scalar, tau_scalar, bc_left_norm, bc_right_norm, dt, dx, tau_field)
       type(custom_lno_model_type), intent(inout) :: model
     real(real32), intent(in) :: init_state(:)
     integer, intent(in) :: rollout_steps
     real(real32), intent(out) :: history(:,:)
     real(real32), intent(in) :: temp_ref, delta_t
       real(real32), intent(in) :: alpha_scalar, tau_scalar, bc_left_norm, bc_right_norm, dt, dx
+      real(real32), intent(in), optional :: tau_field(:)  ! per-grid-point tau [grid_size]
 
     real(real32), allocatable :: prev_state(:), curr_state(:), input_vec(:), pred(:), curr_scaled(:), prev_scaled(:)
     integer :: i, g
 
     g = model%grid_size
-      call set_runtime_conditions(model, bc_left_norm, bc_right_norm, alpha_scalar, tau_scalar, dt, dx)
+      if (present(tau_field)) then
+         call set_runtime_conditions_field(model, bc_left_norm, bc_right_norm, alpha_scalar, tau_field, dt, dx)
+      else
+         call set_runtime_conditions(model, bc_left_norm, bc_right_norm, alpha_scalar, tau_scalar, dt, dx)
+      end if
     allocate(prev_state(g), curr_state(g), input_vec(2 * g), pred(g), curr_scaled(g), prev_scaled(g))
     prev_state = init_state
     curr_state = init_state
@@ -1529,5 +1921,291 @@ contains
     end do
     deallocate(prev_state, curr_state, input_vec, pred, curr_scaled, prev_scaled)
   end subroutine custom_lno_rollout
+
+  subroutine numerical_gradient_check(model, input, target)
+    !! Compare analytical gradients to numerical gradients for key parameters.
+    !! Prints relative error for each parameter checked.
+    type(custom_lno_model_type), intent(inout) :: model
+    real(real32), intent(in) :: input(:), target(:)
+
+    type(grad_accum_type) :: grad
+    real(real32) :: loss, loss_p, loss_m, num_grad, ana_grad, rel_err
+    real(real32) :: saved_val, pred_p(model%grid_size), pred_m(model%grid_size)
+    real(real32), parameter :: eps = 1.0e-4_real32
+    integer :: i, g
+
+    g = model%grid_size
+    call allocate_gradients(model, grad)
+    call compute_gradients(model, input, target, grad, loss, include_auxiliary_losses=.false.)
+
+    write(*,'(A)') '=== Numerical Gradient Check (data loss only) ==='
+    write(*,'(A,ES12.4)') '  Loss at current params: ', loss
+
+    ! Check step_sizes(1)
+    saved_val = model%step_sizes(1)
+    model%step_sizes(1) = saved_val + eps
+    call custom_lno_predict(model, input, pred_p)
+    loss_p = sum((pred_p - target)**2) / real(g, real32)
+    model%step_sizes(1) = saved_val - eps
+    call custom_lno_predict(model, input, pred_m)
+    loss_m = sum((pred_m - target)**2) / real(g, real32)
+    model%step_sizes(1) = saved_val
+    num_grad = (loss_p - loss_m) / (2.0_real32 * eps)
+    ana_grad = grad%step_sizes(1)
+    rel_err = abs(num_grad - ana_grad) / max(abs(num_grad) + abs(ana_grad), 1.0e-20_real32)
+    write(*,'(A,ES12.4,A,ES12.4,A,ES10.3)') '  step_sizes(1): ana=', ana_grad, ' num=', num_grad, ' rel_err=', rel_err
+
+    ! Check step_sizes(3)
+    saved_val = model%step_sizes(3)
+    model%step_sizes(3) = saved_val + eps
+    call custom_lno_predict(model, input, pred_p)
+    loss_p = sum((pred_p - target)**2) / real(g, real32)
+    model%step_sizes(3) = saved_val - eps
+    call custom_lno_predict(model, input, pred_m)
+    loss_m = sum((pred_m - target)**2) / real(g, real32)
+    model%step_sizes(3) = saved_val
+    num_grad = (loss_p - loss_m) / (2.0_real32 * eps)
+    ana_grad = grad%step_sizes(3)
+    rel_err = abs(num_grad - ana_grad) / max(abs(num_grad) + abs(ana_grad), 1.0e-20_real32)
+    write(*,'(A,ES12.4,A,ES12.4,A,ES10.3)') '  step_sizes(3): ana=', ana_grad, ' num=', num_grad, ' rel_err=', rel_err
+
+    ! Check corr3_w(1)
+    saved_val = model%corr3_w(1)
+    model%corr3_w(1) = saved_val + eps
+    call custom_lno_predict(model, input, pred_p)
+    loss_p = sum((pred_p - target)**2) / real(g, real32)
+    model%corr3_w(1) = saved_val - eps
+    call custom_lno_predict(model, input, pred_m)
+    loss_m = sum((pred_m - target)**2) / real(g, real32)
+    model%corr3_w(1) = saved_val
+    num_grad = (loss_p - loss_m) / (2.0_real32 * eps)
+    ana_grad = grad%corr3_w(1)
+    rel_err = abs(num_grad - ana_grad) / max(abs(num_grad) + abs(ana_grad), 1.0e-20_real32)
+    write(*,'(A,ES12.4,A,ES12.4,A,ES10.3)') '  corr3_w(1):    ana=', ana_grad, ' num=', num_grad, ' rel_err=', rel_err
+
+    ! Check corr3_b
+    saved_val = model%corr3_b
+    model%corr3_b = saved_val + eps
+    call custom_lno_predict(model, input, pred_p)
+    loss_p = sum((pred_p - target)**2) / real(g, real32)
+    model%corr3_b = saved_val - eps
+    call custom_lno_predict(model, input, pred_m)
+    loss_m = sum((pred_m - target)**2) / real(g, real32)
+    model%corr3_b = saved_val
+    num_grad = (loss_p - loss_m) / (2.0_real32 * eps)
+    ana_grad = grad%corr3_b
+    rel_err = abs(num_grad - ana_grad) / max(abs(num_grad) + abs(ana_grad), 1.0e-20_real32)
+    write(*,'(A,ES12.4,A,ES12.4,A,ES10.3)') '  corr3_b:       ana=', ana_grad, ' num=', num_grad, ' rel_err=', rel_err
+
+    ! Check coeff3_w(1) (controls a_theta)
+    saved_val = model%coeff3_w(1)
+    model%coeff3_w(1) = saved_val + eps
+    call custom_lno_predict(model, input, pred_p)
+    loss_p = sum((pred_p - target)**2) / real(g, real32)
+    model%coeff3_w(1) = saved_val - eps
+    call custom_lno_predict(model, input, pred_m)
+    loss_m = sum((pred_m - target)**2) / real(g, real32)
+    model%coeff3_w(1) = saved_val
+    num_grad = (loss_p - loss_m) / (2.0_real32 * eps)
+    ana_grad = grad%coeff3_w(1)
+    rel_err = abs(num_grad - ana_grad) / max(abs(num_grad) + abs(ana_grad), 1.0e-20_real32)
+    write(*,'(A,ES12.4,A,ES12.4,A,ES10.3)') '  coeff3_w(1):   ana=', ana_grad, ' num=', num_grad, ' rel_err=', rel_err
+
+    ! Check coeff3_b (controls a_theta bias)
+    saved_val = model%coeff3_b
+    model%coeff3_b = saved_val + eps
+    call custom_lno_predict(model, input, pred_p)
+    loss_p = sum((pred_p - target)**2) / real(g, real32)
+    model%coeff3_b = saved_val - eps
+    call custom_lno_predict(model, input, pred_m)
+    loss_m = sum((pred_m - target)**2) / real(g, real32)
+    model%coeff3_b = saved_val
+    num_grad = (loss_p - loss_m) / (2.0_real32 * eps)
+    ana_grad = grad%coeff3_b
+    rel_err = abs(num_grad - ana_grad) / max(abs(num_grad) + abs(ana_grad), 1.0e-20_real32)
+    write(*,'(A,ES12.4,A,ES12.4,A,ES10.3)') '  coeff3_b:      ana=', ana_grad, ' num=', num_grad, ' rel_err=', rel_err
+
+    ! Check corr1_w(1,1) (first correction layer weight)
+    saved_val = model%corr1_w(1,1)
+    model%corr1_w(1,1) = saved_val + eps
+    call custom_lno_predict(model, input, pred_p)
+    loss_p = sum((pred_p - target)**2) / real(g, real32)
+    model%corr1_w(1,1) = saved_val - eps
+    call custom_lno_predict(model, input, pred_m)
+    loss_m = sum((pred_m - target)**2) / real(g, real32)
+    model%corr1_w(1,1) = saved_val
+    num_grad = (loss_p - loss_m) / (2.0_real32 * eps)
+    ana_grad = grad%corr1_w(1,1)
+    rel_err = abs(num_grad - ana_grad) / max(abs(num_grad) + abs(ana_grad), 1.0e-20_real32)
+    write(*,'(A,ES12.4,A,ES12.4,A,ES10.3)') '  corr1_w(1,1):  ana=', ana_grad, ' num=', num_grad, ' rel_err=', rel_err
+
+    ! Check pw_w(1,1,1) (first backbone pointwise weight)
+    saved_val = model%pw_w(1,1,1)
+    model%pw_w(1,1,1) = saved_val + eps
+    call custom_lno_predict(model, input, pred_p)
+    loss_p = sum((pred_p - target)**2) / real(g, real32)
+    model%pw_w(1,1,1) = saved_val - eps
+    call custom_lno_predict(model, input, pred_m)
+    loss_m = sum((pred_m - target)**2) / real(g, real32)
+    model%pw_w(1,1,1) = saved_val
+    num_grad = (loss_p - loss_m) / (2.0_real32 * eps)
+    ana_grad = grad%pw_w(1,1,1)
+    rel_err = abs(num_grad - ana_grad) / max(abs(num_grad) + abs(ana_grad), 1.0e-20_real32)
+    write(*,'(A,ES12.4,A,ES12.4,A,ES10.3)') '  pw_w(1,1,1):   ana=', ana_grad, ' num=', num_grad, ' rel_err=', rel_err
+
+    ! Check gate2_w(1)
+    saved_val = model%gate2_w(1)
+    model%gate2_w(1) = saved_val + eps
+    call custom_lno_predict(model, input, pred_p)
+    loss_p = sum((pred_p - target)**2) / real(g, real32)
+    model%gate2_w(1) = saved_val - eps
+    call custom_lno_predict(model, input, pred_m)
+    loss_m = sum((pred_m - target)**2) / real(g, real32)
+    model%gate2_w(1) = saved_val
+    num_grad = (loss_p - loss_m) / (2.0_real32 * eps)
+    ana_grad = grad%gate2_w(1)
+    rel_err = abs(num_grad - ana_grad) / max(abs(num_grad) + abs(ana_grad), 1.0e-20_real32)
+    write(*,'(A,ES12.4,A,ES12.4,A,ES10.3)') '  gate2_w(1):    ana=', ana_grad, ' num=', num_grad, ' rel_err=', rel_err
+
+    ! Check relax_log_strength
+    saved_val = model%relax_log_strength
+    model%relax_log_strength = saved_val + eps
+    call custom_lno_predict(model, input, pred_p)
+    loss_p = sum((pred_p - target)**2) / real(g, real32)
+    model%relax_log_strength = saved_val - eps
+    call custom_lno_predict(model, input, pred_m)
+    loss_m = sum((pred_m - target)**2) / real(g, real32)
+    model%relax_log_strength = saved_val
+    num_grad = (loss_p - loss_m) / (2.0_real32 * eps)
+    ana_grad = grad%relax_log_strength
+    rel_err = abs(num_grad - ana_grad) / max(abs(num_grad) + abs(ana_grad), 1.0e-20_real32)
+    write(*,'(A,ES12.4,A,ES12.4,A,ES10.3)') '  relax_log_s:   ana=', ana_grad, ' num=', num_grad, ' rel_err=', rel_err
+
+    write(*,'(A)') '=== End Gradient Check ==='
+
+    call deallocate_gradients(grad)
+  end subroutine numerical_gradient_check
+
+  subroutine load_weights_from_file(model, filename)
+    !! Load pre-trained weights from a binary file exported by Python.
+    !! File format: magic(int32), nparams(int32), then for each param:
+    !!   name_len(int32), name(bytes), ndims(int32), dims(int32*ndims), data(float32*)
+    type(custom_lno_model_type), intent(inout) :: model
+    character(len=*), intent(in) :: filename
+
+    integer :: unit, ios, nparams, i, name_len, ndims, magic
+    integer :: dims(4), total_size, b
+    character(len=64) :: param_name
+    real(real32), allocatable :: buffer(:)
+
+    open(newunit=unit, file=filename, status='old', access='stream', form='unformatted', iostat=ios)
+    if (ios /= 0) then
+       write(*,'(A,A)') 'ERROR: Cannot open weights file: ', trim(filename)
+       stop 1
+    end if
+
+    read(unit) magic
+    if (magic /= int(Z'464F5254')) then
+       write(*,'(A)') 'ERROR: Invalid weights file magic number'
+       close(unit)
+       stop 1
+    end if
+
+    read(unit) nparams
+    write(*,'(A,I0,A,A)') 'Loading ', nparams, ' parameters from ', trim(filename)
+
+    do i = 1, nparams
+       read(unit) name_len
+       param_name = ''
+       if (name_len > 0) then
+          block
+            character(len=name_len) :: name_buf
+            read(unit) name_buf
+            param_name(1:name_len) = name_buf
+          end block
+       end if
+       read(unit) ndims
+       dims = 1
+       if (ndims > 0) read(unit) dims(1:ndims)
+       total_size = product(dims(1:max(1,ndims)))
+       allocate(buffer(total_size))
+       read(unit) buffer
+
+       select case (trim(param_name))
+       case ('proj_w')
+          model%proj_w(:, 1) = buffer(1:model%width)
+       case ('proj_b')
+          model%proj_b = buffer(1:model%width)
+       case ('wt_log_amp_0', 'wt_log_amp_1', 'wt_log_amp_2', 'wt_log_amp_3')
+          read(param_name(len_trim(param_name):len_trim(param_name)), '(I1)') b
+          model%wt_log_amp(:, :, :, b + 1) = reshape(buffer, [model%modes, model%width, model%width])
+       case ('wt_phase_0', 'wt_phase_1', 'wt_phase_2', 'wt_phase_3')
+          read(param_name(len_trim(param_name):len_trim(param_name)), '(I1)') b
+          model%wt_phase(:, :, :, b + 1) = reshape(buffer, [model%modes, model%width, model%width])
+       case ('log_poles_0', 'log_poles_1', 'log_poles_2', 'log_poles_3')
+          read(param_name(len_trim(param_name):len_trim(param_name)), '(I1)') b
+          model%log_poles(:, b + 1) = buffer(1:model%modes)
+       case ('pole_mlp_w_0', 'pole_mlp_w_1', 'pole_mlp_w_2', 'pole_mlp_w_3')
+          read(param_name(len_trim(param_name):len_trim(param_name)), '(I1)') b
+          model%pole_mlp_w(:, :, b + 1) = reshape(buffer, [model%modes, model%width])
+       case ('pole_mlp_b_0', 'pole_mlp_b_1', 'pole_mlp_b_2', 'pole_mlp_b_3')
+          read(param_name(len_trim(param_name):len_trim(param_name)), '(I1)') b
+          model%pole_mlp_b(:, b + 1) = buffer(1:model%modes)
+       case ('pw_w_0', 'pw_w_1', 'pw_w_2', 'pw_w_3')
+          read(param_name(len_trim(param_name):len_trim(param_name)), '(I1)') b
+          model%pw_w(:, :, b + 1) = reshape(buffer, [model%width, model%width])
+       case ('pw_b_0', 'pw_b_1', 'pw_b_2', 'pw_b_3')
+          read(param_name(len_trim(param_name):len_trim(param_name)), '(I1)') b
+          model%pw_b(:, b + 1) = buffer(1:model%width)
+       case ('coeff1_w')
+          model%coeff1_w = reshape(buffer, [model%width, model%width + 2])
+       case ('coeff1_b')
+          model%coeff1_b = buffer(1:model%width)
+       case ('coeff2_w')
+          model%coeff2_w = reshape(buffer, [model%coeff_hidden, model%width])
+       case ('coeff2_b')
+          model%coeff2_b = buffer(1:model%coeff_hidden)
+       case ('coeff3_w')
+          model%coeff3_w = buffer(1:model%coeff_hidden)
+       case ('coeff3_b')
+          model%coeff3_b = buffer(1)
+       case ('step_sizes')
+          model%step_sizes = buffer(1:model%num_corrections)
+       case ('corr1_w')
+          model%corr1_w = reshape(buffer, [model%width, model%width + 1])
+       case ('corr1_b')
+          model%corr1_b = buffer(1:model%width)
+       case ('corr2_w')
+          model%corr2_w = reshape(buffer, [model%coeff_hidden, model%width])
+       case ('corr2_b')
+          model%corr2_b = buffer(1:model%coeff_hidden)
+       case ('corr3_w')
+          model%corr3_w = buffer(1:model%coeff_hidden)
+       case ('corr3_b')
+          model%corr3_b = buffer(1)
+       case ('relax_log_strength')
+          model%relax_log_strength = buffer(1)
+       case ('gate1_w')
+          model%gate1_w = reshape(buffer, [model%gate_hidden, model%width + 1])
+       case ('gate1_b')
+          model%gate1_b = buffer(1:model%gate_hidden)
+       case ('gate2_w')
+          model%gate2_w = buffer(1:model%gate_hidden)
+       case ('gate2_b')
+          model%gate2_b = buffer(1)
+       case default
+          write(*,'(A,A)') '  WARNING: Unknown parameter: ', trim(param_name)
+       end select
+       write(*,'(A,A,A,I0,A)') '  Loaded: ', trim(param_name), ' (', total_size, ' values)'
+       deallocate(buffer)
+    end do
+
+    ! Set max_correction_frac to match Python (0.01)
+    model%max_correction_frac = 0.01_real32
+    write(*,'(A)') 'Set max_correction_frac = 0.01 (matching Python)'
+
+    close(unit)
+    write(*,'(A)') 'Weight loading complete.'
+  end subroutine load_weights_from_file
 
 end module custom_lno_trainable

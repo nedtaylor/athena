@@ -1,6 +1,6 @@
 module cattaneo_lno_athena_runtime_utils
   use coreutils, only: real32
-  use athena, only: conv1d_layer_type
+  use athena, only: conv1d_layer_type, dynamic_lno_layer_type
   use diffstruc, only: array_type
   implicit none
 
@@ -10,6 +10,7 @@ module cattaneo_lno_athena_runtime_utils
   public :: silu_real
   public :: softplus_real
   public :: conv1d_forward_real
+  public :: dynamic_lno_forward_real
   public :: concat_channels
   public :: expand_field_channel
   public :: squeeze_single_channel
@@ -73,6 +74,48 @@ contains
 
     call input_array(1,1)%deallocate()
   end subroutine conv1d_forward_real
+
+  subroutine dynamic_lno_forward_real(layer, input, output)
+   type(dynamic_lno_layer_type), intent(inout) :: layer
+   real(real32), intent(in) :: input(:,:,:)
+   real(real32), allocatable, intent(out) :: output(:,:,:)
+
+   type(array_type) :: input_array(1,1)
+   type(array_type), pointer :: output_array(:,:)
+   real(real32), allocatable :: packed_input(:,:)
+   integer :: batch_idx, channel_idx, sample_idx
+   integer :: grid_size, num_channels, batch_size, packed_batch, output_grid_size
+
+   grid_size = size(input, 1)
+   num_channels = size(input, 2)
+   batch_size = size(input, 3)
+   packed_batch = num_channels * batch_size
+
+   allocate(packed_input(grid_size, packed_batch))
+   do batch_idx = 1, batch_size
+     do channel_idx = 1, num_channels
+       sample_idx = channel_idx + (batch_idx - 1) * num_channels
+       packed_input(:, sample_idx) = input(:, channel_idx, batch_idx)
+     end do
+   end do
+
+   call input_array(1,1)%allocate(array_shape=[grid_size, packed_batch], source=0.0_real32)
+   call input_array(1,1)%set(packed_input)
+
+   output_array => layer%forward_eval(input_array)
+   output_grid_size = output_array(1,1)%shape(1)
+   allocate(output(output_grid_size, num_channels, batch_size))
+
+   do batch_idx = 1, batch_size
+     do channel_idx = 1, num_channels
+       sample_idx = channel_idx + (batch_idx - 1) * num_channels
+       output(:, channel_idx, batch_idx) = output_array(1,1)%val(:, sample_idx)
+     end do
+   end do
+
+   deallocate(packed_input)
+   call input_array(1,1)%deallocate()
+  end subroutine dynamic_lno_forward_real
 
   subroutine concat_channels(left, right, output)
     real(real32), intent(in) :: left(:,:,:)

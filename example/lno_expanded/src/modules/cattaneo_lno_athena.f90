@@ -327,7 +327,7 @@ contains
     write(out_unit,'(A)') ''
     write(out_unit,'(A)') 'Python-matched forward path'
     write(out_unit,'(A)') '  - Dimensionless Fo/Ve/tau_dt fields with ghost-cell extension'
-    write(out_unit,'(A)') '  - InstanceNorm1d plus custom LaplaceConv blocks'
+    write(out_unit,'(A)') '  - InstanceNorm1d plus Athena dynamic LNO blocks'
     write(out_unit,'(A)') '  - Structure-preserving coefficient, corrector, and relaxation heads'
     write(out_unit,'(A)') '  - Hard Dirichlet shaping and optional recurrent memory'
     write(out_unit,'(A)') ''

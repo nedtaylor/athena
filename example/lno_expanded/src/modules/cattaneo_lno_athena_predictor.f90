@@ -2,12 +2,12 @@ module cattaneo_lno_athena_predictor
   !! Athena-backed predictor scaffold for the Python Cattaneo-LNO layout.
   !!
   !! This module groups the predictor-local blocks into a stable interface so
-  !! that future exact Athena-compatible custom layers can be introduced without
-  !! changing the top-level model wiring.
+  !! that the top-level model wiring stays stable while Athena-facing block
+  !! implementations continue to evolve.
   use coreutils, only: real32
   use athena, only: conv1d_layer_type
   use cattaneo_lno_athena_runtime_utils, only: conv1d_forward_real, expand_field_channel, instance_norm1d_real, second_difference_replicate
-  use custom_laplace_layer, only: custom_laplace_block_type
+  use athena_dynamic_lno_layer_adapter, only: dynamic_lno_block_athena_type
   use cattaneo_lno_athena_config, only: cattaneo_lno_config_type
   use cattaneo_lno_athena_blocks, only: &
        conv1d_gru_cell_athena_type, &
@@ -25,7 +25,7 @@ module cattaneo_lno_athena_predictor
      !! Structural predictor scaffold matching the Python module boundary.
      type(conv1d_layer_type) :: lno_proj
      !! Initial projection of temperature state into backbone width.
-    type(custom_laplace_block_type), allocatable :: lno_blocks(:)
+    type(dynamic_lno_block_athena_type), allocatable :: lno_blocks(:)
      !! Repeated LNO blocks.
      type(conv1d_layer_type) :: rnn_proj
      !! Projection of recurrent inputs into backbone width.
