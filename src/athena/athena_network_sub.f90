@@ -1856,6 +1856,100 @@ contains
 
 
 !###############################################################################
+  module subroutine set_training_mode(this, mode_store, layer_indices)
+    !! Put the network in training mode.
+    implicit none
+
+    ! Arguments
+    class(network_type), intent(inout) :: this
+    !! Instance of network
+    logical, dimension(:), allocatable, intent(out), optional :: mode_store
+    !! Optional array to store the training mode of each layer
+    integer, dimension(:), intent(in), optional :: layer_indices
+    !! Optional array of layer indices to set to training mode.
+    !! If not provided, all layers will be set to training mode.
+
+    ! Local variables
+    integer :: l
+    !! Loop index
+
+    if(.not.allocated(this%model)) return
+    if(present(mode_store)) allocate(mode_store(this%num_layers))
+    do l = 1, this%num_layers
+       if(present(mode_store)) mode_store(l) = this%model(l)%layer%inference
+       this%model(l)%layer%inference = .false.
+       if(present(layer_indices))then
+          if(any(layer_indices.eq.l)) then
+             this%model(l)%layer%inference = .false.
+          end if
+       else
+          this%model(l)%layer%inference = .false.
+       end if
+    end do
+
+  end subroutine set_training_mode
+!-------------------------------------------------------------------------------
+  module subroutine set_inference_mode(this, mode_store, layer_indices)
+    !! Put the network in inference mode.
+    implicit none
+
+    ! Arguments
+    class(network_type), intent(inout) :: this
+    !! Instance of network
+    logical, dimension(:), allocatable, intent(out), optional :: mode_store
+    !! Optional array to store the training mode of each layer
+    integer, dimension(:), intent(in), optional :: layer_indices
+    !! Optional array of layer indices to set to inference mode.
+    !! If not provided, all layers will be set to inference mode.
+
+    ! Local variables
+    integer :: l
+    !! Loop index
+
+    if(.not.allocated(this%model)) return
+    if(present(mode_store)) allocate(mode_store(this%num_layers))
+    do l = 1, this%num_layers
+       if(present(mode_store)) mode_store(l) = this%model(l)%layer%inference
+       if(present(layer_indices))then
+          if(any(layer_indices.eq.l)) then
+             this%model(l)%layer%inference = .true.
+          end if
+       else
+          this%model(l)%layer%inference = .true.
+       end if
+    end do
+
+  end subroutine set_inference_mode
+!-------------------------------------------------------------------------------
+  module subroutine restore_mode(this, mode_store)
+    !! Restore the training/inference mode of each layer from a stored array.
+    implicit none
+
+    ! Arguments
+    class(network_type), intent(inout) :: this
+    !! Instance of network
+    logical, dimension(:), intent(in) :: mode_store
+    !! Array storing the mode of each layer
+    !! .true. = inference, .false. = training
+
+    ! Local variables
+    integer :: l
+    !! Loop index
+
+    if(.not.allocated(this%model)) return
+    if(size(mode_store) .ne. this%num_layers) then
+       call stop_program("mode_store size does not match number of layers")
+       return
+    end if
+    do l = 1, this%num_layers
+       this%model(l)%layer%inference = mode_store(l)
+    end do
+
+  end subroutine restore_mode
+!###############################################################################
+
+
+!###############################################################################
   module function layer_from_id(this, id) result(layer)
     !! Get layer from its ID
     implicit none
@@ -2478,6 +2572,7 @@ contains
                  output(1,1)%val(:,start_index:end_index:1) &
             ))
     end select
+    accuracy = accuracy / real(end_index - start_index + 1, real32)
 
   end function accuracy_eval
 !###############################################################################
@@ -3288,7 +3383,8 @@ contains
   module subroutine train( &
        this, input, output, num_epochs, batch_size, &
        plateau_threshold, shuffle_batches, batch_print_step, verbose, &
-       print_precision, scientific_print &
+       print_precision, scientific_print, early_stopping, &
+       val_input, val_output &
   )
     !! Train the network
     !!
@@ -3322,6 +3418,12 @@ contains
     !! Number of decimal places to print for training metrics
     logical, optional, intent(in) :: scientific_print
     !! Whether to print training metrics in scientific notation
+    logical, optional, intent(in) :: early_stopping
+    !! Whether to stop training early if convergence is detected
+    class(*), dimension(..), optional, intent(in) :: val_input
+    !! Validation input data
+    class(*), dimension(:,:), optional, intent(in) :: val_output
+    !! Validation expected output data
 
     ! Training parameters
     real(real32) :: batch_loss, batch_accuracy, avg_loss, avg_accuracy
@@ -3344,6 +3446,8 @@ contains
     !! Shuffle batches
     logical :: use_accuracy
     !! Whether accuracy evaluation is available
+    logical :: early_stopping_
+    !! Whether to stop training early if convergence is detected
 
     ! Printing parameters
     integer :: batch_print_step_
@@ -3354,6 +3458,8 @@ contains
     !! Whether to print metrics in scientific notation
     character(len=64) :: loss_str, accuracy_str
     !! Formatted metrics for printing
+    character(len=128) :: val_str
+    !! Formatted validation metrics for printing
 
     ! Training loop variables
     integer :: epoch, batch, start_index, end_index
@@ -3363,9 +3469,27 @@ contains
 
     integer :: i, j, s
     !! Loop index
+    integer :: tmp_batch_size
+    !! Temporary integer to store batch size during validation
+    integer :: current_batch_size, target_batch_size
+    !! Actual batch size for the current batch and the target batch size
+    logical, allocatable :: mode_store(:)
+    !! Storage for inference mode booleans
 
     class(*), allocatable :: data_poly(:,:)
     type(array_type), pointer :: loss => null()
+
+    ! Validation variables
+    logical :: use_validation
+    !! Whether validation data is provided
+    integer :: val_num_samples
+    !! Number of validation samples
+    integer :: val_sample
+    !! Loop index for validation
+    real(real32) :: val_loss, val_accuracy, val_loss_sum, val_accuracy_sum
+    !! Validation loss and accuracy
+    type(array_type), dimension(:,:), allocatable :: saved_expected_array
+    !! Saved training expected output (for restoring after validation)
 
 #ifdef _OPENMP
     type(network_type) :: this_copy
@@ -3382,6 +3506,18 @@ contains
     end if
     use_accuracy = associated(this%get_accuracy)
     accuracy_str = ""
+    val_str = ""
+
+    !---------------------------------------------------------------------------
+    ! Check validation data
+    !---------------------------------------------------------------------------
+    use_validation = present(val_input) .and. present(val_output)
+    if(present(val_input) .neqv. present(val_output))then
+       call stop_program( &
+            "both val_input and val_output must be provided for validation" &
+       )
+       return
+    end if
 
 
     !---------------------------------------------------------------------------
@@ -3393,6 +3529,7 @@ contains
     shuffle_batches_ = .true.
     scientific_print_ = .false.
     print_precision_ = 3
+    early_stopping_ = .true.
     if(present(plateau_threshold)) plateau_threshold_ = plateau_threshold
     if(present(shuffle_batches)) shuffle_batches_ = shuffle_batches
     if(present(batch_print_step)) batch_print_step_ = batch_print_step
@@ -3400,6 +3537,7 @@ contains
     if(present(print_precision)) print_precision_ = max(print_precision, 0)
     if(present(scientific_print)) scientific_print_ = scientific_print
     if(present(batch_size)) this%batch_size = batch_size
+    if(present(early_stopping)) early_stopping_ = early_stopping
 
 
     !---------------------------------------------------------------------------
@@ -3425,18 +3563,7 @@ contains
     !---------------------------------------------------------------------------
     ! If parallel, initialise slices
     !---------------------------------------------------------------------------
-    select type(output)
-    type is(graph_type)
-       num_batches = size(output,dim=2) / this%batch_size
-    class is(array_type)
-       if(this%use_graph_output)then
-          num_batches = size(output,dim=2) / this%batch_size
-       else
-          num_batches = size(output(1,1)%val,dim=2) / this%batch_size
-       end if
-    class default
-       num_batches = size(output,dim=2) / this%batch_size
-    end select
+    num_batches = (num_samples + this%batch_size - 1) / this%batch_size
     allocate(batch_order(num_batches))
     do batch = 1, num_batches
        batch_order(batch) = batch
@@ -3447,14 +3574,13 @@ contains
     ! Set/reset batch size for training
     !---------------------------------------------------------------------------
     call this%set_batch_size(this%batch_size)
+    target_batch_size = this%batch_size
 
 
     !---------------------------------------------------------------------------
-    ! Turn off inference booleans
+    ! Enable training mode
     !---------------------------------------------------------------------------
-    do l = 1, this%num_layers
-       this%model(l)%layer%inference = .false.
-    end do
+    call this%set_training_mode(mode_store)
 
 
     epoch_loop: do epoch = 1, num_epochs
@@ -3479,7 +3605,11 @@ contains
           ! Set batch start and end index
           !---------------------------------------------------------------------
           start_index = (batch_order(batch) - 1) * this%batch_size + 1
-          end_index = batch_order(batch) * this%batch_size
+          end_index = min(batch_order(batch) * this%batch_size, num_samples)
+          current_batch_size = end_index - start_index + 1
+          if(current_batch_size.ne.target_batch_size)then
+             call this%set_batch_size(current_batch_size)
+          end if
 
 
           ! Forward pass
@@ -3487,11 +3617,11 @@ contains
           select case(this%use_graph_input)
           case(.true.)
              data_poly = get_sample( &
-                  this%input_graph, start_index, end_index, this%batch_size &
+                  this%input_graph, start_index, end_index, current_batch_size &
              )
           case default
              data_poly = get_sample( &
-                  this%input_array, start_index, end_index, this%batch_size, &
+                  this%input_array, start_index, end_index, current_batch_size, &
                   as_graph = .false. &
              )
           end select
@@ -3516,23 +3646,10 @@ contains
 
 
           ! Average metric over batch size and store
-          ! Check metric convergence
           !---------------------------------------------------------------------
           avg_loss = avg_loss + batch_loss
-          call this%metrics(1)%append(batch_loss)
-          do i = 1, 1
-             call this%metrics(i)%check(plateau_threshold_, converged)
-             if(converged.ne.0)then
-                exit epoch_loop
-             end if
-          end do
           if(use_accuracy)then
              avg_accuracy = avg_accuracy + batch_accuracy
-             call this%metrics(2)%append(batch_accuracy / this%batch_size)
-             call this%metrics(2)%check(plateau_threshold_, converged)
-             if(converged.ne.0)then
-                exit epoch_loop
-             end if
           end if
 
 
@@ -3554,7 +3671,7 @@ contains
              )
              if(use_accuracy)then
                 accuracy_str = ", accuracy=" // trim(format_training_real( &
-                     avg_accuracy / real(batch * this%batch_size, real32), &
+                     avg_accuracy / real(batch, real32), &
                      print_precision_, scientific_print_ &
                 ))
              end if
@@ -3579,6 +3696,94 @@ contains
           end if
 
        end do batch_loop
+       call this%metrics(1)%append(avg_loss / real(num_batches, real32))
+       if(use_accuracy)then
+          call this%metrics(2)%append(avg_accuracy / real(num_batches, real32))
+       end if
+
+
+       !------------------------------------------------------------------------
+       ! Validation evaluation at end of epoch
+       !------------------------------------------------------------------------
+       val_str = ""
+       if(use_validation)then
+
+          ! Save training expected output
+          call move_alloc(this%expected_array, saved_expected_array)
+
+          ! Save validation output to network
+          call this%save_output( val_output )
+
+          ! Save validation input
+          val_num_samples = this%save_input( val_input )
+
+          ! Set batch size to 1 and enable inference mode
+          call this%set_batch_size(1)
+          call this%set_inference_mode()
+
+          ! Evaluate validation loss and accuracy
+          val_loss_sum = 0._real32
+          val_accuracy_sum = 0._real32
+          do val_sample = 1, val_num_samples
+             select case(this%use_graph_input)
+             case(.true.)
+                data_poly = get_sample( &
+                     this%input_graph, val_sample, val_sample, 1 &
+                )
+             case default
+                data_poly = get_sample_array( &
+                     this%input_array, val_sample, val_sample, 1, &
+                     as_graph = .false. &
+                )
+             end select
+             call this%forward(data_poly)
+             deallocate(data_poly)
+
+             loss => this%loss_eval(val_sample, val_sample)
+             val_loss_sum = val_loss_sum + sum(loss%val)
+             call loss%nullify_graph()
+             deallocate(loss)
+             nullify(loss)
+
+             if(use_accuracy)then
+                val_accuracy_sum = val_accuracy_sum + &
+                     this%accuracy_eval(val_output, val_sample, val_sample)
+             end if
+          end do
+
+          val_loss = val_loss_sum / real(val_num_samples, real32)
+          val_accuracy = val_accuracy_sum / real(val_num_samples, real32)
+
+          ! Build validation print string
+          val_str = ", val_loss=" // trim(format_training_real( &
+               val_loss, print_precision_, scientific_print_ &
+          ))
+          if(use_accuracy)then
+             val_str = trim(val_str) // ", val_accuracy=" // &
+                  trim(format_training_real( &
+                       val_accuracy, print_precision_, scientific_print_ &
+                  ))
+          end if
+
+          ! Restore training expected output
+          if(allocated(this%expected_array))then
+             do i = 1, size(this%expected_array, 1)
+                do j = 1, size(this%expected_array, 2)
+                   call this%expected_array(i,j)%deallocate()
+                end do
+             end do
+             deallocate(this%expected_array)
+          end if
+          call move_alloc(saved_expected_array, this%expected_array)
+
+          ! Restore training input
+          num_samples = this%save_input( input )
+
+          ! Restore training batch size and inference mode
+          call this%set_batch_size(target_batch_size)
+          call this%set_training_mode()
+
+       end if
 
 
        ! Print epoch summary results
@@ -3593,13 +3798,15 @@ contains
              ))
           end if
           write(6,'("epoch=",I0,&
-               &", lr=",ES0.2,", loss=",A,A)' &
+               &", lr=",ES0.2,", loss=",A,A,A)' &
           ) &
                this%epoch, &
                this%optimiser%lr_decay%get_lr( &
                     this%optimiser%learning_rate, this%optimiser%iter &
                ), &
-               trim(loss_str), trim(accuracy_str)
+               trim(loss_str), trim(accuracy_str), trim(val_str)
+       else if(use_validation)then
+          write(6,'("epoch=",I0,A)') this%epoch, trim(val_str)
        end if
 
 
@@ -3608,10 +3815,27 @@ contains
        !------------------------------------------------------------------------
        call this%post_epoch_hook( &
             this%epoch, &
-            avg_loss / real(num_batches, real32), &
-            avg_accuracy / max(real(num_batches * this%batch_size, real32), &
-                 1._real32) &
+            this%metrics(1)%val, &
+            this%metrics(2)%val &
        )
+
+       !------------------------------------------------------------------------
+       ! Check for convergence and stop early if enabled
+       ! When validation data is provided, check validation loss for plateau
+       !------------------------------------------------------------------------
+       if(early_stopping_)then
+          if(use_validation)then
+             if(val_loss .lt. plateau_threshold_ .and. &
+                  plateau_threshold_ .gt. 0._real32) exit epoch_loop
+          else
+             call this%metrics(1)%check(plateau_threshold_, converged)
+             if(converged.ne.0) exit epoch_loop
+          end if
+          if(use_accuracy)then
+             call this%metrics(2)%check(plateau_threshold_, converged)
+             if(converged.ne.0) exit epoch_loop
+          end if
+       end if
 
     end do epoch_loop
 
@@ -3622,6 +3846,12 @@ contains
        this%accuracy_val = 0._real32
     end if
     this%loss_val     = this%metrics(1)%val
+
+
+    !---------------------------------------------------------------------------
+    ! Restore training/inference mode
+    !---------------------------------------------------------------------------
+    call this%restore_mode(mode_store)
 
   end subroutine train
 !###############################################################################
@@ -3695,6 +3925,8 @@ contains
     !! Polymorphic data array
     type(array_type), pointer :: loss => null()
     !! Loss
+    logical, allocatable :: mode_store(:)
+    !! Storage for inference mode booleans
 
 
     !---------------------------------------------------------------------------
@@ -3724,11 +3956,9 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Turn on inference booleans
+    ! Enable inference mode
     !---------------------------------------------------------------------------
-    do l = 1, this%num_layers
-       this%model(l)%layer%inference = .true.
-    end do
+    call this%set_inference_mode(mode_store)
 
 
     !---------------------------------------------------------------------------
@@ -3778,6 +4008,12 @@ contains
     end if
     this%loss_val     = this%metrics(1)%val / real(num_samples, real32)
 
+
+    !---------------------------------------------------------------------------
+    ! Restore training/inference mode
+    !---------------------------------------------------------------------------
+    call this%restore_mode(mode_store)
+
   end subroutine test
 !###############################################################################
 
@@ -3798,12 +4034,12 @@ contains
     !! Verbosity level
 
     ! Local variables
-    integer :: l
-    !! Loop index
     real(real32), dimension(:,:), allocatable :: output
     !! Output
     integer :: verbose_, batch_size
     !! Verbosity level
+    logical, allocatable :: mode_store(:)
+    !! Storage for inference mode booleans
 
 
     !---------------------------------------------------------------------------
@@ -3838,11 +4074,9 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Turn on inference booleans
+    ! Enable inference mode
     !---------------------------------------------------------------------------
-    do l = 1, this%num_layers
-       this%model(l)%layer%inference = .true.
-    end do
+    call this%set_inference_mode(mode_store)
 
 
     !---------------------------------------------------------------------------
@@ -3851,6 +4085,12 @@ contains
     call this%forward(get_sample(input, 1, batch_size, batch_size))
 
     output = this%model(this%leaf_vertices(1))%layer%output(1,1)%val
+
+
+    !---------------------------------------------------------------------------
+    ! Restore training/inference mode
+    !---------------------------------------------------------------------------
+    call this%restore_mode(mode_store)
 
   end function predict_real
 !###############################################################################
@@ -3876,6 +4116,8 @@ contains
     !! Output graph
     integer :: verbose_ = 0, batch_size
     !! Verbosity level
+    logical, allocatable :: mode_store(:)
+    !! Storage for inference mode booleans
 
 
     !---------------------------------------------------------------------------
@@ -3891,11 +4133,9 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Turn on inference booleans
+    ! Enable inference mode
     !---------------------------------------------------------------------------
-    do l = 1, this%num_layers
-       this%model(l)%layer%inference = .true.
-    end do
+    call this%set_inference_mode(mode_store)
 
 
     !---------------------------------------------------------------------------
@@ -3926,6 +4166,12 @@ contains
        end do
     end do
 
+
+    !---------------------------------------------------------------------------
+    ! Restore training/inference mode
+    !---------------------------------------------------------------------------
+    call this%restore_mode(mode_store)
+
   end function predict_graph1d
 !-------------------------------------------------------------------------------
   module function predict_graph2d( this, input, verbose ) result(output)
@@ -3948,6 +4194,8 @@ contains
     !! Output graph
     integer :: verbose_ = 0, batch_size
     !! Verbosity level
+    logical, allocatable :: mode_store(:)
+    !! Storage for inference mode booleans
 
 
     !---------------------------------------------------------------------------
@@ -3963,11 +4211,9 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Turn on inference booleans
+    ! Enable inference mode
     !---------------------------------------------------------------------------
-    do l = 1, this%num_layers
-       this%model(l)%layer%inference = .true.
-    end do
+    call this%set_inference_mode(mode_store)
 
 
     !---------------------------------------------------------------------------
@@ -3998,6 +4244,12 @@ contains
        end do
     end do
 
+
+    !---------------------------------------------------------------------------
+    ! Restore training/inference mode
+    !---------------------------------------------------------------------------
+    call this%restore_mode(mode_store)
+
   end function predict_graph2d
 !###############################################################################
 
@@ -4022,13 +4274,14 @@ contains
     !! Predicted output
 
     ! Local variables
-    integer :: l, s, i
+    integer :: s, i
     !! Loop index
     integer :: num_samples
     !! Number of samples
     integer :: verbose_
     !! Verbosity level
-    logical, dimension(:), allocatable :: inference_store
+    logical, allocatable :: mode_store(:)
+    !! Storage for inference mode booleans
 
 
     !---------------------------------------------------------------------------
@@ -4053,13 +4306,9 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Turn on inference booleans
+    ! Enable inference mode
     !---------------------------------------------------------------------------
-    allocate(inference_store(this%num_layers))
-    do l = 1, this%num_layers
-       inference_store(l) = this%model(l)%layer%inference
-       this%model(l)%layer%inference = .true.
-    end do
+    call this%set_inference_mode(mode_store)
 
     !---------------------------------------------------------------------------
     ! Forward pass
@@ -4085,12 +4334,11 @@ contains
        end do
     end do
 
+
     !---------------------------------------------------------------------------
-    ! Reset inference booleans
+    ! Restore training/inference mode
     !---------------------------------------------------------------------------
-    do l = 1, this%num_layers
-       this%model(l)%layer%inference = inference_store(l)
-    end do
+    call this%restore_mode(mode_store)
 
   end function predict_array_from_real
 !###############################################################################
@@ -4122,8 +4370,8 @@ contains
     !! Verbosity level
     integer, dimension(2) :: output_shape
     !! Output shape
-    logical, dimension(:), allocatable :: inference_store
-    !! Inference store
+    logical, allocatable :: mode_store(:)
+    !! Storage for inference mode booleans
 
 
     !---------------------------------------------------------------------------
@@ -4144,13 +4392,9 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Turn on inference booleans
+    ! Enable inference mode
     !---------------------------------------------------------------------------
-    allocate(inference_store(this%num_layers))
-    do l = 1, this%num_layers
-       inference_store(l) = this%model(l)%layer%inference
-       this%model(l)%layer%inference = .true.
-    end do
+    call this%set_inference_mode(mode_store)
 
     !---------------------------------------------------------------------------
     ! Forward pass
@@ -4179,12 +4423,11 @@ contains
        end do
     end do
 
+
     !---------------------------------------------------------------------------
-    ! Reset inference booleans
+    ! Restore training/inference mode
     !---------------------------------------------------------------------------
-    do l = 1, this%num_layers
-       this%model(l)%layer%inference = inference_store(l)
-    end do
+    call this%restore_mode(mode_store)
 
   end function predict_array
 !###############################################################################
@@ -4220,6 +4463,8 @@ contains
     !! Output as graph boolean
     integer, dimension(2) :: output_shape
     !! Output shape
+    logical, allocatable :: mode_store(:)
+    !! Storage for inference mode booleans
 
 
     !---------------------------------------------------------------------------
@@ -4250,11 +4495,9 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Turn on inference booleans
+    ! Enable inference mode
     !---------------------------------------------------------------------------
-    do l = 1, this%num_layers
-       this%model(l)%layer%inference = .true.
-    end do
+    call this%set_inference_mode(mode_store)
 
     !---------------------------------------------------------------------------
     ! Forward pass
@@ -4322,6 +4565,12 @@ contains
           end do
        end select
     end if
+
+
+    !---------------------------------------------------------------------------
+    ! Restore training/inference mode
+    !---------------------------------------------------------------------------
+    call this%restore_mode(mode_store)
 
   end function predict_generic
 !###############################################################################
@@ -4414,6 +4663,336 @@ contains
     write(*,*)
 
   end subroutine print_summary
+!###############################################################################
+
+
+!###############################################################################
+  module function inverse_design_real( &
+       this, target, x_init, optimiser, steps &
+  ) result(x_opt)
+    !! Optimise input to match a target output (real inputs).
+    !! Wraps the array_type implementation after converting real arrays.
+    implicit none
+
+    ! Arguments
+    class(network_type), intent(inout), target :: this
+    !! Instance of the network
+    real(real32), dimension(:,:), intent(in) :: target
+    !! Target output values
+    real(real32), dimension(:,:), intent(in) :: x_init
+    !! Initial input values
+    class(base_optimiser_type), optional, intent(in) :: optimiser
+    !! Optimiser for input updates (defaults to network optimiser)
+    integer, intent(in) :: steps
+    !! Number of optimisation iterations
+    real(real32), dimension(size(x_init,1), size(x_init,2)) :: x_opt
+    !! Optimised input
+
+    ! Local variables
+    type(array_type), dimension(1,1) :: target_arr, x_init_arr, x_opt_arr
+    !! Working input and target as array_type
+
+
+    !---------------------------------------------------------------------------
+    ! Convert real arrays to array_type
+    !---------------------------------------------------------------------------
+    call target_arr(1,1)%allocate(source=target)
+    call x_init_arr(1,1)%allocate(source=x_init)
+
+    !---------------------------------------------------------------------------
+    ! Delegate to array_type implementation
+    !---------------------------------------------------------------------------
+    x_opt_arr = this%inverse_design_array_2d( &
+         target_arr, x_init_arr, optimiser, steps &
+    )
+    x_opt = x_opt_arr(1,1)%val
+
+  end function inverse_design_real
+!###############################################################################
+
+
+!###############################################################################
+  module function inverse_design_array_0d( &
+       this, target, x_init, optimiser, steps &
+  ) result(x_opt)
+    !! Optimise the input so the network output matches a target.
+    !! Wraps the array_type implementation after converting to 2D array.
+    implicit none
+
+    ! Arguments
+    class(network_type), intent(inout), target :: this
+    !! Instance of the network
+    type(array_type), intent(in) :: target
+    !! Target output values
+    type(array_type), intent(in) :: x_init
+    !! Initial input values
+    class(base_optimiser_type), optional, intent(in) :: optimiser
+    !! Optimiser for input updates (defaults to network optimiser)
+    integer, intent(in) :: steps
+    !! Number of optimisation iterations
+    type(array_type) :: x_opt
+    !! Optimised input
+
+    ! Local variables
+    type(array_type), dimension(1,1) :: target_arr, x_init_arr, x_opt_arr
+
+
+    !---------------------------------------------------------------------------
+    ! Convert real arrays to array_type
+    !---------------------------------------------------------------------------
+    call target_arr(1,1)%allocate(source=target)
+    call x_init_arr(1,1)%allocate(source=x_init)
+
+    !---------------------------------------------------------------------------
+    ! Delegate to array_type implementation
+    !---------------------------------------------------------------------------
+    x_opt_arr = this%inverse_design_array_2d( &
+         target_arr, x_init_arr, optimiser, steps &
+    )
+    x_opt = x_opt_arr(1,1)
+
+  end function inverse_design_array_0d
+!###############################################################################
+
+
+!###############################################################################
+  module function inverse_design_array_2d( &
+       this, target, x_init, optimiser, steps &
+  ) result(x_opt)
+    !! Optimise the input so the network output matches a target.
+    !! Wraps the array_type implementation after converting to 2D array.
+    implicit none
+
+    ! Arguments
+    class(network_type), intent(inout), target :: this
+    !! Instance of the network
+    type(array_type), dimension(:,:), intent(in) :: target
+    !! Target output values
+    type(array_type), dimension(:,:), intent(in) :: x_init
+    !! Initial input values
+    class(base_optimiser_type), optional, intent(in) :: optimiser
+    !! Optimiser for input updates (defaults to network optimiser)
+    integer, intent(in) :: steps
+    !! Number of optimisation iterations
+    type(array_type), dimension(size(x_init,1), size(x_init,2)) :: x_opt
+    !! Optimised input
+
+    ! Local variables
+    integer :: step, i, j, itmp1, root_id, num_x, num_samples, num_elements
+    !! Loop index, root layer id, number of input elements
+    logical :: use_edge_features
+    !! Whether edge features are used in the input
+    type(array_type), pointer :: loss
+    !! Loss pointer
+    class(base_optimiser_type), allocatable :: opt
+    !! Local optimiser instance
+    real(real32), allocatable :: x_flat(:), x_grad(:)
+    !! Flat input vector and gradient
+    logical, allocatable :: mode_store(:)
+    !! Storage for inference mode booleans
+    real(real32), allocatable :: saved_params(:)
+    !! Saved network parameters
+
+
+    !---------------------------------------------------------------------------
+    ! Ensure the network has a loss function
+    !---------------------------------------------------------------------------
+    if(.not.allocated(this%loss))then
+       call this%set_loss("mse")
+    end if
+
+
+    !---------------------------------------------------------------------------
+    ! Get number of input elements
+    !---------------------------------------------------------------------------
+    num_x = 0
+    use_edge_features = .false.
+    if(this%use_graph_input)then
+       num_samples = size(x_init, dim=2)
+       num_x = size(x_init(1,1)%val) ! vertex features
+       ! determine if edge features are used by checking the output shape of the input layer
+       if(size(this%model(this%root_vertices(1))%layer%output_shape,dim=1).eq.2)then
+          use_edge_features = .true.
+          num_x = num_x + size(x_init(2,1)%val) ! edge features
+       end if
+    else
+       num_samples = size(x_init(1,1)%val, dim=2)
+       do i = 1, size(x_init,1)
+          do j = 1, size(x_init,2)
+             num_x = num_x + size(x_init(i,j)%val,dim=1)
+          end do
+       end do
+    end if
+    x_opt = x_init
+    if(num_samples.gt.1)then
+       call stop_program( &
+            "inverse_design_array_2d: batch size greater than 1 not supported" &
+       )
+    end if
+
+
+    !---------------------------------------------------------------------------
+    ! Set up optimiser for input variables
+    !---------------------------------------------------------------------------
+    if(present(optimiser))then
+       allocate(opt, source=optimiser)
+    else
+       allocate(opt, source=base_optimiser_type( &
+            learning_rate=this%optimiser%learning_rate))
+    end if
+    call opt%init_gradients(num_x)
+    opt%iter = 0
+
+
+    !---------------------------------------------------------------------------
+    ! Pre-allocate flat arrays used in the optimisation loop
+    !---------------------------------------------------------------------------
+    allocate(x_flat(num_x))
+    allocate(x_grad(num_x))
+
+
+    !---------------------------------------------------------------------------
+    ! Ensure training mode is active so the full graph is built
+    !---------------------------------------------------------------------------
+    call this%set_training_mode(mode_store)
+
+
+    !---------------------------------------------------------------------------
+    ! Get root layer id
+    !---------------------------------------------------------------------------
+    root_id = this%auto_graph%vertex(this%root_vertices(1))%id
+    call this%set_batch_size(num_samples)
+
+
+    !---------------------------------------------------------------------------
+    ! Save network parameters so they can be restored afterwards
+    !---------------------------------------------------------------------------
+    allocate(saved_params(this%num_params))
+    saved_params = this%get_params()
+
+
+    !---------------------------------------------------------------------------
+    ! Optimisation loop
+    !---------------------------------------------------------------------------
+    do step = 1, steps
+
+       ! Forward pass with current x
+       call this%forward(x_opt)
+
+       ! Enable gradient tracking on the input layer output
+       if(this%use_graph_input)then
+          call this%model(root_id)%layer%output(1,1)%set_requires_grad(.true.)
+          if(use_edge_features)then
+             call this%model(root_id)%layer%output(2,1)%set_requires_grad(.true.)
+          end if
+       else
+          do i = 1, size(x_opt,1)
+             do j = 1, size(x_opt,2)
+                call this%model(root_id)%layer%output(i,j)%set_requires_grad(.true.)
+             end do
+          end do
+       end if
+
+       ! Compute loss via the network's loss function
+       call this%save_output(target)
+       loss => this%loss_eval(1, num_samples)
+
+       ! Backward pass
+       call loss%grad_reverse()
+
+       ! Extract gradient w.r.t. input
+       itmp1 = 0
+       if(associated(this%model(root_id)%layer%output(1,1)%grad))then
+          if(this%use_graph_input)then
+             num_elements = size(x_opt(1,1)%val, dim=1)
+             do i = 1, size(x_opt(1,1)%val, dim=2)
+                itmp1 = itmp1 + 1
+                x_grad(itmp1:itmp1+num_elements-1) = &
+                     this%model(root_id)%layer%output(1,1)%grad%val(:,i)
+                x_flat(itmp1:itmp1+num_elements-1) = &
+                     x_opt(1,1)%val(:,i)
+                itmp1 = itmp1 + num_elements - 1
+             end do
+             if(use_edge_features)then
+                num_elements = size(x_opt(1,1)%val, dim=1)
+                do i = 1, size(x_opt(2,1)%val, dim=2)
+                   itmp1 = itmp1 + 1
+                   x_grad(itmp1:itmp1+num_elements-1) = &
+                        this%model(root_id)%layer%output(2,1)%grad%val(:,i)
+                   x_flat(itmp1:itmp1+num_elements-1) = &
+                        x_opt(2,1)%val(:,i)
+                   itmp1 = itmp1 + num_elements - 1
+                end do
+             end if
+          else
+             do i = 1, size(x_opt,1)
+                do j = 1, size(x_opt,2)
+                   num_elements = size(x_opt(i,j)%val, dim=1)
+                   itmp1 = itmp1 + 1
+                   x_grad(itmp1:itmp1+num_elements-1) = &
+                        this%model(root_id)%layer%output(i,j)%grad%val(:,1)
+                   x_flat(itmp1:itmp1+num_elements-1) = &
+                        x_opt(i,j)%val(:,1)
+                   itmp1 = itmp1 + num_elements - 1
+                end do
+             end do
+          end if
+       else
+          x_grad = 0._real32
+       end if
+
+       ! Update x using the optimiser (not the model weights)
+       opt%iter = opt%iter + 1
+       call opt%minimise(x_flat, x_grad)
+
+       ! Convert flat x back to array form
+       itmp1 = 0
+       if(this%use_graph_input)then
+          do i = 1, size(x_opt(1,1)%val, dim=2)
+             itmp1 = itmp1 + 1
+             x_opt(1,1)%val(:,i) = x_flat(itmp1:itmp1+size(x_opt(1,1)%val, dim=1)-1)
+             itmp1 = itmp1 + size(x_opt(1,1)%val, dim=1) - 1
+          end do
+          if(use_edge_features)then
+             do i = 1, size(x_opt(2,1)%val, dim=2)
+                itmp1 = itmp1 + 1
+                x_opt(2,1)%val(:,i) = x_flat(itmp1:itmp1+size(x_opt(2,1)%val, dim=1)-1)
+                itmp1 = itmp1 + size(x_opt(2,1)%val, dim=1) - 1
+             end do
+          end if
+       else
+          do i = 1, size(x_opt,1)
+             do j = 1, size(x_opt,2)
+                itmp1 = itmp1 + 1
+                x_opt(i,j)%val(:,1) = x_flat(itmp1:itmp1+size(x_opt(i,j)%val, dim=1)-1)
+                itmp1 = itmp1 + size(x_opt(i,j)%val, dim=1) - 1
+             end do
+          end do
+       end if
+
+       ! Clean up computation graph
+       call loss%nullify_graph()
+       deallocate(loss)
+       nullify(loss)
+
+       ! Reset network parameter gradients so they remain unchanged
+       call this%reset_gradients()
+
+    end do
+
+
+    !---------------------------------------------------------------------------
+    ! Restore training/inference mode
+    !---------------------------------------------------------------------------
+    call this%restore_mode(mode_store)
+
+
+    !---------------------------------------------------------------------------
+    ! Restore network parameters to ensure model is unchanged
+    !---------------------------------------------------------------------------
+    call this%set_params(saved_params)
+
+  end function inverse_design_array_2d
 !###############################################################################
 
 end submodule athena__network_submodule

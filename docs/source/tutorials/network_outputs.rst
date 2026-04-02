@@ -10,7 +10,7 @@ Overview
 
 The athena library provides several methods for accessing network outputs depending on your use case:
 
-* ``predict()``: Inference mode without gradient computation
+* ``predict()``: Inference-oriented forward pass that switches the network to inference mode
 * ``forward_eval()``: Forward pass that returns output pointers for custom operations
 * Direct access to layer outputs -- for advanced use cases
 
@@ -26,8 +26,12 @@ This section is focused on networks with a single output layer.
 For multi-output networks, see the :ref:`Advanced Methods <advanced-patterns>` section.
 
 For basic usage of an athena neural network, the convention is to train the network using ``train()``, then make predictions using ``predict()``.
-The ``train()`` method performs a forward pass, computes the loss, and backpropagates gradients automatically for ``num_epochs`` iterations.
-The ``predict()`` method performs a forward pass and returns the output values without computing gradients.
+The ``train()`` method performs a forward pass, computes the loss, backpropagates gradients automatically for ``num_epochs`` iterations (internally sets the network to training mode and reverts to its previous state).
+The ``predict()`` method performs an inference-oriented forward pass, returns the output values (internally sets the network to inference mode and reverts to its previous state).
+
+If you are writing a custom low-level loop around ``forward()`` or
+``forward_eval()``, switch modes explicitly with
+:ref:`set_training_mode() and set_inference_mode() <network-modes>`.
 
 Inference Mode - ``predict()``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
