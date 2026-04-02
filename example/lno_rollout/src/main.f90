@@ -8,24 +8,43 @@ program lno_rollout
   use coreutils, only: real32
   implicit none
 
+  !-----------------------------------------------------------------------------
+  ! Problem and training parameters
+  !-----------------------------------------------------------------------------
   integer, parameter :: n_grid = 48
+  !! spatial points
   integer, parameter :: n_coeff_modes = 3
+  !! sine modes in IC basis
   integer, parameter :: n_samples = 24
+  !! total coefficient rows
   integer, parameter :: n_train = 16
+  !! training trajectories
   integer, parameter :: n_val = 4
+  !! validation set size
   integer, parameter :: benchmark_idx = 21
+  !! held-out case index
   integer, parameter :: rollout_train_steps = 4
+  !! train rollout horizon
   integer, parameter :: rollout_benchmark_steps = 6
+  !! benchmark horizon
   integer, parameter :: n_hidden = 32
   integer, parameter :: n_modes = 16
   integer, parameter :: num_epochs = 2000
+  !! optimisation epochs
   integer, parameter :: init_seed = 7
+  !! deterministic seed
   real(real32), parameter :: alpha = 1.0e-2_real32
+  !! thermal diffusivity
   real(real32), parameter :: dt = 8.0e-4_real32
+  !! PDE time step
   real(real32), parameter :: bc_left = -1.0_real32
+  !! left boundary
   real(real32), parameter :: bc_right = 1.0_real32
+  !! right boundary
   real(real32), parameter :: learning_rate = 1.0e-1_real32
+  !! learning rate
   real(real32), parameter :: init_scale = 5.0e-2_real32
+  !! init value scale
   character(len=*), parameter :: coeff_path = &
        'example/lno_rollout/shared/rollout_coeffs.csv'
   character(len=*), parameter :: metrics_path = &
@@ -33,20 +52,40 @@ program lno_rollout
   character(len=*), parameter :: python_final_state_path = &
        'example/lno_rollout/shared/python_final_state.csv'
 
+  !-----------------------------------------------------------------------------
+  ! Model state and data buffers
+  !-----------------------------------------------------------------------------
   type(network_type) :: network
+  !! Athena network object
   type(array_type), dimension(1,1) :: inp, tgt
+  !! Athena IO wrappers
   type(array_type), pointer :: loss
+  !! scalar loss node
   real(real32) :: coeffs(n_coeff_modes, n_samples)
+  !! IC coefficients
   real(real32), allocatable :: init_params_all(:)
+  !! flattened params
   real(real32) :: init_params_preview(6)
+  !! short init preview
   real(real32) :: x_grid(n_grid)
+  !! grid in [0,1]
   real(real32) :: trajectories(n_grid, 0:rollout_benchmark_steps, n_samples)
+  !! precomputed trajectories for all samples
   real(real32) :: pred_rollout(n_grid, 0:rollout_benchmark_steps)
+  !! buffer for rollout from trained network
   real(real32) :: pred_step(n_grid, 1)
+  !! Metrics
   real(real32) :: tr_loss, val_loss, rel_err, max_abs_err, dx, pi_value
+  !! training loss, validation loss, benchmark errors, grid spacing, pi
   real(real32) :: initial_state(n_grid)
+  !! initial state for rollout benchmark
   integer :: epoch, sample_idx, step_idx, i, unit_id
+  !! loop counters and file unit
 
+
+  !-----------------------------------------------------------------------------
+  ! Build deterministic shared dataset
+  !-----------------------------------------------------------------------------
   pi_value = acos(-1.0_real32)
   dx = 1.0_real32 / real(n_grid - 1, real32)
 
@@ -73,6 +112,10 @@ program lno_rollout
   call inp(1,1)%allocate([n_grid, 1])
   call tgt(1,1)%allocate([n_grid, 1])
 
+
+  !-----------------------------------------------------------------------------
+  ! Run configuration summary
+  !-----------------------------------------------------------------------------
   write(*,'(A)') 'lno_rollout Fortran Rollout Trainer'
   write(*,'(A)') '===================================='
   write(*,'(A,I0)') 'Grid points: ', n_grid
@@ -81,10 +124,18 @@ program lno_rollout
   write(*,'(A,I0)') 'Network parameters: ', network%get_num_params()
   write(*,'(A,6(1X,ES12.4))') 'Init params preview:', init_params_preview
 
+
+  !-----------------------------------------------------------------------------
+  ! Training loop: teacher-forced target, autoregressive state update
+  !-----------------------------------------------------------------------------
   do epoch = 1, num_epochs
      tr_loss = 0.0_real32
+
+     ! Iterate over each training trajectory.
      do sample_idx = 1, n_train
         inp(1,1)%val(:,1) = trajectories(:, 0, sample_idx)
+
+        ! Multi-step rollout unroll for one sample.
         do step_idx = 1, rollout_train_steps
            tgt(1,1)%val(:,1) = trajectories(:, step_idx, sample_idx)
            call network%forward(inp)
@@ -106,12 +157,17 @@ program lno_rollout
      end do
      tr_loss = tr_loss / real(n_train * rollout_train_steps, real32)
 
+     ! Validation uses fully autoregressive rollout.
      val_loss = evaluate_rollout(network, &
           trajectories(:, :, n_train+1:n_train+n_val))
      write(*,'(A,I0,A,ES12.4,A,ES12.4)') &
           'Epoch ', epoch, ' | train=', tr_loss, ' | val=', val_loss
   end do
 
+
+  !-----------------------------------------------------------------------------
+  ! Benchmark rollout and error reporting
+  !-----------------------------------------------------------------------------
   initial_state = trajectories(:, 0, benchmark_idx)
   call run_neural_rollout(network, initial_state, pred_rollout)
   call maybe_override_final_state_from_python(python_final_state_path, &
@@ -128,6 +184,10 @@ program lno_rollout
        trajectories(1, rollout_benchmark_steps, benchmark_idx), &
        trajectories(n_grid, rollout_benchmark_steps, benchmark_idx)
 
+
+  !-----------------------------------------------------------------------------
+  ! Persist benchmark summary for cross-language comparison
+  !-----------------------------------------------------------------------------
   open(newunit=unit_id, file=metrics_path, status='replace', action='write')
   write(unit_id,'(A,F0.6)') 'fortran_rel_error_pct=', rel_err
   write(unit_id,'(A,ES0.6)') 'fortran_max_abs_error=', max_abs_err
@@ -143,18 +203,23 @@ program lno_rollout
 
 contains
 
+!###############################################################################
   subroutine build_grid(grid, spacing)
+    !! Build a fixed grid in [0,1] with specified spacing.
+    implicit none
     real(real32), intent(out) :: grid(:)
     real(real32), intent(in) :: spacing
     integer :: idx
 
+    ! Fill coordinates using fixed spacing.
     do idx = 1, size(grid)
        grid(idx) = real(idx - 1, real32) * spacing
     end do
   end subroutine build_grid
-
-
+!-------------------------------------------------------------------------------
   subroutine read_coefficients(path, coeff_table)
+    !! Read coefficient table from a CSV file, ignoring empty lines and comments.
+    implicit none
     character(len=*), intent(in) :: path
     real(real32), intent(out) :: coeff_table(:, :)
     character(len=256) :: line
@@ -168,6 +233,7 @@ contains
        stop 1
     end if
 
+    ! Read all non-empty, non-comment rows as (sample_id, c1, c2, c3).
     row_idx = 0
     do
        read(unit_local, '(A)', iostat=ios) line
@@ -190,32 +256,44 @@ contains
        stop 1
     end if
   end subroutine read_coefficients
-
-
+!-------------------------------------------------------------------------------
   subroutine build_trajectories(coeff_table, grid, traj)
+    !! Build full trajectories for each coefficient row with the same PDE solver
+    !! and initial condition construction as the Python implementation for exact
+    !! parity.
+    implicit none
     real(real32), intent(in) :: coeff_table(:, :), grid(:)
     real(real32), intent(out) :: traj(:, 0:, :)
     real(real32) :: state(n_grid)
     integer :: sample_local, step_local
 
+    ! Build one full trajectory per coefficient row.
     do sample_local = 1, size(coeff_table, 2)
        call initial_profile(coeff_table(:, sample_local), grid, state)
        state(1) = bc_left
        state(n_grid) = bc_right
        traj(:, 0, sample_local) = state
+
+       ! Advance with implicit finite-difference steps.
        do step_local = 1, ubound(traj, 2)
           call implicit_heat_step(state)
           traj(:, step_local, sample_local) = state
        end do
     end do
   end subroutine build_trajectories
+!###############################################################################
 
 
+!###############################################################################
   subroutine initial_profile(sample_coeffs, grid, state)
+    !! Construct the initial profile for one trajectory from the coefficient table
+    !! with the same functional form as the Python implementation for exact parity.
+    implicit none
     real(real32), intent(in) :: sample_coeffs(:), grid(:)
     real(real32), intent(out) :: state(:)
     integer :: idx
 
+    ! Shared synthetic IC used in both language implementations.
     do idx = 1, size(grid)
        state(idx) = bc_left + (bc_right - bc_left) * grid(idx) + &
             sample_coeffs(1) * sin(1.0_real32 * pi_value * grid(idx)) + &
@@ -223,9 +301,15 @@ contains
             sample_coeffs(3) * sin(3.0_real32 * pi_value * grid(idx))
     end do
   end subroutine initial_profile
+!###############################################################################
 
 
+!###############################################################################
   subroutine implicit_heat_step(state)
+    !! Advance the state one step forward in time with an implicit finite-difference
+    !! scheme for the 1D heat equation. Solves a tridiagonal system with the
+    !! Thomas algorithm.
+    implicit none
     real(real32), intent(inout) :: state(:)
     real(real32) :: rhs(n_grid), lower(n_grid), diag(n_grid), upper(n_grid)
     real(real32) :: cprime(n_grid), dprime(n_grid)
@@ -241,12 +325,14 @@ contains
     diag = 1.0_real32
     upper = 0.0_real32
 
+    ! Assemble interior tridiagonal stencil.
     do idx = 2, n_grid - 1
        lower(idx) = -ratio
        diag(idx) = 1.0_real32 + 2.0_real32 * ratio
        upper(idx) = -ratio
     end do
 
+    ! Forward sweep.
     cprime(1) = upper(1) / diag(1)
     dprime(1) = rhs(1) / diag(1)
     do idx = 2, n_grid
@@ -255,6 +341,7 @@ contains
             (diag(idx) - lower(idx) * cprime(idx - 1))
     end do
 
+    ! Back substitution and boundary re-application.
     state(n_grid) = dprime(n_grid)
     do idx = n_grid - 1, 1, -1
        state(idx) = dprime(idx) - cprime(idx) * state(idx + 1)
@@ -262,9 +349,14 @@ contains
     state(1) = bc_left
     state(n_grid) = bc_right
   end subroutine implicit_heat_step
+!###############################################################################
 
 
+!###############################################################################
   function evaluate_rollout(net, val_traj) result(mean_loss)
+    !! Evaluate mean squared error of a fully autoregressive rollout over the
+    !! validation set.
+    implicit none
     type(network_type), intent(inout) :: net
     real(real32), intent(in) :: val_traj(:, 0:, :)
     real(real32) :: mean_loss
@@ -272,6 +364,8 @@ contains
     integer :: sample_local, step_local
 
     mean_loss = 0.0_real32
+
+    ! Roll forward each validation sample without teacher forcing.
     do sample_local = 1, size(val_traj, 3)
        current_state(:,1) = val_traj(:, 0, sample_local)
        do step_local = 1, rollout_train_steps
@@ -281,16 +375,25 @@ contains
           current_state(1,1) = bc_left
           current_state(n_grid,1) = bc_right
           mean_loss = mean_loss + &
-               sum((current_state(:,1) - val_traj(:, step_local, sample_local))**2) / &
+               sum((current_state(:,1) - &
+                    val_traj(:, step_local, sample_local))**2) / &
                real(n_grid, real32)
        end do
     end do
     mean_loss = mean_loss / &
          real(size(val_traj, 3) * rollout_train_steps, real32)
   end function evaluate_rollout
+!###############################################################################
 
 
+!###############################################################################
   subroutine run_neural_rollout(net, start_state, rollout)
+    !! Autoregressive rollout of the trained network from a given start state
+    !! for a fixed number of steps.
+    !!
+    !! The rollout is clipped to a reasonable
+    !! range to prevent numerical instability from compounding over many steps.
+    implicit none
     type(network_type), intent(inout) :: net
     real(real32), intent(in) :: start_state(:)
     real(real32), intent(out) :: rollout(:, 0:)
@@ -299,6 +402,8 @@ contains
 
     current_state(:,1) = start_state
     rollout(:, 0) = current_state(:,1)
+
+    ! Repeatedly predict next state and feed it back as input.
     do step_local = 1, ubound(rollout, 2)
        predicted = net%predict(input=current_state)
        current_state = predicted
@@ -308,16 +413,27 @@ contains
        rollout(:, step_local) = current_state(:,1)
     end do
   end subroutine run_neural_rollout
+!###############################################################################
 
 
+!###############################################################################
   subroutine clip_state(state, lower, upper)
+    !! Clip the state vector in-place to a specified range to prevent
+    !! numerical instability during rollout.
+    implicit none
     real(real32), intent(inout) :: state(:)
     real(real32), intent(in) :: lower, upper
     state = min(max(state, lower), upper)
   end subroutine clip_state
+!###############################################################################
 
 
+!###############################################################################
   subroutine apply_shared_initialisation(net, seed_in, scale_in)
+    !! Apply a shared initialisation scheme to all layers for exact cross-language
+    !! parity. Uses a simple LCG-based generator to fill parameter tensors in a
+    !! consistent order expected by Athena.
+    implicit none
     type(network_type), intent(inout) :: net
     integer, intent(in) :: seed_in
     real(real32), intent(in) :: scale_in
@@ -325,6 +441,8 @@ contains
     integer :: layer_idx
 
     state = int(seed_in, kind=8)
+
+    ! Only full layers are present in this example.
     do layer_idx = 1, net%num_layers
        select type(layer => net%model(layer_idx)%layer)
        type is (full_layer_type)
@@ -336,14 +454,17 @@ contains
        end select
     end do
   end subroutine apply_shared_initialisation
-
-
+!-------------------------------------------------------------------------------
   subroutine fill_full_layer_params(layer, state, scale_in)
+    !! Fill the weight and bias tensors of one full layer with values from a
+    !! shared LCG-based generator for exact cross-language parity.
+    implicit none
     type(full_layer_type), intent(inout) :: layer
     integer(8), intent(inout) :: state
     real(real32), intent(in) :: scale_in
     integer :: out_idx, in_idx, idx
 
+    ! Fill weights in the same flattening order expected by Athena.
     do in_idx = 1, layer%num_inputs
        do out_idx = 1, layer%num_outputs
           idx = (out_idx - 1) * layer%num_inputs + in_idx
@@ -352,6 +473,7 @@ contains
        end do
     end do
 
+    ! Fill bias terms if enabled.
     if (layer%use_bias) then
        do out_idx = 1, layer%num_outputs
           layer%params(2)%val(out_idx, 1) = next_init_value(state, scale_in)
@@ -403,6 +525,9 @@ contains
 
 
   function next_init_value(state, scale_in) result(val)
+    !! Simple LCG-based generator for shared initialisation.
+    !! Not statistically good, but sufficient for exact cross-language parity.
+    implicit none
     integer(8), intent(inout) :: state
     real(real32), intent(in) :: scale_in
     real(real32) :: val
@@ -411,9 +536,14 @@ contains
     val = scale_in * (2.0_real32 * &
          (real(state, real32) / 2147483647.0_real32) - 1.0_real32)
   end function next_init_value
+!###############################################################################
 
 
+!###############################################################################
   subroutine rollout_errors(predicted, reference, rel_error_pct, max_abs)
+    !! Relative L2 error and max absolute error between predicted and reference
+    !! final states.
+    implicit none
     real(real32), intent(in) :: predicted(:, 0:), reference(:, 0:)
     real(real32), intent(out) :: rel_error_pct, max_abs
     real(real32) :: numer, denom
@@ -425,9 +555,14 @@ contains
     max_abs = maxval(abs(predicted(:, ubound(predicted, 2)) - &
          reference(:, ubound(reference, 2))))
   end subroutine rollout_errors
+!###############################################################################
 
 
+!###############################################################################
   subroutine maybe_override_final_state_from_python(path, final_state)
+    !! If the Python rollout produces a final state, override the in-memory
+    !! Fortran final state with the Python values for exact parity comparison.
+    implicit none
     character(len=*), intent(in) :: path
     real(real32), intent(inout) :: final_state(:)
     logical :: file_exists
@@ -439,6 +574,7 @@ contains
     open(newunit=unit_local, file=path, status='old', action='read', iostat=ios)
     if (ios .ne. 0) return
 
+    ! Replace in-memory final state only when a full vector is readable.
     do idx = 1, size(final_state)
        read(unit_local, *, iostat=ios) final_state(idx)
        if (ios .ne. 0) then
@@ -449,5 +585,6 @@ contains
 
     close(unit_local)
   end subroutine maybe_override_final_state_from_python
+!###############################################################################
 
 end program lno_rollout
