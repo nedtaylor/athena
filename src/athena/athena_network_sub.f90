@@ -3719,9 +3719,7 @@ contains
 
           ! Set batch size to 1 and enable inference mode
           call this%set_batch_size(1)
-          do l = 1, this%num_layers
-             this%model(l)%layer%inference = .true.
-          end do
+          call this%set_inference_mode()
 
           ! Evaluate validation loss and accuracy
           val_loss_sum = 0._real32
@@ -3783,9 +3781,7 @@ contains
 
           ! Restore training batch size and inference mode
           call this%set_batch_size(target_batch_size)
-          do l = 1, this%num_layers
-             this%model(l)%layer%inference = .false.
-          end do
+          call this%set_training_mode()
 
        end if
 
