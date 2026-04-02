@@ -520,8 +520,6 @@ contains
        end do
     end if
 
-    ! Rebuild bases from the (unchanged) pole values
-    call layer%rebuild_bases()
   end subroutine fill_dynamic_lno_layer_params
 !-------------------------------------------------------------------------------
   function next_init_value(state, scale_in) result(val)

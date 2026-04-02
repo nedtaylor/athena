@@ -385,7 +385,7 @@ contains
     !!   D(mu)[i,n] = exp(-mu_n * tau_i), tau_i = (i-1)/(n_out-1)
     implicit none
 
-    class(dynamic_lno_layer_type), intent(inout) :: this
+    class(dynamic_lno_layer_type), intent(in) :: this
     type(array_type), dimension(2) :: bases
 
     integer :: j, k, i, idx

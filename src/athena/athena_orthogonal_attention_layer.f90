@@ -417,7 +417,7 @@ contains
   function get_bases_ono_attn(this) result(phi)
     !! Orthogonalise the basis matrix B using modified Gram-Schmidt
     implicit none
-    class(orthogonal_attention_layer_type), intent(inout) :: this
+    class(orthogonal_attention_layer_type), intent(in) :: this
     type(array_type) :: phi
 
     integer :: n, k, i, j

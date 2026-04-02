@@ -363,7 +363,7 @@ contains
   function get_bases_ono(this) result(phi)
     !! Orthogonalise the basis matrix B using modified Gram-Schmidt
     implicit none
-    class(orthogonal_nop_block_type), intent(inout) :: this
+    class(orthogonal_nop_block_type), intent(in) :: this
     type(array_type) :: phi
 
     integer :: n, k, i, j
@@ -417,12 +417,14 @@ contains
     integer :: n, k, i, j, idx_ij
     real(real32), allocatable :: Q(:,:), QtQ(:,:)
     real(real32) :: val
+    type(array_type) :: phi
 
     n = this%num_inputs
     k = this%num_basis
 
     allocate(Q(n, k), QtQ(k, k))
-    Q = reshape(this%phi%val(:,1), [n, k])
+    phi = this%get_bases()
+    Q = reshape(phi%val(:,1), [n, k])
 
     ! Compute Q^T @ Q
     QtQ = matmul(transpose(Q), Q)
