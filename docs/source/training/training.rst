@@ -11,6 +11,7 @@ All components are configured through the optimiser.
    :caption: Training Components
 
    train_subroutine
+   network_modes
    gradient_clipping
    lr_decay
    regularisation
