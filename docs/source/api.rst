@@ -53,6 +53,8 @@ The following are some of the key derived types and their main methods documente
 
   * ``add()``: Method to add layers to the network
   * ``compile()``: Method to compile the network for training
+  * ``set_training_mode()``: Method to switch training-sensitive layers to training mode
+  * ``set_inference_mode()``: Method to switch training-sensitive layers to inference mode
   * ``train()``: Method to train the network
   * ``test()``: Method to evaluate the network on test data
   * ``predict()``: Method to make predictions with the network

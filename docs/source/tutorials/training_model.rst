@@ -109,6 +109,11 @@ The ``train()`` function handles the training loop internally.
 
 The above is the high-level training interface.
 
+Internally, ``train()`` switches the network to training mode (and internally resets the mode at the end of the call). For low-level
+manual loops that use ``forward()`` directly, call
+``set_training_mode()`` yourself when you need training-time behaviour from
+layers such as dropout or batch normalisation.
+
 For more custom training logic, a low-level training loop can be implemented manually.
 This will take the form:
 
@@ -170,6 +175,10 @@ Predictions can be made using the ``predict()`` function.
    ! Get predictions for test data
    predictions = net%predict(test_data)
 
+The ``predict()`` method switches the network to inference mode (and internally resets the mode at the end of the call). If you later
+return to a custom training loop based on ``forward()``, call
+``set_training_mode()`` before continuing.
+
 This can take in ``real``, ``array_type``, or ``graph_type`` input data.
 Unless you are using advanced network architectures (such as multi-input networks or graph neural networks), the input data will either be a ``real`` array of rank 1-5, or a scalar ``array_type`` array.
 The graph input will typically be of rank 1, representing a list of graphs.
@@ -207,7 +216,8 @@ The loss value after a training or testing run can be accessed via the ``loss_va
 
 For detailed ``train()`` argument documentation, including ``print_precision``,
 ``scientific_print``, and when ``train_acc`` is printed, see
-:ref:`train() Subroutine <train-subroutine>`.
+:ref:`train() Subroutine <train-subroutine>` and
+:ref:`Network Modes <network-modes>`.
 
 Complete Training Example
 --------------------------

@@ -6,6 +6,10 @@ train() Subroutine
 The high-level ``train()`` method runs minibatch training for a compiled
 ``network_type``.
 
+Before the training loop starts, ``train()`` calls
+``set_training_mode()`` so layers such as dropout and batch normalisation use
+their training-time behaviour.
+
 Signature
 ---------
 
@@ -85,3 +89,8 @@ Without accuracy (loss-only logging):
    call network%train( &
         input=train_x, output=train_y, num_epochs=100, &
         verbose=0, print_precision=4)
+
+See Also
+--------
+
+* :ref:`Network Modes <network-modes>`

@@ -1856,6 +1856,81 @@ contains
 
 
 !###############################################################################
+  module subroutine set_training_mode(this, mode_store)
+    !! Put the network in training mode.
+    implicit none
+
+    ! Arguments
+    class(network_type), intent(inout) :: this
+    !! Instance of network
+    logical, dimension(:), allocatable, intent(out), optional :: mode_store
+    !! Optional array to store the training mode of each layer
+
+    ! Local variables
+    integer :: l
+    !! Loop index
+
+    if(.not.allocated(this%model)) return
+    if(present(mode_store)) allocate(mode_store(this%num_layers))
+    do l = 1, this%num_layers
+       if(present(mode_store)) mode_store(l) = this%model(l)%layer%inference
+       this%model(l)%layer%inference = .false.
+    end do
+
+  end subroutine set_training_mode
+!-------------------------------------------------------------------------------
+  module subroutine set_inference_mode(this)
+    !! Put the network in inference mode.
+    implicit none
+
+    ! Arguments
+    class(network_type), intent(inout) :: this
+    !! Instance of network
+    logical, dimension(:), allocatable, intent(out), optional :: mode_store
+    !! Optional array to store the training mode of each layer
+
+    ! Local variables
+    integer :: l
+    !! Loop index
+
+    if(.not.allocated(this%model)) return
+    if(present(mode_store)) allocate(mode_store(this%num_layers))
+    do l = 1, this%num_layers
+       if(present(mode_store)) mode_store(l) = this%model(l)%layer%inference
+       this%model(l)%layer%inference = .true.
+    end do
+
+  end subroutine set_inference_mode
+!-------------------------------------------------------------------------------
+  module subroutine restore_mode(this, mode_store)
+    !! Restore the training/inference mode of each layer from a stored array.
+    implicit none
+
+    ! Arguments
+    class(network_type), intent(inout) :: this
+    !! Instance of network
+    logical, dimension(:), intent(in) :: mode_store
+    !! Array storing the mode of each layer
+    !! .true. = inference, .false. = training
+
+    ! Local variables
+    integer :: l
+    !! Loop index
+
+    if(.not.allocated(this%model)) return
+    if(size(mode_store) .ne. this%num_layers) then
+       call stop_program("mode_store size does not match number of layers")
+       return
+    end if
+    do l = 1, this%num_layers
+       this%model(l)%layer%inference = mode_store(l)
+    end do
+
+  end subroutine restore_mode
+!###############################################################################
+
+
+!###############################################################################
   module function layer_from_id(this, id) result(layer)
     !! Get layer from its ID
     implicit none
@@ -3363,6 +3438,8 @@ contains
 
     integer :: i, j, s
     !! Loop index
+    logical, allocatable :: mode_store(:)
+    !! Storage for inference mode booleans
 
     class(*), allocatable :: data_poly(:,:)
     type(array_type), pointer :: loss => null()
@@ -3450,11 +3527,9 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Turn off inference booleans
+    ! Enable training mode
     !---------------------------------------------------------------------------
-    do l = 1, this%num_layers
-       this%model(l)%layer%inference = .false.
-    end do
+    call this%set_training_mode(mode_store)
 
 
     epoch_loop: do epoch = 1, num_epochs
@@ -3623,6 +3698,12 @@ contains
     end if
     this%loss_val     = this%metrics(1)%val
 
+
+    !---------------------------------------------------------------------------
+    ! Restore training/inference mode
+    !---------------------------------------------------------------------------
+    call this%restore_mode(mode_store)
+
   end subroutine train
 !###############################################################################
 
@@ -3695,6 +3776,8 @@ contains
     !! Polymorphic data array
     type(array_type), pointer :: loss => null()
     !! Loss
+    logical, allocatable :: mode_store(:)
+    !! Storage for inference mode booleans
 
 
     !---------------------------------------------------------------------------
@@ -3724,11 +3807,9 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Turn on inference booleans
+    ! Enable inference mode
     !---------------------------------------------------------------------------
-    do l = 1, this%num_layers
-       this%model(l)%layer%inference = .true.
-    end do
+    call this%set_inference_mode(mode_store)
 
 
     !---------------------------------------------------------------------------
@@ -3778,6 +3859,12 @@ contains
     end if
     this%loss_val     = this%metrics(1)%val / real(num_samples, real32)
 
+
+    !---------------------------------------------------------------------------
+    ! Restore training/inference mode
+    !---------------------------------------------------------------------------
+    call this%restore_mode(mode_store)
+
   end subroutine test
 !###############################################################################
 
@@ -3798,12 +3885,12 @@ contains
     !! Verbosity level
 
     ! Local variables
-    integer :: l
-    !! Loop index
     real(real32), dimension(:,:), allocatable :: output
     !! Output
     integer :: verbose_, batch_size
     !! Verbosity level
+    logical, allocatable :: mode_store(:)
+    !! Storage for inference mode booleans
 
 
     !---------------------------------------------------------------------------
@@ -3838,11 +3925,9 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Turn on inference booleans
+    ! Enable inference mode
     !---------------------------------------------------------------------------
-    do l = 1, this%num_layers
-       this%model(l)%layer%inference = .true.
-    end do
+    call this%set_inference_mode(mode_store)
 
 
     !---------------------------------------------------------------------------
@@ -3851,6 +3936,12 @@ contains
     call this%forward(get_sample(input, 1, batch_size, batch_size))
 
     output = this%model(this%leaf_vertices(1))%layer%output(1,1)%val
+
+
+    !---------------------------------------------------------------------------
+    ! Restore training/inference mode
+    !---------------------------------------------------------------------------
+    call this%restore_mode(mode_store)
 
   end function predict_real
 !###############################################################################
@@ -3876,6 +3967,8 @@ contains
     !! Output graph
     integer :: verbose_ = 0, batch_size
     !! Verbosity level
+    logical, allocatable :: mode_store(:)
+    !! Storage for inference mode booleans
 
 
     !---------------------------------------------------------------------------
@@ -3891,11 +3984,9 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Turn on inference booleans
+    ! Enable inference mode
     !---------------------------------------------------------------------------
-    do l = 1, this%num_layers
-       this%model(l)%layer%inference = .true.
-    end do
+    call this%set_inference_mode(mode_store)
 
 
     !---------------------------------------------------------------------------
@@ -3926,6 +4017,12 @@ contains
        end do
     end do
 
+
+    !---------------------------------------------------------------------------
+    ! Restore training/inference mode
+    !---------------------------------------------------------------------------
+    call this%restore_mode(mode_store)
+
   end function predict_graph1d
 !-------------------------------------------------------------------------------
   module function predict_graph2d( this, input, verbose ) result(output)
@@ -3948,6 +4045,8 @@ contains
     !! Output graph
     integer :: verbose_ = 0, batch_size
     !! Verbosity level
+    logical, allocatable :: mode_store(:)
+    !! Storage for inference mode booleans
 
 
     !---------------------------------------------------------------------------
@@ -3963,11 +4062,9 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Turn on inference booleans
+    ! Enable inference mode
     !---------------------------------------------------------------------------
-    do l = 1, this%num_layers
-       this%model(l)%layer%inference = .true.
-    end do
+    call this%set_inference_mode(mode_store)
 
 
     !---------------------------------------------------------------------------
@@ -3998,6 +4095,12 @@ contains
        end do
     end do
 
+
+    !---------------------------------------------------------------------------
+    ! Restore training/inference mode
+    !---------------------------------------------------------------------------
+    call this%restore_mode(mode_store)
+
   end function predict_graph2d
 !###############################################################################
 
@@ -4022,13 +4125,14 @@ contains
     !! Predicted output
 
     ! Local variables
-    integer :: l, s, i
+    integer :: s, i
     !! Loop index
     integer :: num_samples
     !! Number of samples
     integer :: verbose_
     !! Verbosity level
-    logical, dimension(:), allocatable :: inference_store
+    logical, allocatable :: mode_store(:)
+    !! Storage for inference mode booleans
 
 
     !---------------------------------------------------------------------------
@@ -4053,13 +4157,9 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Turn on inference booleans
+    ! Enable inference mode
     !---------------------------------------------------------------------------
-    allocate(inference_store(this%num_layers))
-    do l = 1, this%num_layers
-       inference_store(l) = this%model(l)%layer%inference
-       this%model(l)%layer%inference = .true.
-    end do
+    call this%set_inference_mode(mode_store)
 
     !---------------------------------------------------------------------------
     ! Forward pass
@@ -4085,12 +4185,11 @@ contains
        end do
     end do
 
+
     !---------------------------------------------------------------------------
-    ! Reset inference booleans
+    ! Restore training/inference mode
     !---------------------------------------------------------------------------
-    do l = 1, this%num_layers
-       this%model(l)%layer%inference = inference_store(l)
-    end do
+    call this%restore_mode(mode_store)
 
   end function predict_array_from_real
 !###############################################################################
@@ -4122,8 +4221,8 @@ contains
     !! Verbosity level
     integer, dimension(2) :: output_shape
     !! Output shape
-    logical, dimension(:), allocatable :: inference_store
-    !! Inference store
+    logical, allocatable :: mode_store(:)
+    !! Storage for inference mode booleans
 
 
     !---------------------------------------------------------------------------
@@ -4144,13 +4243,9 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Turn on inference booleans
+    ! Enable inference mode
     !---------------------------------------------------------------------------
-    allocate(inference_store(this%num_layers))
-    do l = 1, this%num_layers
-       inference_store(l) = this%model(l)%layer%inference
-       this%model(l)%layer%inference = .true.
-    end do
+    call this%set_inference_mode(mode_store)
 
     !---------------------------------------------------------------------------
     ! Forward pass
@@ -4179,12 +4274,11 @@ contains
        end do
     end do
 
+
     !---------------------------------------------------------------------------
-    ! Reset inference booleans
+    ! Restore training/inference mode
     !---------------------------------------------------------------------------
-    do l = 1, this%num_layers
-       this%model(l)%layer%inference = inference_store(l)
-    end do
+    call this%restore_mode(mode_store)
 
   end function predict_array
 !###############################################################################
@@ -4220,6 +4314,8 @@ contains
     !! Output as graph boolean
     integer, dimension(2) :: output_shape
     !! Output shape
+    logical, allocatable :: mode_store(:)
+    !! Storage for inference mode booleans
 
 
     !---------------------------------------------------------------------------
@@ -4250,11 +4346,9 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Turn on inference booleans
+    ! Enable inference mode
     !---------------------------------------------------------------------------
-    do l = 1, this%num_layers
-       this%model(l)%layer%inference = .true.
-    end do
+    call this%set_inference_mode(mode_store)
 
     !---------------------------------------------------------------------------
     ! Forward pass
@@ -4322,6 +4416,12 @@ contains
           end do
        end select
     end if
+
+
+    !---------------------------------------------------------------------------
+    ! Restore training/inference mode
+    !---------------------------------------------------------------------------
+    call this%restore_mode(mode_store)
 
   end function predict_generic
 !###############################################################################
@@ -4529,7 +4629,7 @@ contains
     !! Optimised input
 
     ! Local variables
-    integer :: step, l, i, j, itmp1, root_id, num_x, num_samples, num_elements
+    integer :: step, i, j, itmp1, root_id, num_x, num_samples, num_elements
     !! Loop index, root layer id, number of input elements
     logical :: use_edge_features
     !! Whether edge features are used in the input
@@ -4539,8 +4639,8 @@ contains
     !! Local optimiser instance
     real(real32), allocatable :: x_flat(:), x_grad(:)
     !! Flat input vector and gradient
-    logical, allocatable :: inference_store(:)
-    !! Store of inference flags
+    logical, allocatable :: mode_store(:)
+    !! Storage for inference mode booleans
     real(real32), allocatable :: saved_params(:)
     !! Saved network parameters
 
@@ -4603,20 +4703,17 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Ensure inference mode is off so the full graph is built
+    ! Ensure training mode is active so the full graph is built
     !---------------------------------------------------------------------------
-    allocate(inference_store(this%num_layers))
-    do l = 1, this%num_layers
-       inference_store(l) = this%model(l)%layer%inference
-       this%model(l)%layer%inference = .false.
-    end do
+    call this%set_training_mode(mode_state)
+
 
     !---------------------------------------------------------------------------
     ! Get root layer id
     !---------------------------------------------------------------------------
     root_id = this%auto_graph%vertex(this%root_vertices(1))%id
-
     call this%set_batch_size(num_samples)
+
 
     !---------------------------------------------------------------------------
     ! Save network parameters so they can be restored afterwards
@@ -4736,11 +4833,10 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Restore inference flags
+    ! Restore training/inference mode
     !---------------------------------------------------------------------------
-    do l = 1, this%num_layers
-       this%model(l)%layer%inference = inference_store(l)
-    end do
+    call this%restore_mode(mode_state)
+
 
     !---------------------------------------------------------------------------
     ! Restore network parameters to ensure model is unchanged

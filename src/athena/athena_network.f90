@@ -124,6 +124,12 @@ module athena__network
      !! Set network accuracy method
      procedure, pass(this) :: reset_state
      !! Reset hidden state of recurrent layers
+     procedure, pass(this) :: set_training_mode
+     !! Set training mode for layers with training/inference-specific behaviour
+     procedure, pass(this) :: set_inference_mode
+     !! Set inference mode for layers with training/inference-specific behaviour
+     procedure, pass(this), private :: restore_mode
+     !! Reset the training/inference mode of layers to the values stored in mode_store.
 
      procedure, pass(this) :: save_input => save_input_to_network
      !! Convert and save polymorphic input to array or graph
@@ -392,6 +398,33 @@ module athena__network
        class(network_type), intent(inout) :: this
        !! Instance of the network
      end subroutine reset_state
+
+     module subroutine set_training_mode(this, mode_store)
+       !! Put the network in training mode.
+       !! Layers such as dropout and batch normalisation use their training
+       !! behaviour after this call.
+       class(network_type), intent(inout) :: this
+       !! Instance of the network
+       logical, dimension(:), allocatable, intent(out), optional :: mode_store
+     end subroutine set_training_mode
+
+     module subroutine set_inference_mode(this, mode_store)
+       !! Put the network in inference mode.
+       !! Layers such as dropout and batch normalisation use their inference
+       !! behaviour after this call.
+       class(network_type), intent(inout) :: this
+       !! Instance of the network
+       logical, dimension(:), allocatable, intent(out), optional :: mode_store
+     end subroutine set_inference_mode
+
+     module subroutine restore_mode(this, mode_store)
+       !! Restore the training/inference mode of layers to the values stored in
+       !! mode_store. This is used after temporarily switching
+       !! modes for prediction or evaluation on a training batch.
+       class(network_type), intent(inout) :: this
+       !! Instance of the network
+       logical, dimension(:), intent(in) :: mode_store
+     end subroutine restore_mode
 
      !! Interface for saving input to network
      module function save_input_to_network( this, input ) result(num_samples)
