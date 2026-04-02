@@ -17,6 +17,7 @@ program lno_rollout
   integer, parameter :: rollout_train_steps = 4
   integer, parameter :: rollout_benchmark_steps = 6
   integer, parameter :: n_hidden = 32
+  integer, parameter :: n_modes = 16
   integer, parameter :: num_epochs = 2000
   integer, parameter :: init_seed = 7
   real(real32), parameter :: alpha = 1.0e-2_real32
@@ -53,9 +54,11 @@ program lno_rollout
   call read_coefficients(coeff_path, coeffs)
   call build_trajectories(coeffs, x_grid, trajectories)
 
-  call network%add(full_layer_type( &
-       num_inputs=n_grid, num_outputs=n_hidden, activation='relu'))
-  call network%add(full_layer_type(num_outputs=n_grid, activation='none'))
+  call network%add(dynamic_lno_layer_type( &
+       num_inputs=n_grid, num_outputs=n_hidden, num_modes=n_modes, &
+       activation='relu'))
+  call network%add(dynamic_lno_layer_type( &
+       num_outputs=n_grid, num_modes=n_modes, activation='none'))
   call network%compile( &
        optimiser=sgd_optimiser_type( &
             learning_rate=learning_rate, momentum=0.0_real32, &
@@ -326,6 +329,8 @@ contains
        select type(layer => net%model(layer_idx)%layer)
        type is (full_layer_type)
           call fill_full_layer_params(layer, state, scale_in)
+       type is (dynamic_lno_layer_type)
+          call fill_dynamic_lno_layer_params(layer, state, scale_in)
        class default
           cycle
        end select
@@ -353,6 +358,48 @@ contains
        end do
     end if
   end subroutine fill_full_layer_params
+
+
+  subroutine fill_dynamic_lno_layer_params(layer, state, scale_in)
+    !! Shared initialisation for dynamic_lno_layer_type.
+    !! Matches the Python _apply_shared_init_lno:
+    !!   mu[k] = k * pi       (poles, NOT from LCG)
+    !!   beta[k] from LCG     (residues)  -> params(2)
+    !!   W from LCG           (bypass)    -> params(3)
+    !!   b from LCG           (bias)      -> params(4)
+    type(dynamic_lno_layer_type), intent(inout) :: layer
+    integer(8), intent(inout) :: state
+    real(real32), intent(in) :: scale_in
+    integer :: k, out_idx, in_idx, idx
+
+    ! mu: poles = k * pi (already set by layer init, but reset for consistency)
+    do k = 1, layer%num_modes
+       layer%params(1)%val(k, 1) = real(k, real32) * acos(-1.0_real32)
+    end do
+
+    ! beta: residues from LCG
+    do k = 1, layer%num_modes
+       layer%params(2)%val(k, 1) = next_init_value(state, scale_in)
+    end do
+
+    ! W: bypass weights from LCG (column-major: in_idx then out_idx)
+    do in_idx = 1, layer%num_inputs
+       do out_idx = 1, layer%num_outputs
+          idx = (out_idx - 1) * layer%num_inputs + in_idx
+          layer%params(3)%val(idx, 1) = next_init_value(state, scale_in)
+       end do
+    end do
+
+    ! b: bias from LCG
+    if (layer%use_bias) then
+       do out_idx = 1, layer%num_outputs
+          layer%params(4)%val(out_idx, 1) = next_init_value(state, scale_in)
+       end do
+    end if
+
+    ! Rebuild bases from the (unchanged) pole values
+    call layer%rebuild_bases()
+  end subroutine fill_dynamic_lno_layer_params
 
 
   function next_init_value(state, scale_in) result(val)

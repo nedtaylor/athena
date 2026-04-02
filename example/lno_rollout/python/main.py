@@ -114,11 +114,90 @@ class RolloutMLP(nn.Module):
         return self.net(x)
 
 
+class DynamicLNOLayer(nn.Module):
+    """Dynamic Laplace Neural Operator layer matching athena dynamic_lno_layer_type.
+
+    Forward:  v = sigma( D(mu) @ diag(beta) @ E(mu) @ u  +  W @ u  +  b )
+
+    where:
+      E[k,j] = exp(-mu_k * t_j),   t_j = (j-1)/(n_in-1)
+      D[i,k] = exp(-mu_k * tau_i),  tau_i = (i-1)/(n_out-1)
+      mu:   learnable poles        [num_modes]
+      beta: learnable residues     [num_modes]
+      W:    local bypass weights   [num_outputs, num_inputs]
+      b:    bias                   [num_outputs]
+    """
+    def __init__(self, num_inputs: int, num_outputs: int, num_modes: int,
+                 activation: str = 'none') -> None:
+        super().__init__()
+        self.num_inputs = num_inputs
+        self.num_outputs = num_outputs
+        self.num_modes = num_modes
+
+        # Learnable poles — initialised to k*pi (matching Fortran)
+        self.mu = nn.Parameter(torch.tensor(
+            [float(k) * np.pi for k in range(1, num_modes + 1)],
+            dtype=torch.float32))
+        # Learnable residues
+        self.beta = nn.Parameter(torch.zeros(num_modes, dtype=torch.float32))
+        # Local bypass weights
+        self.W = nn.Parameter(torch.zeros(num_outputs, num_inputs, dtype=torch.float32))
+        # Bias
+        self.b = nn.Parameter(torch.zeros(num_outputs, dtype=torch.float32))
+
+        # Activation
+        if activation == 'relu':
+            self.activation = torch.relu
+        elif activation == 'none':
+            self.activation = None
+        else:
+            self.activation = None
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # x: [batch, num_inputs]
+        # Build encoder E [num_modes, num_inputs]
+        t = torch.linspace(0.0, 1.0, self.num_inputs, device=x.device, dtype=x.dtype)
+        E = torch.exp(-self.mu.unsqueeze(1) * t.unsqueeze(0))  # [M, n_in]
+
+        # Build decoder D [num_outputs, num_modes]
+        tau = torch.linspace(0.0, 1.0, self.num_outputs, device=x.device, dtype=x.dtype)
+        D = torch.exp(-self.mu.unsqueeze(0) * tau.unsqueeze(1))  # [n_out, M]
+
+        # Spectral path: D @ diag(beta) @ E @ u
+        encoded = E @ x.t()  # [M, batch]
+        scaled = self.beta.unsqueeze(1) * encoded  # [M, batch]
+        spectral = D @ scaled  # [n_out, batch]
+
+        # Local bypass: W @ u
+        local = self.W @ x.t()  # [n_out, batch]
+
+        # Combine + bias
+        out = spectral + local + self.b.unsqueeze(1)  # [n_out, batch]
+        out = out.t()  # [batch, n_out]
+
+        if self.activation is not None:
+            out = self.activation(out)
+        return out
+
+
+class RolloutLNO(nn.Module):
+    """Two-layer network using DynamicLNO layers, matching the Fortran architecture."""
+    def __init__(self, grid_size: int, hidden: int, num_modes: int) -> None:
+        super().__init__()
+        self.layer1 = DynamicLNOLayer(grid_size, hidden, num_modes, activation='relu')
+        self.layer2 = DynamicLNOLayer(hidden, grid_size, num_modes, activation='none')
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.layer1(x)
+        x = self.layer2(x)
+        return x
+
+
 def _lcg_next(state: int) -> int:
     return (1103515245 * state + 12345) % 2147483647
 
 
-def apply_shared_initialization(model: RolloutMLP, seed: int, scale: float = 0.05) -> None:
+def _apply_shared_init_mlp(model: RolloutMLP, seed: int, scale: float = 0.05) -> None:
     state = int(seed)
     with torch.no_grad():
         layer1 = model.net[0]
@@ -145,6 +224,49 @@ def apply_shared_initialization(model: RolloutMLP, seed: int, scale: float = 0.0
             state = _lcg_next(state)
             value = np.float32(scale * (2.0 * (state / 2147483647.0) - 1.0))
             layer2.bias[out_idx] = torch.tensor(value, dtype=layer2.bias.dtype)
+
+
+def _apply_shared_init_lno(model: RolloutLNO, seed: int, scale: float = 0.05) -> None:
+    """Shared initialisation for LNO model matching Fortran dynamic_lno_layer_type.
+
+    For each LNO layer, the Fortran init sets:
+      - mu[k] = k * pi           (poles, NOT from LCG)
+      - beta[k] from LCG         (residues)
+      - W from LCG               (bypass weights, column-major order)
+      - b from LCG               (bias)
+    """
+    state = int(seed)
+    with torch.no_grad():
+        for layer in [model.layer1, model.layer2]:
+            # mu: poles initialised to k*pi (not from LCG, matching Fortran)
+            for k in range(layer.num_modes):
+                layer.mu[k] = float(k + 1) * np.pi
+
+            # beta: residues from LCG
+            for k in range(layer.num_modes):
+                state = _lcg_next(state)
+                value = np.float32(scale * (2.0 * (state / 2147483647.0) - 1.0))
+                layer.beta[k] = torch.tensor(value, dtype=layer.beta.dtype)
+
+            # W: bypass weights from LCG (column-major: iterate in_idx then out_idx)
+            for in_idx in range(layer.num_inputs):
+                for out_idx in range(layer.num_outputs):
+                    state = _lcg_next(state)
+                    value = np.float32(scale * (2.0 * (state / 2147483647.0) - 1.0))
+                    layer.W[out_idx, in_idx] = torch.tensor(value, dtype=layer.W.dtype)
+
+            # b: bias from LCG
+            for out_idx in range(layer.num_outputs):
+                state = _lcg_next(state)
+                value = np.float32(scale * (2.0 * (state / 2147483647.0) - 1.0))
+                layer.b[out_idx] = torch.tensor(value, dtype=layer.b.dtype)
+
+
+def apply_shared_initialization(model: nn.Module, seed: int, scale: float = 0.05) -> None:
+    if isinstance(model, RolloutLNO):
+        _apply_shared_init_lno(model, seed, scale)
+    else:
+        _apply_shared_init_mlp(model, seed, scale)
 
 
 def rollout_loss(model: nn.Module, initial_state: torch.Tensor, target_traj: torch.Tensor, steps: int, bc_left: float, bc_right: float) -> torch.Tensor:
@@ -345,6 +467,8 @@ def build_config(args: argparse.Namespace) -> dict:
         'lr': args.lr,
         'dx': 1.0 / float(args.grid_size - 1),
         'seed': args.seed,
+        'model': args.model,
+        'num_modes': args.num_modes,
     }
 
 
@@ -365,6 +489,10 @@ def main() -> None:
     parser.add_argument('--hidden', type=int, default=32)
     parser.add_argument('--lr', type=float, default=5.0e-2)
     parser.add_argument('--seed', type=int, default=7)
+    parser.add_argument('--model', type=str, default='mlp', choices=['mlp', 'lno'],
+                        help='Model architecture: mlp or lno')
+    parser.add_argument('--num_modes', type=int, default=16,
+                        help='Number of Laplace spectral modes (LNO only)')
     args = parser.parse_args()
 
     ensure_dirs()
@@ -379,7 +507,13 @@ def main() -> None:
     val_traj = trajectories[config['n_train']:config['n_train'] + config['n_val']]
     benchmark_traj = trajectories[config['benchmark_idx'] - 1]
 
-    model = RolloutMLP(config['grid_size'], config['hidden'])
+    if config.get('model', 'mlp') == 'lno':
+        model = RolloutLNO(config['grid_size'], config['hidden'], config['num_modes'])
+        print(f'Model: RolloutLNO (modes={config["num_modes"]}, '
+              f'params={sum(p.numel() for p in model.parameters())})')
+    else:
+        model = RolloutMLP(config['grid_size'], config['hidden'])
+        print(f'Model: RolloutMLP (params={sum(p.numel() for p in model.parameters())})')
     apply_shared_initialization(model, config['seed'])
     train_rollout(model, train_traj, val_traj, config)
     benchmark(model, benchmark_traj, config)
