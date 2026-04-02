@@ -41,7 +41,7 @@ program lno_rollout
   !! left boundary
   real(real32), parameter :: bc_right = 1.0_real32
   !! right boundary
-  real(real32), parameter :: learning_rate = 1.0e-1_real32
+  real(real32), parameter :: learning_rate = 1.0e-2_real32
   !! learning rate
   real(real32), parameter :: init_scale = 5.0e-2_real32
   !! init value scale
@@ -59,7 +59,7 @@ program lno_rollout
   !! Athena network object
   type(array_type), dimension(1,1) :: inp, tgt
   !! Athena IO wrappers
-  type(array_type), pointer :: loss
+  type(array_type), pointer :: loss, ptr1, ptr2
   !! scalar loss node
   real(real32) :: coeffs(n_coeff_modes, n_samples)
   !! IC coefficients
@@ -73,8 +73,6 @@ program lno_rollout
   !! precomputed trajectories for all samples
   real(real32) :: pred_rollout(n_grid, 0:rollout_benchmark_steps)
   !! buffer for rollout from trained network
-  real(real32) :: pred_step(n_grid, 1)
-  !! Metrics
   real(real32) :: tr_loss, val_loss, rel_err, max_abs_err, dx, pi_value
   !! training loss, validation loss, benchmark errors, grid spacing, pi
   real(real32) :: initial_state(n_grid)
@@ -140,20 +138,25 @@ program lno_rollout
            tgt(1,1)%val(:,1) = trajectories(:, step_idx, sample_idx)
            call network%forward(inp)
            network%expected_array = tgt
-           call network%reset_gradients()
-           loss => network%loss_eval(1, 1)
-           tr_loss = tr_loss + loss%val(1, 1)
-           call loss%grad_reverse()
-           call network%update()
-           pred_step = network%predict(input=inp(1,1)%val(:,1:1))
-           inp(1,1)%val(:,1) = pred_step(:,1)
+           ptr1 => network%loss_eval(1, 1)
+           ptr2 => ptr1%duplicate_graph()
+           if(step_idx .eq. 1) then
+              loss => ptr2
+           else
+              loss => loss + ptr2
+           end if
+           inp(1,1)%val = network%predict(input=inp(1,1)%val(:,1:1))
            call clip_state(inp(1,1)%val(:,1), -4.0_real32, 4.0_real32)
            inp(1,1)%val(1,1) = bc_left
            inp(1,1)%val(n_grid,1) = bc_right
-           call loss%nullify_graph()
-           deallocate(loss)
-           nullify(loss)
         end do
+        loss => loss / real(rollout_train_steps, real32)
+        tr_loss = tr_loss + loss%val(1,1)
+        call loss%grad_reverse()
+        call network%update()
+        call loss%nullify_graph()
+        deallocate(loss)
+        nullify(loss)
      end do
      tr_loss = tr_loss / real(n_train * rollout_train_steps, real32)
 
@@ -360,7 +363,7 @@ contains
     type(network_type), intent(inout) :: net
     real(real32), intent(in) :: val_traj(:, 0:, :)
     real(real32) :: mean_loss
-    real(real32) :: current_state(n_grid,1), predicted(n_grid, 1)
+    real(real32) :: current_state(n_grid,1)
     integer :: sample_local, step_local
 
     mean_loss = 0.0_real32
@@ -369,8 +372,7 @@ contains
     do sample_local = 1, size(val_traj, 3)
        current_state(:,1) = val_traj(:, 0, sample_local)
        do step_local = 1, rollout_train_steps
-          predicted = net%predict(input=current_state)
-          current_state = predicted
+          current_state = net%predict(input=current_state)
           call clip_state(current_state(:,1), -4.0_real32, 4.0_real32)
           current_state(1,1) = bc_left
           current_state(n_grid,1) = bc_right

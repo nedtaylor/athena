@@ -271,7 +271,7 @@ def apply_shared_initialization(model: nn.Module, seed: int, scale: float = 0.05
 
 def rollout_loss(model: nn.Module, initial_state: torch.Tensor, target_traj: torch.Tensor, steps: int, bc_left: float, bc_right: float) -> torch.Tensor:
     state = initial_state
-    loss = torch.tensor(0.0, device=state.device)
+    loss = 0.0
     for step in range(1, steps + 1):
         state = model(state)
         state = state.clone()
@@ -300,21 +300,23 @@ def train_rollout(model: nn.Module, train_traj: np.ndarray, val_traj: np.ndarray
         for idx in range(train_tensor.shape[0]):
             batch_traj = train_tensor[idx:idx + 1]
             state = batch_traj[:, 0, :]
+            optimizer.zero_grad()
+            loss = 0.0
             for step in range(1, config['rollout_train_steps'] + 1):
-                target = batch_traj[:, step, :]
-                optimizer.zero_grad(set_to_none=True)
                 pred = model(state)
-                loss = F.mse_loss(pred, target)
-                loss.backward()
-                torch.nn.utils.clip_grad_value_(model.parameters(), 1.0)
-                optimizer.step()
-                train_loss += loss.item()
+                target = batch_traj[:, step, :]
+                loss += F.mse_loss(pred, target)
+                state = torch.clamp(pred, -4.0, 4.0)
+                state = state.clone()
+                state[:, 0] = config['bc_left']
+                state[:, -1] = config['bc_right']
 
-                with torch.no_grad():
-                    state = model(state).clone()
-                    state = torch.clamp(state, min=-4.0, max=4.0)
-                    state[:, 0] = config['bc_left']
-                    state[:, -1] = config['bc_right']
+            loss = loss / config['rollout_train_steps']
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            optimizer.step()
+
+            train_loss += loss.item()
 
         model.eval()
         with torch.inference_mode():
@@ -487,7 +489,7 @@ def main() -> None:
     parser.add_argument('--bc_right', type=float, default=1.0)
     parser.add_argument('--epochs', type=int, default=2000)
     parser.add_argument('--hidden', type=int, default=32)
-    parser.add_argument('--lr', type=float, default=1.0e-1)
+    parser.add_argument('--lr', type=float, default=1.0e-2)
     parser.add_argument('--seed', type=int, default=7)
     parser.add_argument('--model', type=str, default='mlp', choices=['mlp', 'lno'],
                         help='Model architecture: mlp or lno')
