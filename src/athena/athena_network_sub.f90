@@ -4557,6 +4557,7 @@ contains
     ! Get number of input elements
     !---------------------------------------------------------------------------
     num_x = 0
+    use_edge_features = .false.
     if(this%use_graph_input)then
        num_samples = size(x_init, dim=2)
        num_x = size(x_init(1,1)%val) ! vertex features
@@ -4574,6 +4575,11 @@ contains
        end do
     end if
     x_opt = x_init
+    if(num_samples.gt.1)then
+       call stop_program( &
+            "inverse_design_array_2d: batch size greater than 1 not supported" &
+       )
+    end if
 
 
     !---------------------------------------------------------------------------
@@ -4628,11 +4634,22 @@ contains
        call this%forward(x_opt)
 
        ! Enable gradient tracking on the input layer output
-       call this%model(root_id)%layer%output(1,1)%set_requires_grad(.true.)
+       if(this%use_graph_input)then
+          call this%model(root_id)%layer%output(1,1)%set_requires_grad(.true.)
+          if(use_edge_features)then
+             call this%model(root_id)%layer%output(2,1)%set_requires_grad(.true.)
+          end if
+       else
+          do i = 1, size(x_opt,1)
+             do j = 1, size(x_opt,2)
+                call this%model(root_id)%layer%output(i,j)%set_requires_grad(.true.)
+             end do
+          end do
+       end if
 
        ! Compute loss via the network's loss function
        call this%save_output(target)
-       loss => this%loss_eval(1, 1)
+       loss => this%loss_eval(1, num_samples)
 
        ! Backward pass
        call loss%grad_reverse()
@@ -4641,26 +4658,26 @@ contains
        itmp1 = 0
        if(associated(this%model(root_id)%layer%output(1,1)%grad))then
           if(this%use_graph_input)then
-            num_elements = size(x_opt(1,1)%val, dim=1)
-            do i = 1, size(x_opt(1,1)%val, dim=2)
-               itmp1 = itmp1 + 1
-               x_grad(itmp1:itmp1+num_elements-1) = &
-                    this%model(root_id)%layer%output(1,1)%grad%val(:,i)
-               x_flat(itmp1:itmp1+num_elements-1) = &
-                    x_opt(1,1)%val(:,i)
-               itmp1 = itmp1 + num_elements - 1
-            end do
-            if(use_edge_features)then
-               num_elements = size(x_opt(1,1)%val, dim=1)
-               do i = 1, size(x_opt(2,1)%val, dim=2)
-                  itmp1 = itmp1 + 1
-                  x_grad(itmp1:itmp1+num_elements-1) = &
-                       this%model(root_id)%layer%output(2,1)%grad%val(:,i)
-                  x_flat(itmp1:itmp1+num_elements-1) = &
-                       x_opt(2,1)%val(:,i)
-                  itmp1 = itmp1 + num_elements - 1
-               end do
-            end if
+             num_elements = size(x_opt(1,1)%val, dim=1)
+             do i = 1, size(x_opt(1,1)%val, dim=2)
+                itmp1 = itmp1 + 1
+                x_grad(itmp1:itmp1+num_elements-1) = &
+                     this%model(root_id)%layer%output(1,1)%grad%val(:,i)
+                x_flat(itmp1:itmp1+num_elements-1) = &
+                     x_opt(1,1)%val(:,i)
+                itmp1 = itmp1 + num_elements - 1
+             end do
+             if(use_edge_features)then
+                num_elements = size(x_opt(1,1)%val, dim=1)
+                do i = 1, size(x_opt(2,1)%val, dim=2)
+                   itmp1 = itmp1 + 1
+                   x_grad(itmp1:itmp1+num_elements-1) = &
+                        this%model(root_id)%layer%output(2,1)%grad%val(:,i)
+                   x_flat(itmp1:itmp1+num_elements-1) = &
+                        x_opt(2,1)%val(:,i)
+                   itmp1 = itmp1 + num_elements - 1
+                end do
+             end if
           else
              do i = 1, size(x_opt,1)
                 do j = 1, size(x_opt,2)
@@ -4708,7 +4725,8 @@ contains
        end if
 
        ! Clean up computation graph
-       call loss%reset_graph()
+       call loss%nullify_graph()
+       deallocate(loss)
        nullify(loss)
 
        ! Reset network parameter gradients so they remain unchanged

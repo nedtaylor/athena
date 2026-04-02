@@ -98,6 +98,11 @@ program inverse_design_example
      if (mod(i, 5000) == 0) then
         write(*,'(I10, F15.8)') i, sum(loss%val)
      end if
+
+     call loss%nullify_graph()
+     deallocate(loss)
+     nullify(loss)
+
   end do
   write(*,*)
 
