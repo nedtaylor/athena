@@ -4,7 +4,22 @@ import sys
 import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-from numba import njit, threading_layer, prange
+try:
+    from numba import njit, threading_layer, prange
+except Exception:
+    def njit(*args, **kwargs):
+        if args and callable(args[0]) and len(args) == 1 and not kwargs:
+            return args[0]
+
+        def decorator(func):
+            return func
+
+        return decorator
+
+    def prange(*args):
+        return range(*args)
+
+    threading_layer = None
 import subprocess
 import scipy
 from scipy.sparse import csr_matrix, csc_matrix, coo_matrix, diags, issparse #Sparse matrix library
@@ -12,6 +27,7 @@ from scipy.sparse.linalg import bicgstab, spilu, LinearOperator, inv, spsolve, g
 from scipy.interpolate import UnivariateSpline
 import warnings
 from PIL import Image
+from pathlib import Path
 
 try:
 	import cupy as cp
@@ -25,33 +41,40 @@ except Exception:
 	_HAS_CUPY = False
 
 _MATERIAL_CACHE = {}
+_REPO_ROOT = Path(__file__).resolve().parents[3]
 # Check SciPy version for GMRES API compatibility
 _SCIPY_VERSION = tuple(map(int, scipy.__version__.split('.')[:2]))
 _USE_RTOL = _SCIPY_VERSION >= (1, 12)  # rtol parameter introduced in SciPy 1.12
 _DEFAULT_SOLVER_BACKEND = os.environ.get('HYPERION_FDM_BACKEND', 'auto').strip().lower()
 def _load_material(file_id):
-    """Load and cache material properties for file_id if not already cached"""
+    """Load and cache material properties for file_id if not already cached.
+
+    When the external data files (NHC_<id>.txt / NK_<id>.txt) are absent,
+    falls back to constant-property tables that represent a steel-like alloy
+    (k ≈ 30 W/(m·K), Cv ≈ 3e6 J/(m³·K), alpha ≈ 1e-5 m²/s) over
+    200–500 K.  This keeps the solver numerically functional as a demo.
+    """
     if file_id not in _MATERIAL_CACHE:
         try:
             # Load heat capacity data
-            hc_file = f'./NHC_{int(file_id)}.txt'
+            hc_file = _REPO_ROOT / f'NHC_{int(file_id)}.txt'
             hc_data = np.loadtxt(hc_file, delimiter=',')
-            
+
             # Load thermal conductivity data
-            tk_file = f'./NK_{int(file_id)}.txt'
+            tk_file = _REPO_ROOT / f'NK_{int(file_id)}.txt'
             tk_data = np.loadtxt(tk_file, delimiter=',')
-            
+
             # Create spline functions and pre-evaluate on a fine grid
             hc_spline = UnivariateSpline(hc_data[:, 0], hc_data[:, 1], s=0, k=2, ext=3)
             tk_spline = UnivariateSpline(tk_data[:, 0], tk_data[:, 1], s=0, k=2, ext=3)
-            
+
             # Pre-evaluate on a fine temperature grid for faster lookups
             T_min = min(hc_data[0,0], tk_data[0,0])
             T_max = max(hc_data[-1,0], tk_data[-1,0])
             T_grid = np.linspace(T_min, T_max, 2000)  # Fine grid for accuracy
             hc_values = hc_spline(T_grid)
             tk_values = tk_spline(T_grid)
-            
+
             # Store everything in cache
             _MATERIAL_CACHE[file_id] = {
                 'hc_data': hc_data,
@@ -60,17 +83,48 @@ def _load_material(file_id):
                 'tk_temps': tk_data[:, 0],
                 'hc_spline': hc_spline,
                 'tk_spline': tk_spline,
-                'T_grid': T_grid,      # Temperature grid for interpolation
-                'hc_values': hc_values,  # Pre-evaluated heat capacity
-                'tk_values': tk_values,  # Pre-evaluated thermal conductivity
-                'T_min': T_min,        # Temperature range
+                'T_grid': T_grid,
+                'hc_values': hc_values,
+                'tk_values': tk_values,
+                'T_min': T_min,
                 'T_max': T_max
             }
             print(f"Loaded material {file_id} into cache")
+        except FileNotFoundError:
+            # Material data files unavailable – synthesise constant properties.
+            # Values represent a generic steel-like alloy:
+            #   k   ≈ 30   W/(m·K)
+            #   Cv  ≈ 3e6  J/(m³·K)  (ρCp, not specific heat)
+            #   α   =  k/Cv ≈ 1e-5 m²/s
+            print(f"Material data files for id={file_id} not found; "
+                  "using constant fallback properties (steel-like alloy).")
+            T_min, T_max = 100.0, 1500.0
+            T_grid = np.linspace(T_min, T_max, 2000)
+            _k_const   = 30.0        # W/(m·K)
+            _Cv_const  = 3.0e6       # J/(m³·K)
+            hc_values = np.full_like(T_grid, _Cv_const)
+            tk_values = np.full_like(T_grid, _k_const)
+            hc_data   = np.column_stack([T_grid, hc_values])
+            tk_data   = np.column_stack([T_grid, tk_values])
+            hc_spline = UnivariateSpline(T_grid, hc_values, s=0, k=1, ext=3)
+            tk_spline = UnivariateSpline(T_grid, tk_values, s=0, k=1, ext=3)
+            _MATERIAL_CACHE[file_id] = {
+                'hc_data': hc_data,
+                'tk_data': tk_data,
+                'hc_temps': T_grid,
+                'tk_temps': T_grid,
+                'hc_spline': hc_spline,
+                'tk_spline': tk_spline,
+                'T_grid': T_grid,
+                'hc_values': hc_values,
+                'tk_values': tk_values,
+                'T_min': T_min,
+                'T_max': T_max,
+            }
         except Exception as e:
             print(f"Error loading material {file_id}: {e}")
             raise
-    
+
     return _MATERIAL_CACHE[file_id]
 
 # Pre-load the most common material files (1, 2)
@@ -106,20 +160,20 @@ def new_heat_cap_new_temp(T, file=1):
 	'''
 	if T < 1e-6:
 		return 0.0, 0.0
-        
+
 	# Get heat capacity at current temp using cached data
 	material = _load_material(file)
 	CV = material['hc_spline']
-	
+
 	# Get valid temperature range from material data
 	T_min = material['hc_temps'][0]
 	T_max = material['hc_temps'][-1]
-	
+
 	# Clamp TP to valid range
 	T_clamped = np.clip(T, T_min, T_max)
-	
+
 	CP0 = CV(T_clamped)
-	
+
 	# Check if at boundaries
 	if T_clamped >= T_max - 1e-6:
 		# At upper boundary, use backward difference
@@ -137,7 +191,7 @@ def new_heat_cap_new_temp(T, file=1):
 		G = (CPp - CP0) / delta
 		A = CP0
 		return G, A
-	
+
 	# Normal case: use central difference
 	delta = 1e-3
 	TPm = T_clamped - delta
@@ -163,14 +217,14 @@ def thermal_conductivity_GA(file, TP, file2=None, TP2=None, boundary=False, B=No
 	material1 = _load_material(file)
 	T_grid = material1['T_grid']
 	tk_values = material1['tk_values']
-	
+
 	# Fast linear interpolation for first conductivity
 	slope = (len(T_grid)-1) / (material1['T_max'] - material1['T_min'])
 	idx = int((TP - material1['T_min']) * slope)
 	idx = max(0, min(len(T_grid)-2, idx))
 	t = (TP - T_grid[idx]) / (T_grid[idx+1] - T_grid[idx])
 	TK1_value = tk_values[idx] * (1-t) + tk_values[idx+1] * t
-	
+
 	if TK1_value == 0:
 		return 0.0
 
@@ -203,7 +257,7 @@ def thermal_conductivity_GA(file, TP, file2=None, TP2=None, boundary=False, B=No
 			material2 = _load_material(file2)
 			T_grid2 = material2['T_grid']
 			tk_values2 = material2['tk_values']
-			slope2 = (len(T_grid2)-1) / (material2['T_max'] - material2['T_min']) 
+			slope2 = (len(T_grid2)-1) / (material2['T_max'] - material2['T_min'])
 			idx = int((TP2 - material2['T_min']) * slope2)
 			idx = max(0, min(len(T_grid2)-2, idx))
 			t = (TP2 - T_grid2[idx]) / (T_grid2[idx+1] - T_grid2[idx])
@@ -211,15 +265,15 @@ def thermal_conductivity_GA(file, TP, file2=None, TP2=None, boundary=False, B=No
 
 	if TK2_value == 0:
 		return 0.0
-	
+
 	# Compute harmonic average
 	return 2 * (TK1_value * TK2_value) / (TK1_value + TK2_value)
-	
+
 
 def sparse_matrix_1d(grid_size, grid, TP, B1, TB1,dx=1.0, const=False, k_temp_dependent=None):
 	"""
 	Constructs the sparse matrix for the 1D heat flow equation using a finite difference method.
-	OPTIMIZED: Vectorized thermal conductivity calculations for massive speedup.	
+	OPTIMIZED: Vectorized thermal conductivity calculations for massive speedup.
 	Parameters:
 	-----------
 	NY, NX : int
@@ -228,13 +282,13 @@ def sparse_matrix_1d(grid_size, grid, TP, B1, TB1,dx=1.0, const=False, k_temp_de
 		Grid spacing
 	boundary_conditions : dict, optional
 		Boundary condition specifications
-		
+
 	Returns:
 	--------
 	scipy.sparse matrix in CSC format
 	"""
 	NY = grid_size
-	NX = 1 
+	NX = 1
 	N_total = NY * NX
 	NZ = 1
 
@@ -245,10 +299,10 @@ def sparse_matrix_1d(grid_size, grid, TP, B1, TB1,dx=1.0, const=False, k_temp_de
 	col_indices_A = np.empty(nnz_estimate, dtype=np.int32)
 	values_A = np.empty(nnz_estimate, dtype=np.float64)
 	BA = np.zeros(N_total, dtype=np.float64)
-	
+
 	coeff = 1.0 / (dx * dx)
 	entry_count = 0
-	
+
 	# Pre-compute all thermal conductivities in batches
 	# Determine whether thermal conductivity should be temperature dependent
 	# Backwards compatible: if k_temp_dependent is None, fall back to 'not const'
@@ -260,7 +314,7 @@ def sparse_matrix_1d(grid_size, grid, TP, B1, TB1,dx=1.0, const=False, k_temp_de
 		TP_calc = np.full(NY, 200.0)
 	else:
 		TP_calc = TP.copy()
-	
+
 	# Vectorized computation of interface conductivities
 	# For interior interfaces between nodes i and i+1
 	interior_mask = np.arange(NY-1)
@@ -268,7 +322,7 @@ def sparse_matrix_1d(grid_size, grid, TP, B1, TB1,dx=1.0, const=False, k_temp_de
 	TP2_interior = TP_calc[interior_mask + 1]
 	grid1_interior = grid[interior_mask]
 	grid2_interior = grid[interior_mask + 1]
-	
+
 	# Batch compute interior conductivities
 	K_interior = np.zeros(NY-1)
 	unique_pairs = {}
@@ -277,46 +331,46 @@ def sparse_matrix_1d(grid_size, grid, TP, B1, TB1,dx=1.0, const=False, k_temp_de
 		if pair_key not in unique_pairs:
 			unique_pairs[pair_key] = []
 		unique_pairs[pair_key].append(i)
-	
+
 	# Process each unique material pair
 	for (file1, file2), indices in unique_pairs.items():
 		indices = np.array(indices)
 		T1_batch = TP_calc[indices]
 		T2_batch = TP_calc[indices + 1]
-		
+
 		# Load materials once per pair
 		material1 = _load_material(file1)
 		if file2 == file1:
 			material2 = material1
 		else:
 			material2 = _load_material(file2)
-		
+
 		# Vectorized interpolation for batch
 		T_grid1 = material1['T_grid']
 		tk_values1 = material1['tk_values']
 		slope1 = (len(T_grid1)-1) / (material1['T_max'] - material1['T_min'])
-		
+
 		idx1 = ((T1_batch - material1['T_min']) * slope1).astype(int)
 		idx1 = np.clip(idx1, 0, len(T_grid1)-2)
 		t1 = (T1_batch - T_grid1[idx1]) / (T_grid1[idx1+1] - T_grid1[idx1])
 		TK1_batch = tk_values1[idx1] * (1-t1) + tk_values1[idx1+1] * t1
-		
+
 		T_grid2 = material2['T_grid']
 		tk_values2 = material2['tk_values']
 		slope2 = (len(T_grid2)-1) / (material2['T_max'] - material2['T_min'])
-		
+
 		idx2 = ((T2_batch - material2['T_min']) * slope2).astype(int)
 		idx2 = np.clip(idx2, 0, len(T_grid2)-2)
 		t2 = (T2_batch - T_grid2[idx2]) / (T_grid2[idx2+1] - T_grid2[idx2])
 		TK2_batch = tk_values2[idx2] * (1-t2) + tk_values2[idx2+1] * t2
-		
+
 		# Harmonic average (vectorized)
 		valid = (TK1_batch > 0) & (TK2_batch > 0)
 		K_batch = np.zeros_like(TK1_batch)
 		K_batch[valid] = 2 * (TK1_batch[valid] * TK2_batch[valid]) / (TK1_batch[valid] + TK2_batch[valid])
-		
+
 		K_interior[indices] = K_batch
-	
+
 	# Compute boundary conductivities
 	if not k_temp_dependent:
 		K_top = thermal_conductivity_GA(grid[0], TP_calc[0], boundary=True, BT=200)
@@ -324,12 +378,12 @@ def sparse_matrix_1d(grid_size, grid, TP, B1, TB1,dx=1.0, const=False, k_temp_de
 	else:
 		K_top = thermal_conductivity_GA(grid[0], TP_calc[0], boundary=True, BT=TB1[0])
 		K_bottom = thermal_conductivity_GA(grid[NY-1], TP_calc[NY-1], boundary=True, BT=TB1[1])
-	
+
 	# Build sparse matrix using pre-computed conductivities
 	for ii in range(NY):
 		idx = ii
 		diagonal_val = 0.0
-		
+
 		# Up neighbor (i-1)
 		if ii > 0:
 			K_val = K_interior[ii-1] * coeff
@@ -343,7 +397,7 @@ def sparse_matrix_1d(grid_size, grid, TP, B1, TB1,dx=1.0, const=False, k_temp_de
 			K_val = K_top * coeff
 			diagonal_val -= K_val
 			BA[idx] += K_val * TB1[0]
-		
+
 		# Down neighbor (i+1)
 		if ii < NY - 1:
 			K_val = K_interior[ii] * coeff
@@ -357,18 +411,18 @@ def sparse_matrix_1d(grid_size, grid, TP, B1, TB1,dx=1.0, const=False, k_temp_de
 			K_val = K_bottom * coeff
 			diagonal_val -= K_val
 			BA[idx] += K_val * TB1[1]
-		
+
 		# Diagonal entry
 		row_indices_A[entry_count] = idx
 		col_indices_A[entry_count] = idx
 		values_A[entry_count] = diagonal_val
 		entry_count += 1
-	
+
 	# Trim arrays to actual size
 	row_indices_A = row_indices_A[:entry_count]
 	col_indices_A = col_indices_A[:entry_count]
 	values_A = values_A[:entry_count]
-	
+
 	coo_A = coo_matrix((values_A, (row_indices_A, col_indices_A)), shape=(N_total, N_total), dtype=np.float64)
 	matrix_A = coo_A.tocsc()
 
@@ -392,42 +446,42 @@ def G_A_find(T, grid):
 	n = len(T)
 	array_G = np.zeros(n)
 	array_A = np.zeros(n)
-	
+
 	# Pre-load all unique materials
 	unique_files = np.unique(grid)
 	materials = {file: _load_material(file) for file in unique_files}
-	
+
 	delta = 1e-3
-	
+
 	# Process each unique material file
 	for file_id in unique_files:
 		# Get mask for all nodes with this material
 		mask = grid == file_id
 		T_nodes = T[mask]
-		
+
 		material = materials[file_id]
 		T_min = material['T_min']
 		T_max = material['T_max']
 		T_grid = material['T_grid']
 		hc_values = material['hc_values']
-		
+
 		# Clamp temperatures to valid range
 		T_clamped = np.clip(T_nodes, T_min, T_max)
-		
+
 		# Vectorized linear interpolation for CP0 (A values)
 		slope = (len(T_grid)-1) / (T_max - T_min)
 		indices = ((T_clamped - T_min) * slope).astype(int)
 		indices = np.clip(indices, 0, len(T_grid)-2)
 		t = (T_clamped - T_grid[indices]) / (T_grid[indices+1] - T_grid[indices])
 		CP0 = hc_values[indices] * (1-t) + hc_values[indices+1] * t
-		
+
 		# Handle boundary cases and compute gradients
 		at_upper = T_clamped >= (T_max - 1e-6)
 		at_lower = T_clamped <= (T_min + 1e-6)
 		normal = ~(at_upper | at_lower)
-		
+
 		G_vals = np.zeros_like(T_clamped)
-		
+
 		# Upper boundary: backward difference
 		if np.any(at_upper):
 			T_minus = T_clamped[at_upper] - delta
@@ -436,7 +490,7 @@ def G_A_find(T, grid):
 			t_m = (T_minus - T_grid[indices_m]) / (T_grid[indices_m+1] - T_grid[indices_m])
 			CPm = hc_values[indices_m] * (1-t_m) + hc_values[indices_m+1] * t_m
 			G_vals[at_upper] = (CP0[at_upper] - CPm) / delta
-		
+
 		# Lower boundary: forward difference
 		if np.any(at_lower):
 			T_plus = T_clamped[at_lower] + delta
@@ -445,30 +499,30 @@ def G_A_find(T, grid):
 			t_p = (T_plus - T_grid[indices_p]) / (T_grid[indices_p+1] - T_grid[indices_p])
 			CPp = hc_values[indices_p] * (1-t_p) + hc_values[indices_p+1] * t_p
 			G_vals[at_lower] = (CPp - CP0[at_lower]) / delta
-		
+
 		# Normal case: central difference
 		if np.any(normal):
 			T_minus = T_clamped[normal] - delta
 			T_plus = T_clamped[normal] + delta
-			
+
 			# Interpolate for T-delta
 			indices_m = ((T_minus - T_min) * slope).astype(int)
 			indices_m = np.clip(indices_m, 0, len(T_grid)-2)
 			t_m = (T_minus - T_grid[indices_m]) / (T_grid[indices_m+1] - T_grid[indices_m])
 			CPm = hc_values[indices_m] * (1-t_m) + hc_values[indices_m+1] * t_m
-			
+
 			# Interpolate for T+delta
 			indices_p = ((T_plus - T_min) * slope).astype(int)
 			indices_p = np.clip(indices_p, 0, len(T_grid)-2)
 			t_p = (T_plus - T_grid[indices_p]) / (T_grid[indices_p+1] - T_grid[indices_p])
 			CPp = hc_values[indices_p] * (1-t_p) + hc_values[indices_p+1] * t_p
-			
+
 			G_vals[normal] = (CPp - CPm) / (2*delta)
-		
+
 		# Store results back to output arrays
 		array_G[mask] = G_vals
 		array_A[mask] = CP0
-	
+
 	return array_G, array_A
 
 
@@ -482,13 +536,13 @@ def Gamma(G, A, TP, TPP, tau, dt):
 	- TP : T_{t-Δt}
 	- TPP : T_{t-2Δt}
 	- tau, dt : scalars
-	
+
 	Returns the coefficient matrix Γ for the Cattaneo equation.
 	"""
 	gamma_old = (TP - TPP) / dt  # ∂T/∂t at previous step
 	dt_inv = 1.0 / dt
 	dt2_inv = 1.0 / (dt * dt)
-	
+
 	# Vectorized computation (all operations are element-wise on arrays)
 	return A * dt_inv + 2.0 * tau * G * gamma_old * dt_inv + tau * A * dt2_inv
 
@@ -498,19 +552,19 @@ def Omega(G, A, TP, TPP, tau, dt):
 	OPTIMIZED: Vectorized Omega coefficient from Eq. (34)
 	G = dC_v/dT
 	A = C_v
-	
-	Returns: Ω 
+
+	Returns: Ω
 	'''
 	gamma_old = (TP - TPP) / dt
 	dt_inv = 1.0 / dt
 	dt2_inv = 1.0 / (dt * dt)
-	
+
 	# Vectorized computation
 	term1 = -A * TP * dt_inv
 	term2 = -2.0 * tau * G * gamma_old * TP * dt_inv
 	term3 = -G * tau * (gamma_old * gamma_old)
 	term4 = tau * A * (TPP - 2.0 * TP) * dt2_inv
-	
+
 	return term1 + term2 + term3 + term4
 
 def nl_func_Cattaneo(T, TS, HA, A, G, BA, TP, TPP, dt=1, tau=1):
@@ -534,7 +588,7 @@ def residual_F(T, TP, TPP, grid_size, grid, dx, dt, tau, const,
 	- TP, TPP: previous timesteps (1D arrays)
 	"""
 	NY = grid_size
-	# boundary values used in sparse_matrix_1d 
+	# boundary values used in sparse_matrix_1d
 	B1 = [BC[0], BC[1]]
 	TB1 = [BC[0], BC[1]]  # Just use same temps for properties if not explicitly specified
 
@@ -920,7 +974,7 @@ def nl_solve_HF_1d_Cattaneo(grid_size, grid, TP, TPP,
 			return TP.copy(), A, info
 
 		# Build approximate Jacobian matrix P = diag(gamma) - HA  for scaling & preconditioning
-		P_mat = diags(gamma).tocsc() - HA  
+		P_mat = diags(gamma).tocsc() - HA
 
 
 		# Row scaling vector s_i = max(|P_ii|, row_eps)
@@ -931,14 +985,14 @@ def nl_solve_HF_1d_Cattaneo(grid_size, grid, TP, TPP,
 		# Scaled residual
 		F_scaled = S_vec * F   # elementwise scaling of rows
 		F_scaled_norm = np.linalg.norm(F_scaled)
-		
+
 		if verbose:
 			print(f"[Newton {newton_iter}] ||F_scaled|| = {F_scaled_norm:.6e}")
 
 		# Check convergence on SCALED residual
 		if F_scaled_norm < tol:
 			info.update({"converged": True, "iters": newton_iter - 1, "reason": "residual_tol"})
-		
+
 			return T, A, info
 
 		# Preconditioner on scaled matrix: try ILU on S * P_mat if possible
@@ -972,14 +1026,14 @@ def nl_solve_HF_1d_Cattaneo(grid_size, grid, TP, TPP,
 			# FIX: divide by vnorm directly so that eps * ||v|| is independent of tiny v
 			eps = fd_eps_scale * max(1.0, np.linalg.norm(T)) / vnorm
 			eps = max(eps, 1e-10)  # Ensure eps is not too small
-			
+
 			Tplus = T + eps * v
 			Tminus = T - eps * v
-			Fp, *_ = residual_F(Tplus, TP, TPP, grid_size, grid, dx, dt, tau, const, 
-			                    cache_key, const_cache, k_temp_dependent=k_temp_dependent, 
+			Fp, *_ = residual_F(Tplus, TP, TPP, grid_size, grid, dx, dt, tau, const,
+			                    cache_key, const_cache, k_temp_dependent=k_temp_dependent,
 			                    c_temp_dependent=c_temp_dependent, BC=BC)
-			Fm, *_ = residual_F(Tminus, TP, TPP, grid_size, grid, dx, dt, tau, const, 
-			                    cache_key, const_cache, k_temp_dependent=k_temp_dependent, 
+			Fm, *_ = residual_F(Tminus, TP, TPP, grid_size, grid, dx, dt, tau, const,
+			                    cache_key, const_cache, k_temp_dependent=k_temp_dependent,
 			                    c_temp_dependent=c_temp_dependent, BC=BC)
 			Jv_raw = (Fp - Fm) / (2.0 * eps)
 			return S_vec * Jv_raw
@@ -988,26 +1042,26 @@ def nl_solve_HF_1d_Cattaneo(grid_size, grid, TP, TPP,
 
 		# Solve scaled linear system (S J) delta = -S F using BiCGSTAB
 		rhs = -F_scaled
-		
+
 		try:
 			# Use previous delta as initial guess if available (warm start)
 			x0 = np.zeros(n) if newton_iter == 1 else delta.copy() * 0.5
-			
+
 			# BiCGSTAB with matrix-free Jacobian
 			if _USE_RTOL:
-				delta, bicg_info = bicgstab(Jop, rhs, x0=x0, rtol=gmres_tol, 
+				delta, bicg_info = bicgstab(Jop, rhs, x0=x0, rtol=gmres_tol,
 				                            maxiter=gmres_maxit, M=M)
 			else:
-				delta, bicg_info = bicgstab(Jop, rhs, x0=x0, tol=gmres_tol, 
+				delta, bicg_info = bicgstab(Jop, rhs, x0=x0, tol=gmres_tol,
 				                            maxiter=gmres_maxit, M=M)
-			
+
 			if bicg_info != 0:
 				if verbose:
 					print(f"  BiCGSTAB did not fully converge (info={bicg_info})")
 				# Check if the result is still usable
 				if np.isnan(delta).any() or np.linalg.norm(delta) > 1e10:
 					raise ValueError("BiCGSTAB returned invalid delta")
-					
+
 		except Exception as e:
 			if verbose:
 				print(f"  BiCGSTAB failed: {e}. Trying GMRES.")
@@ -1038,7 +1092,7 @@ def nl_solve_HF_1d_Cattaneo(grid_size, grid, TP, TPP,
 		T_candidate = T + alphaP * delta
 		F_candidate, *_ = residual_F(T_candidate, TP, TPP, grid_size, grid, dx, dt, tau, const, cache_key, const_cache, k_temp_dependent=k_temp_dependent, c_temp_dependent=c_temp_dependent, BC=BC)
 		F_candidate_scaled_norm = np.linalg.norm(S_vec * F_candidate)
-		
+
 		if F_candidate_scaled_norm < F_scaled_norm:
 			T = T_candidate
 			if verbose:
@@ -1072,4 +1126,3 @@ def nl_solve_HF_1d_Cattaneo(grid_size, grid, TP, TPP,
 
 	info.update({"converged": False, "iters": max_newton_iters, "reason": "max_iters"})
 	return T, A, info
-

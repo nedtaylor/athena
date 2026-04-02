@@ -249,19 +249,19 @@ class GaussianProcessSampler:
     Gaussian Process sampler for generating smooth temperature fields.
     Uses RBF kernel with configurable length scale.
     """
-    def __init__(self, grid_size: int, length_scale: float = 0.1, 
+    def __init__(self, grid_size: int, length_scale: float = 0.1,
                  variance: float = 1.0, mean_temp: float = 200.0):
         self.grid_size = grid_size
         self.length_scale = length_scale
         self.variance = variance
         self.mean_temp = mean_temp
-        
+
         # Create grid
         self.x = np.linspace(0, 1, grid_size)
-        
+
         # Precompute covariance matrix
         self.K = self._compute_kernel_matrix()
-        
+
         # Cholesky decomposition for sampling
         try:
             self.L = np.linalg.cholesky(self.K + 1e-6 * np.eye(grid_size))
@@ -270,38 +270,38 @@ class GaussianProcessSampler:
             eigvals, eigvecs = np.linalg.eigh(self.K)
             eigvals = np.maximum(eigvals, 1e-6)
             self.L = eigvecs @ np.diag(np.sqrt(eigvals))
-    
+
     def _rbf_kernel(self, x1: np.ndarray, x2: np.ndarray) -> np.ndarray:
         """RBF (squared exponential) kernel."""
         dists = cdist(x1.reshape(-1, 1), x2.reshape(-1, 1), 'sqeuclidean')
         return self.variance * np.exp(-0.5 * dists / (self.length_scale ** 2))
-    
+
     def _compute_kernel_matrix(self) -> np.ndarray:
         """Compute covariance matrix for the grid."""
         return self._rbf_kernel(self.x, self.x)
-    
+
     def sample(self, n_samples: int, temp_range: Tuple[float, float] = (10, 500)) -> np.ndarray:
         """
         Sample temperature fields from GP.
-        
+
         Args:
             n_samples: Number of samples
             temp_range: (min, max) temperature range
-            
+
         Returns:
             temperatures: [n_samples, grid_size]
         """
         # Sample from standard normal
         z = np.random.randn(n_samples, self.grid_size)
-        
+
         # Transform through covariance
         samples = self.mean_temp + z @ self.L.T
-        
+
         # Scale to desired range
         samples_min = samples.min(axis=1, keepdims=True)
         samples_max = samples.max(axis=1, keepdims=True)
         samples = temp_range[0] + (temp_range[1] - temp_range[0]) * (samples - samples_min) / (samples_max - samples_min + 1e-10)
-        
+
         return samples
 
 
@@ -426,26 +426,26 @@ class CattaneoDataGenerator:
         T0[0] = bc_l
         T0[-1] = bc_r
         return T0, bc_l, bc_r
-        
+
     def compute_spatial_laplacian_star(self, T_star: np.ndarray) -> np.ndarray:
         """
         Compute dimensionless Laplacian ∇*²T* using finite differences.
-        
+
         Args:
             T_star: Dimensionless temperature [batch, grid] or [grid]
-            
+
         Returns:
             d2T_star_dx_star2: [batch, grid]
         """
         if T_star.ndim == 1:
             T_star = T_star[np.newaxis, :]
-        
+
         d2T = np.zeros_like(T_star)
         d2T[:, 1:-1] = (T_star[:, 2:] - 2 * T_star[:, 1:-1] + T_star[:, :-2]) / (self.dx_star ** 2)
         d2T[:, 0] = d2T[:, 1]
         d2T[:, -1] = d2T[:, -2]
         return d2T
-    
+
     def compute_heat_source_star(self, T_star: np.ndarray, T_prev_star: np.ndarray,
                                   T_prev2_star: np.ndarray, C: np.ndarray,
                                   alpha_star: np.ndarray) -> np.ndarray:
@@ -490,21 +490,21 @@ class CattaneoDataGenerator:
         Q_star = tau_over_dt * d2T + dT - self.Fo * sec_diff
 
         return Q_star
-      
-    
+
+
     def generate_temporal_sequence(self, n_samples: int, seq_len: int,
                                    timestep_jump: int = 1) -> Dict[str, np.ndarray]:
         """
         Generate temporal sequences entirely in dimensionless space.
-        
-        Creates smooth T*(x*, t*) fields where adjacent timesteps differ by 
+
+        Creates smooth T*(x*, t*) fields where adjacent timesteps differ by
         O(Fo) ~ O(1e-4), which is physically consistent.
-        
+
         Args:
             n_samples: Number of sequences
             seq_len: Length of each sequence
             timestep_jump: Factor for multi-step prediction
-            
+
         Returns:
             dict with dimensionless temperature sequences and parameters
         """
@@ -514,32 +514,32 @@ class CattaneoDataGenerator:
         alpha_star = np.full((n_samples, self.grid_size),
                              self.alpha_mat / self.alpha_ref)
         rho_cp = np.full((n_samples, self.grid_size), self.Cv_mat)
-        
+
         # Sample base spatial profiles from GP: T* ~ O(1)
         base_profiles = self.gp_sampler.sample(n_samples, temp_range=(-2.0, 3.0))
-        
+
         # Generate temporally-smooth perturbations
         # For dT*/dt* to be O(1), each timestep should change by O(dt_star)
         # Total variation over sequence ~ seq_len * dt_star
         n_keyframes = max(3, seq_len // 2)
         perturbation_keyframes = np.random.randn(n_samples, n_keyframes, self.grid_size)
-        
+
         # Smooth perturbations spatially using GP covariance
         # Batched matrix-vector multiply: L @ perturbation_keyframes[i, k, :]
         # for all i, k simultaneously via einsum
         perturbation_keyframes = np.einsum('gj,nkj->nkg', self.gp_sampler.L, perturbation_keyframes)
-        
+
         # Normalize perturbations so their std is 1, then scale to physical level
         for i in range(n_samples):
             std = perturbation_keyframes[i].std()
             if std > 0:
                 perturbation_keyframes[i] /= std
-        
+
         # Scale: total variation over sequence should be O(seq_len * Fo)
         # so that per-step changes are O(Fo) and dT*/d(step) ~ O(1)
         temporal_scale = seq_len * self.Fo
         perturbation_keyframes *= temporal_scale
-        
+
         # Interpolate to get smooth temporal evolution
         # CubicSpline supports multi-column y arrays: operates on all grid points at once
         T_star_seq = np.zeros((n_samples, seq_len, self.grid_size))
@@ -553,34 +553,34 @@ class CattaneoDataGenerator:
                 bc_type='natural'
             )
             T_star_seq[i] = base_profiles[i] + interp_func(eval_indices)  # [seq_len, grid_size]
-        
+
         return {
             'T_star_seq': T_star_seq,
             'C': C,
             'alpha_star': alpha_star,
             'rho_cp': rho_cp
         }
-    
-    def generate_training_batch(self, n_samples: int, 
+
+    def generate_training_batch(self, n_samples: int,
                                 timestep_jump: int = 10) -> Dict[str, torch.Tensor]:
         """
         Generate a complete training batch via FDM-forward simulation.
-        
+
         Instead of reverse-engineering Q from T_target (which makes the
         physics loss trivially zero), we:
           1. Sample smooth GP initial conditions
           2. Run the FDM solver forward for timestep_jump steps
           3. Record (T_n, T_nm1) → T_target as genuine PDE evolution
-        
+
         Material consistency:
             alpha and rho_cp are derived from the material file (not random)
             so they match what the FDM solver actually uses.  Only tau is
             randomly varied.
-        
+
         Args:
             n_samples: Number of samples
             timestep_jump: Number of timesteps to predict ahead
-            
+
         Returns:
             dict with all inputs and targets as dimensional tensors
         """
@@ -644,10 +644,10 @@ class CattaneoDataGenerator:
             'dt': self.dt * timestep_jump,
             'dx': self.dx
         }
-        
+
         return batch
-    
-    def generate_validation_set(self, n_samples: int, 
+
+    def generate_validation_set(self, n_samples: int,
                                 timestep_jump: int = 10) -> Dict[str, torch.Tensor]:
         """Generate validation set with different random seed."""
         np.random.seed(42)  # Fixed seed for reproducibility
@@ -1204,7 +1204,7 @@ def generate_training_data(grid_size: int = 112, dx: float = 1e-8, dt: float = 1
     """
     print("Generating training data...")
     generator = CattaneoDataGenerator(grid_size, dx, dt, fdm_backend=fdm_backend)
-    
+
     # Bias strongly toward genuinely evolving benchmark-style transients.
     # Keep only a token near-equilibrium component so the model does not
     # collapse into a near-identity integrator dominated by tiny updates.
@@ -1213,17 +1213,17 @@ def generate_training_data(grid_size: int = 112, dx: float = 1e-8, dt: float = 1
     n_eq = max(1, int(n_train * 0.005))
     n_sin = int(n_train * 0.45)
     n_traj = n_train - n_gp - n_step - n_eq - n_sin
-    
+
     # Generate GP-based samples in batches
     batch_size = 100
     train_batches = []
-    
+
     for i in range(0, n_gp, batch_size):
         current_batch_size = min(batch_size, n_gp - i)
         batch = generator.generate_training_batch(current_batch_size, timestep_jump)
         train_batches.append(batch)
         print(f"  Generated {min(i + batch_size, n_gp)}/{n_gp} GP training samples")
-    
+
     # Generate step-BC samples (FDM-based, slower but critical for generalization)
     if n_step > 0:
         print(f"  Generating {n_step} step-BC training samples (FDM)...")
@@ -1268,7 +1268,7 @@ def generate_training_data(grid_size: int = 112, dx: float = 1e-8, dt: float = 1
         )
         train_batches.append(traj_batch)
         print(f"  Generated {len(traj_batch['T_n'])} trajectory training samples")
-    
+
     # Concatenate batches
     train_data = {
         key: torch.cat([batch[key] for batch in train_batches], dim=0)
@@ -1276,7 +1276,7 @@ def generate_training_data(grid_size: int = 112, dx: float = 1e-8, dt: float = 1
         else train_batches[0][key]
         for key in train_batches[0].keys()
     }
-    
+
     # Validation should stress dynamic fidelity even more aggressively than train.
     print("Generating validation data...")
     np.random.seed(42)
@@ -1306,7 +1306,7 @@ def generate_training_data(grid_size: int = 112, dx: float = 1e-8, dt: float = 1
             timestep_jump=timestep_jump
         )
         val_batches.append(val_traj)
-    
+
     if len(val_batches) > 1:
         val_data = {
             key: torch.cat([b[key] for b in val_batches], dim=0)
@@ -1357,10 +1357,10 @@ if __name__ == '__main__':
     grid_size = 112
     dx = 1e-8
     dt = 1e-13
-    
+
     generator = CattaneoDataGenerator(grid_size, dx, dt)
     batch = generator.generate_training_batch(n_samples=4, timestep_jump=10)
-    
+
     print("Generated batch shapes:")
     for key, val in batch.items():
         if isinstance(val, torch.Tensor):
