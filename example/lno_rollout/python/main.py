@@ -289,7 +289,7 @@ def train_rollout(model: nn.Module, train_traj: np.ndarray, val_traj: np.ndarray
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model.to(device)
-    optimizer = torch.optim.SGD(model.parameters(), lr=config['lr'], momentum=0.0)
+    optimizer = torch.optim.Adam(model.parameters(), lr=config['lr'])
 
     train_tensor = torch.from_numpy(train_traj).to(device)
     val_tensor = torch.from_numpy(val_traj).to(device)
@@ -487,11 +487,11 @@ def main() -> None:
     parser.add_argument('--dt', type=float, default=8.0e-4)
     parser.add_argument('--bc_left', type=float, default=-1.0)
     parser.add_argument('--bc_right', type=float, default=1.0)
-    parser.add_argument('--epochs', type=int, default=2000)
+    parser.add_argument('--epochs', type=int, default=600)
     parser.add_argument('--hidden', type=int, default=32)
-    parser.add_argument('--lr', type=float, default=1.0e-2)
+    parser.add_argument('--lr', type=float, default=1.0e-4)
     parser.add_argument('--seed', type=int, default=7)
-    parser.add_argument('--model', type=str, default='mlp', choices=['mlp', 'lno'],
+    parser.add_argument('--model', type=str, default='lno', choices=['mlp', 'lno'],
                         help='Model architecture: mlp or lno')
     parser.add_argument('--num_modes', type=int, default=16,
                         help='Number of Laplace spectral modes (LNO only)')

@@ -29,7 +29,7 @@ program lno_rollout
   !! benchmark horizon
   integer, parameter :: n_hidden = 32
   integer, parameter :: n_modes = 16
-  integer, parameter :: num_epochs = 2000
+  integer, parameter :: num_epochs = 600
   !! optimisation epochs
   integer, parameter :: init_seed = 7
   !! deterministic seed
@@ -41,7 +41,7 @@ program lno_rollout
   !! left boundary
   real(real32), parameter :: bc_right = 1.0_real32
   !! right boundary
-  real(real32), parameter :: learning_rate = 1.0e-2_real32
+  real(real32), parameter :: learning_rate = 1.0e-4_real32
   !! learning rate
   real(real32), parameter :: init_scale = 5.0e-2_real32
   !! init value scale
@@ -97,8 +97,8 @@ program lno_rollout
   call network%add(dynamic_lno_layer_type( &
        num_outputs=n_grid, num_modes=n_modes, activation='none'))
   call network%compile( &
-       optimiser=sgd_optimiser_type( &
-            learning_rate=learning_rate, momentum=0.0_real32, &
+       optimiser=adam_optimiser_type( &
+            learning_rate=learning_rate, &
             clip_dict=clip_type(clip_min=-1.0_real32, clip_max=1.0_real32)), &
        loss_method='mse', metrics=['loss'], verbose=0)
   call network%set_batch_size(1)
