@@ -204,6 +204,16 @@ module athena__network
      procedure, pass(this) :: post_epoch_hook
      !! Called after each training epoch; override in derived types for custom
      !! per-epoch callbacks (e.g. logging to Weights & Biases).
+
+     procedure, pass(this), private :: inverse_design_real
+     !! Inverse design with real inputs
+     procedure, pass(this), private :: inverse_design_array_0d
+     !! Inverse design with 0d array_type inputs
+     procedure, pass(this), private :: inverse_design_array_2d
+     !! Inverse design with 2d array_type inputs
+     generic :: inverse_design => &
+          inverse_design_real, inverse_design_array_0d, inverse_design_array_2d
+     !! Optimise input to match a target output
   end type network_type
 
   interface network_type
@@ -748,10 +758,64 @@ module athena__network
        integer, intent(in) :: epoch
        !! Current epoch number (1-based)
        real(real32), intent(in) :: loss
-       !! Mean loss over the epoch
+       !! Current loss value
        real(real32), intent(in) :: accuracy
-       !! Mean accuracy over the epoch
+       !! Current accuracy value
      end subroutine post_epoch_hook
+
+     module function inverse_design_real( &
+          this, target, x_init, optimiser, steps &
+     ) result(x_opt)
+       !! Optimise input to match a target output (real inputs)
+       class(network_type), intent(inout), target :: this
+       !! Instance of the network
+       real(real32), dimension(:,:), intent(in) :: target
+       !! Target output values
+       real(real32), dimension(:,:), intent(in) :: x_init
+       !! Initial input values
+       class(base_optimiser_type), optional, intent(in) :: optimiser
+       !! Optimiser for input updates (defaults to network optimiser)
+       integer, intent(in) :: steps
+       !! Number of optimisation iterations
+       real(real32), dimension(size(x_init,1), size(x_init,2)) :: x_opt
+       !! Optimised input
+     end function inverse_design_real
+
+     module function inverse_design_array_0d( &
+          this, target, x_init, optimiser, steps &
+     ) result(x_opt)
+       !! Optimise input to match a target output (array_type inputs)
+       class(network_type), intent(inout), target :: this
+       !! Instance of the network
+       type(array_type), intent(in) :: target
+       !! Target output values
+       type(array_type), intent(in) :: x_init
+       !! Initial input values
+       class(base_optimiser_type), optional, intent(in) :: optimiser
+       !! Optimiser for input updates (defaults to network optimiser)
+       integer, intent(in) :: steps
+       !! Number of optimisation iterations
+       type(array_type) :: x_opt
+       !! Optimised input
+     end function inverse_design_array_0d
+
+     module function inverse_design_array_2d( &
+          this, target, x_init, optimiser, steps &
+     ) result(x_opt)
+       !! Optimise input to match a target output (array_type inputs)
+       class(network_type), intent(inout), target :: this
+       !! Instance of the network
+       type(array_type), dimension(:,:), intent(in) :: target
+       !! Target output values
+       type(array_type), dimension(:,:), intent(in) :: x_init
+       !! Initial input values
+       class(base_optimiser_type), optional, intent(in) :: optimiser
+       !! Optimiser for input updates (defaults to network optimiser)
+       integer, intent(in) :: steps
+       !! Number of optimisation iterations
+       type(array_type), dimension(size(x_init,1), size(x_init,2)) :: x_opt
+       !! Optimised input
+     end function inverse_design_array_2d
   end interface
 
   interface get_sample
