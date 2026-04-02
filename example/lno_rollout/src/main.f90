@@ -480,8 +480,7 @@ contains
        end do
     end if
   end subroutine fill_full_layer_params
-
-
+!-------------------------------------------------------------------------------
   subroutine fill_dynamic_lno_layer_params(layer, state, scale_in)
     !! Shared initialisation for dynamic_lno_layer_type.
     !! Matches the Python _apply_shared_init_lno:
@@ -522,8 +521,7 @@ contains
     ! Rebuild bases from the (unchanged) pole values
     call layer%rebuild_bases()
   end subroutine fill_dynamic_lno_layer_params
-
-
+!-------------------------------------------------------------------------------
   function next_init_value(state, scale_in) result(val)
     !! Simple LCG-based generator for shared initialisation.
     !! Not statistically good, but sufficient for exact cross-language parity.

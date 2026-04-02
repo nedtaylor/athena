@@ -487,7 +487,7 @@ def main() -> None:
     parser.add_argument('--bc_right', type=float, default=1.0)
     parser.add_argument('--epochs', type=int, default=2000)
     parser.add_argument('--hidden', type=int, default=32)
-    parser.add_argument('--lr', type=float, default=5.0e-2)
+    parser.add_argument('--lr', type=float, default=1.0e-1)
     parser.add_argument('--seed', type=int, default=7)
     parser.add_argument('--model', type=str, default='mlp', choices=['mlp', 'lno'],
                         help='Model architecture: mlp or lno')
