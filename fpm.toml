@@ -133,3 +133,8 @@ source-dir = "example/rnn_timeseries/src"
 main = "main.f90"
 [example.dependencies]
 example_library = { path = "example/example_library"}
+
+[[example]]
+name = "inverse_design"
+source-dir = "example/inverse_design/src"
+main = "main.f90"

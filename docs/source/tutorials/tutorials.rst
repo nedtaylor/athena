@@ -14,6 +14,7 @@ Welcome to the athena tutorials! These guides will help you get started with bui
    training_model
    network_outputs
    saving_loading
+   inverse_design
 
 .. toctree::
    :maxdepth: 1
@@ -24,6 +25,7 @@ Welcome to the athena tutorials! These guides will help you get started with bui
    resnet_example
    msgpass_example
    pinn_example
+   inverse_design_example
    wandb_logging_optimisation
 
 .. toctree::
