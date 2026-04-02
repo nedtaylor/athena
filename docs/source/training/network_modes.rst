@@ -14,6 +14,9 @@ intent to PyTorch's ``train()`` and ``eval()`` mode controls:
 These procedures control layers whose behaviour differs between training and
 inference, such as dropout, dropblock, and batch-normalisation layers.
 
+Optionally, in both of these procedures, you can obtain a snapshot of the current mode state of all layers before switching modes using the ``mode_store`` argument.
+You can also pass a list of layer indices to control which layers are switched to the desired mode using the ``layer_indices`` argument.
+
 set_training_mode()
 -------------------
 

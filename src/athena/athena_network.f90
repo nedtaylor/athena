@@ -399,22 +399,28 @@ module athena__network
        !! Instance of the network
      end subroutine reset_state
 
-     module subroutine set_training_mode(this, mode_store)
+     module subroutine set_training_mode(this, mode_store, layer_indices)
        !! Put the network in training mode.
        !! Layers such as dropout and batch normalisation use their training
        !! behaviour after this call.
        class(network_type), intent(inout) :: this
        !! Instance of the network
        logical, dimension(:), allocatable, intent(out), optional :: mode_store
+       !! Optional array to store the training mode of each layer
+       integer, dimension(:), intent(in), optional :: layer_indices
+       !! Optional array of layer indices to set to training mode.
      end subroutine set_training_mode
 
-     module subroutine set_inference_mode(this, mode_store)
+     module subroutine set_inference_mode(this, mode_store, layer_indices)
        !! Put the network in inference mode.
        !! Layers such as dropout and batch normalisation use their inference
        !! behaviour after this call.
        class(network_type), intent(inout) :: this
        !! Instance of the network
        logical, dimension(:), allocatable, intent(out), optional :: mode_store
+       !! Optional array to store the training mode of each layer
+       integer, dimension(:), intent(in), optional :: layer_indices
+       !! Optional array of layer indices to set to inference mode.
      end subroutine set_inference_mode
 
      module subroutine restore_mode(this, mode_store)

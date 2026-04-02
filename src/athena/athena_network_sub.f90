@@ -1856,7 +1856,7 @@ contains
 
 
 !###############################################################################
-  module subroutine set_training_mode(this, mode_store)
+  module subroutine set_training_mode(this, mode_store, layer_indices)
     !! Put the network in training mode.
     implicit none
 
@@ -1865,6 +1865,9 @@ contains
     !! Instance of network
     logical, dimension(:), allocatable, intent(out), optional :: mode_store
     !! Optional array to store the training mode of each layer
+    integer, dimension(:), intent(in), optional :: layer_indices
+    !! Optional array of layer indices to set to training mode.
+    !! If not provided, all layers will be set to training mode.
 
     ! Local variables
     integer :: l
@@ -1875,11 +1878,18 @@ contains
     do l = 1, this%num_layers
        if(present(mode_store)) mode_store(l) = this%model(l)%layer%inference
        this%model(l)%layer%inference = .false.
+       if(present(layer_indices))then
+          if(any(layer_indices.eq.l)) then
+             this%model(l)%layer%inference = .false.
+          end if
+       else
+          this%model(l)%layer%inference = .false.
+       end if
     end do
 
   end subroutine set_training_mode
 !-------------------------------------------------------------------------------
-  module subroutine set_inference_mode(this)
+  module subroutine set_inference_mode(this, mode_store, layer_indices)
     !! Put the network in inference mode.
     implicit none
 
@@ -1888,6 +1898,9 @@ contains
     !! Instance of network
     logical, dimension(:), allocatable, intent(out), optional :: mode_store
     !! Optional array to store the training mode of each layer
+    integer, dimension(:), intent(in), optional :: layer_indices
+    !! Optional array of layer indices to set to inference mode.
+    !! If not provided, all layers will be set to inference mode.
 
     ! Local variables
     integer :: l
@@ -1897,7 +1910,13 @@ contains
     if(present(mode_store)) allocate(mode_store(this%num_layers))
     do l = 1, this%num_layers
        if(present(mode_store)) mode_store(l) = this%model(l)%layer%inference
-       this%model(l)%layer%inference = .true.
+       if(present(layer_indices))then
+          if(any(layer_indices.eq.l)) then
+             this%model(l)%layer%inference = .true.
+          end if
+       else
+          this%model(l)%layer%inference = .true.
+       end if
     end do
 
   end subroutine set_inference_mode
