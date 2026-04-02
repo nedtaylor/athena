@@ -37,8 +37,6 @@ where:
 * :math:`M` is ``num_modes``
 * :math:`\sigma` is the activation function
 
-The encoder and decoder bases are rebuilt from the current poles at each forward pass via ``rebuild_bases``.
-
 Arguments
 ---------
 
