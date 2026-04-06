@@ -650,13 +650,13 @@ contains
     !! GNN layer creation is delegated to the registered creator in
     !! list_of_onnx_gnn_layer_creators, keyed by the subtype stored in
     !! the metadata value string.
+    !! Standard (non-GNN) layer creation is delegated to the registered
+    !! creator in list_of_onnx_layer_creators, keyed by the ONNX op_type.
     use athena__base_layer, only: base_layer_type
-    use athena__full_layer, only: full_layer_type
-    use athena__initialiser_data, only: data_init_type
-    use athena__onnx_utils, only: row_to_col_major_2d, &
-         onnx_to_athena_activation
     use athena__container_layer, only: list_of_onnx_gnn_layer_creators, &
-         allocate_list_of_onnx_gnn_layer_creators
+         allocate_list_of_onnx_gnn_layer_creators, &
+         list_of_onnx_layer_creators, &
+         allocate_list_of_onnx_layer_creators
     implicit none
 
     type(network_type), intent(inout) :: network
@@ -672,53 +672,75 @@ contains
     integer, intent(in) :: num_meta
     integer, intent(in) :: verbose_
 
-    character(64) :: gnn_subtype, msg_activation
-    character(128) :: gnn_prefix
-    integer :: i, k, pos, pos2, layer_index
-    character(256) :: meta_str, token, key
-    integer :: weight_idx, bias_idx, num_out_dense
-    character(128), allocatable :: std_node_names(:)
-    character(128), allocatable :: std_node_ops(:)
-    integer :: num_std_nodes
-    character(128) :: prev_node_base
-
-
-    !--------------------------------------------------------------------------
-    ! Add the GNN layer via the registered creator
-    !--------------------------------------------------------------------------
-    gnn_subtype = ''
-    meta_str = meta_values(1)
-    pos = 1
-    do while(pos .le. len_trim(meta_str))
-       pos2 = index(meta_str(pos:), ';')
-       if(pos2 .eq. 0)then
-          token = meta_str(pos:len_trim(meta_str))
-          pos = len_trim(meta_str) + 1
-       else
-          token = meta_str(pos:pos+pos2-2)
-          pos = pos + pos2
-       end if
-       k = index(token, '=')
-       if(k .eq. 0) cycle
-       key = trim(adjustl(token(1:k-1)))
-       if(trim(key) .eq. 'subtype')then
-          gnn_subtype = trim(adjustl(token(k+1:)))
-          exit
-       end if
-    end do
-
-    gnn_prefix = trim(meta_keys(1))
-    pos = index(gnn_prefix, 'athena_gnn_')
-    if(pos .gt. 0) gnn_prefix = gnn_prefix(pos+11:)
-
-    if(verbose_ .gt. 0)then
-       write(*,*) 'GNN layer: subtype=', trim(gnn_subtype), ' prefix=', &
-            trim(gnn_prefix)
-    end if
+    integer, allocatable :: ordered_layer_ids(:)
+    integer :: i, layer_id, meta_index, node_index
 
     if(.not.allocated(list_of_onnx_gnn_layer_creators))then
        call allocate_list_of_onnx_gnn_layer_creators()
     end if
+    if(.not.allocated(list_of_onnx_layer_creators))then
+       call allocate_list_of_onnx_layer_creators()
+    end if
+
+    allocate(ordered_layer_ids(0))
+
+    do i = 1, num_meta
+       call append_unique_layer_id_from_meta_key( &
+            meta_keys(i), ordered_layer_ids)
+    end do
+
+    do i = 1, num_nodes
+       call append_unique_primary_layer_id(nodes(i)%name, ordered_layer_ids)
+    end do
+
+    call sort_int_array(ordered_layer_ids)
+
+    do i = 1, size(ordered_layer_ids)
+       layer_id = ordered_layer_ids(i)
+       meta_index = find_metadata_for_layer_id(meta_keys, num_meta, layer_id)
+
+       if(meta_index .gt. 0)then
+          call add_gnn_layer_from_metadata( &
+               network, meta_keys(meta_index), meta_values(meta_index), &
+               inits, num_inits, verbose_)
+          cycle
+       end if
+
+       node_index = find_primary_node_for_layer_id(nodes, num_nodes, layer_id)
+       if(node_index .le. 0) cycle
+
+       call add_standard_layer_from_onnx( &
+            network, layer_id, node_index, nodes, num_nodes, &
+            inits, num_inits, verbose_)
+    end do
+
+    if(allocated(ordered_layer_ids)) deallocate(ordered_layer_ids)
+
+    if(verbose_ .gt. 0)then
+       write(*,*) 'Network built with ', network%num_layers, ' layers'
+    end if
+
+  end subroutine build_network_from_json_gnn
+!###############################################################################
+
+
+!###############################################################################
+  subroutine add_gnn_layer_from_metadata(network, meta_key, meta_value, inits, &
+       num_inits, verbose_)
+    !! Create one GNN layer from metadata and append it to the network.
+    use athena__base_layer, only: base_layer_type
+    use athena__container_layer, only: list_of_onnx_gnn_layer_creators
+    implicit none
+
+    type(network_type), intent(inout) :: network
+    character(*), intent(in) :: meta_key, meta_value
+    type(onnx_initialiser_type), intent(in) :: inits(:)
+    integer, intent(in) :: num_inits, verbose_
+
+    character(64) :: gnn_subtype
+    integer :: i, layer_index
+
+    call extract_gnn_subtype(meta_value, gnn_subtype)
 
     layer_index = 0
     do i = 1, size(list_of_onnx_gnn_layer_creators)
@@ -738,96 +760,436 @@ contains
       class(base_layer_type), allocatable :: gnn_layer
 
       gnn_layer = list_of_onnx_gnn_layer_creators(layer_index)%create_ptr( &
-           meta_keys(1), meta_values(1), inits(1:num_inits), verbose_)
+           meta_key, meta_value, inits(1:num_inits), verbose_)
       call network%add(gnn_layer)
     end block
 
+  end subroutine add_gnn_layer_from_metadata
+!###############################################################################
 
-    !--------------------------------------------------------------------------
-    ! Add the remaining standard layers
-    !--------------------------------------------------------------------------
-    allocate(std_node_names(num_nodes))
-    allocate(std_node_ops(num_nodes))
-    num_std_nodes = 0
 
-    do i = 1, num_nodes
-       if(index(trim(nodes(i)%name), trim(gnn_prefix)) .eq. 1) cycle
-       num_std_nodes = num_std_nodes + 1
-       std_node_names(num_std_nodes) = trim(nodes(i)%name)
-       std_node_ops(num_std_nodes) = trim(nodes(i)%op_type)
-    end do
+!###############################################################################
+  subroutine add_standard_layer_from_onnx( &
+       network, layer_id, node_index, nodes, num_nodes, &
+       inits, num_inits, verbose_)
+    !! Create standard (non-GNN) layers for a given layer_id using the
+    !! registered ONNX creator framework (list_of_onnx_layer_creators).
+    !!
+    !! Processes the primary node and any trailing activation node.
+    use athena__base_layer, only: base_layer_type
+    use athena__container_layer, only: list_of_onnx_layer_creators
+    use athena__onnx_utils, only: row_to_col_major_2d
+    implicit none
 
-    i = 1
-    do while(i .le. num_std_nodes)
-       if(trim(std_node_ops(i)) .eq. 'Gemm')then
-          weight_idx = 0
-          bias_idx = 0
-          prev_node_base = trim(std_node_names(i))
+    type(network_type), intent(inout) :: network
+    integer, intent(in) :: layer_id, node_index, num_nodes, num_inits
+    integer, intent(in) :: verbose_
+    type(onnx_node_type), intent(in) :: nodes(:)
+    type(onnx_initialiser_type), intent(in) :: inits(:)
 
-          do k = 1, num_inits
-             if(index(trim(inits(k)%name), trim(prev_node_base)) .ne. 1) cycle
-             if(.not.allocated(inits(k)%dims)) cycle
-             if(size(inits(k)%dims) .ge. 2)then
-                weight_idx = k
-             else
-                bias_idx = k
-             end if
-          end do
+    integer :: j, k, layer_index, actv_index, ndims, num_matching
+    character(128) :: op_type_name, out_name
+    type(onnx_initialiser_type), allocatable :: init_list(:)
+    type(onnx_tensor_type), allocatable :: value_info_list(:)
+    class(base_layer_type), allocatable :: layer
 
-          if(weight_idx .gt. 0 .and. allocated(inits(weight_idx)%dims))then
-             num_out_dense = inits(weight_idx)%dims(1)
-          else
-             num_out_dense = 1
-          end if
+    op_type_name = trim(adjustl(nodes(node_index)%op_type))
 
-          msg_activation = 'none'
-          if(i + 1 .le. num_std_nodes)then
-             if(index(trim(std_node_names(i+1)), trim(prev_node_base)) .eq. 1 &
-                  .and. trim(std_node_ops(i+1)) .ne. 'Gemm')then
-                msg_activation = onnx_to_athena_activation( &
-                     trim(std_node_ops(i+1)))
-                i = i + 1
-             end if
-          end if
+    layer_index = findloc( &
+         [ list_of_onnx_layer_creators(:)%op_type ], &
+         trim(op_type_name), dim = 1)
 
-          block
-            type(full_layer_type) :: dense_layer
-            type(data_init_type) :: k_init, b_init
-            real(real32), allocatable :: col_w(:)
-
-            if(weight_idx .gt. 0 .and. allocated(inits(weight_idx)%data))then
-               allocate(col_w(size(inits(weight_idx)%data)))
-               call row_to_col_major_2d( &
-                    inits(weight_idx)%data, col_w, &
-                    inits(weight_idx)%dims(1), inits(weight_idx)%dims(2))
-               k_init = data_init_type(data = col_w)
-               deallocate(col_w)
-            end if
-
-            if(bias_idx .gt. 0 .and. allocated(inits(bias_idx)%data))then
-               b_init = data_init_type(data = inits(bias_idx)%data)
-            end if
-
-            dense_layer = full_layer_type( &
-                 num_outputs = num_out_dense, &
-                 activation = trim(msg_activation), &
-                 kernel_initialiser = k_init, &
-                 bias_initialiser = b_init)
-
-            call network%add(dense_layer)
-          end block
+    if(layer_index .eq. 0)then
+       if(verbose_ .gt. 0)then
+          write(*,*) 'Skipping unsupported ONNX node in GNN import: ', &
+               trim(nodes(node_index)%name), ' op=', trim(op_type_name)
        end if
-
-       i = i + 1
-    end do
-
-    deallocate(std_node_names, std_node_ops)
-
-    if(verbose_ .gt. 0)then
-       write(*,*) 'Network built with ', network%num_layers, ' layers'
+       return
     end if
 
-  end subroutine build_network_from_json_gnn
+    num_matching = 0
+    if(allocated(nodes(node_index)%inputs))then
+       do j = 1, size(nodes(node_index)%inputs)
+          do k = 1, num_inits
+             if(trim(nodes(node_index)%inputs(j)) .eq. &
+                  trim(inits(k)%name))then
+                num_matching = num_matching + 1
+             end if
+          end do
+       end do
+    end if
+
+    allocate(init_list(num_matching))
+    num_matching = 0
+    if(allocated(nodes(node_index)%inputs))then
+       do j = 1, size(nodes(node_index)%inputs)
+          do k = 1, num_inits
+             if(trim(nodes(node_index)%inputs(j)) .ne. &
+                  trim(inits(k)%name)) cycle
+
+             num_matching = num_matching + 1
+             init_list(num_matching)%name = inits(k)%name
+             init_list(num_matching)%data_type = inits(k)%data_type
+
+             if(allocated(inits(k)%dims))then
+                allocate(init_list(num_matching)%dims(size(inits(k)%dims)))
+                init_list(num_matching)%dims = inits(k)%dims
+             end if
+
+             if(allocated(inits(k)%data))then
+                allocate(init_list(num_matching)%data(size(inits(k)%data)))
+                if(allocated(inits(k)%dims))then
+                   if(size(inits(k)%dims) .eq. 2)then
+                      call row_to_col_major_2d( &
+                           inits(k)%data, init_list(num_matching)%data, &
+                           inits(k)%dims(1), inits(k)%dims(2))
+                   else
+                      init_list(num_matching)%data = inits(k)%data
+                   end if
+                else
+                   init_list(num_matching)%data = inits(k)%data
+                end if
+             end if
+
+             if(allocated(inits(k)%int_data))then
+                allocate(init_list(num_matching)%int_data(size(inits(k)%int_data)))
+                init_list(num_matching)%int_data = inits(k)%int_data
+             end if
+          end do
+       end do
+    end if
+
+    allocate(value_info_list(0))
+    if(allocated(nodes(node_index)%outputs) .and. &
+         nodes(node_index)%num_outputs .ge. 1)then
+       out_name = trim(nodes(node_index)%outputs(1))
+
+       do j = 1, size(init_list)
+          if(.not.allocated(init_list(j)%dims)) cycle
+          if(size(init_list(j)%dims) .lt. 2) cycle
+          ndims = size(init_list(j)%dims)
+
+          block
+            type(onnx_tensor_type) :: vi
+
+            vi%name = out_name
+            vi%elem_type = 1
+            if(trim(op_type_name) .eq. 'Conv' .and. ndims .ge. 3)then
+               allocate(vi%dims(ndims))
+               vi%dims(1) = 1
+               vi%dims(2) = init_list(j)%dims(ndims)
+               vi%dims(3:ndims) = 0
+            else
+               allocate(vi%dims(2))
+               vi%dims(1) = 1
+               vi%dims(2) = init_list(j)%dims(1)
+            end if
+
+            deallocate(value_info_list)
+            allocate(value_info_list(1))
+            value_info_list(1)%name = vi%name
+            value_info_list(1)%elem_type = vi%elem_type
+            if(allocated(vi%dims))then
+               allocate(value_info_list(1)%dims(size(vi%dims)))
+               value_info_list(1)%dims = vi%dims
+            end if
+          end block
+          exit
+       end do
+    end if
+
+    layer = list_of_onnx_layer_creators(layer_index)%create_ptr( &
+         nodes(node_index), init_list, value_info_list, verbose=verbose_)
+    call network%add(layer)
+
+    deallocate(init_list)
+    deallocate(value_info_list)
+
+    actv_index = find_activation_node_for_layer_id( &
+         nodes, num_nodes, layer_id)
+    if(actv_index .gt. 0)then
+       op_type_name = trim(adjustl(nodes(actv_index)%op_type))
+       layer_index = findloc( &
+            [ list_of_onnx_layer_creators(:)%op_type ], &
+            trim(op_type_name), dim = 1)
+       if(layer_index .gt. 0)then
+          allocate(init_list(0))
+          allocate(value_info_list(0))
+          if(allocated(layer)) deallocate(layer)
+          layer = list_of_onnx_layer_creators(layer_index)%create_ptr( &
+               nodes(actv_index), init_list, value_info_list, &
+               verbose=verbose_)
+          call network%add(layer)
+          deallocate(init_list)
+          deallocate(value_info_list)
+       end if
+    end if
+
+  end subroutine add_standard_layer_from_onnx
+!###############################################################################
+
+
+!###############################################################################
+  subroutine extract_gnn_subtype(meta_value, gnn_subtype)
+    !! Extract the subtype=... token from one metadata value string.
+    implicit none
+
+    character(*), intent(in) :: meta_value
+    character(*), intent(out) :: gnn_subtype
+
+    integer :: pos, pos2, k
+    character(256) :: token, key
+
+    gnn_subtype = ''
+    pos = 1
+    do while(pos .le. len_trim(meta_value))
+       pos2 = index(meta_value(pos:), ';')
+       if(pos2 .eq. 0)then
+          token = meta_value(pos:len_trim(meta_value))
+          pos = len_trim(meta_value) + 1
+       else
+          token = meta_value(pos:pos+pos2-2)
+          pos = pos + pos2
+       end if
+
+       k = index(token, '=')
+       if(k .eq. 0) cycle
+       key = trim(adjustl(token(1:k-1)))
+       if(trim(key) .eq. 'subtype')then
+          gnn_subtype = trim(adjustl(token(k+1:)))
+          return
+       end if
+    end do
+
+  end subroutine extract_gnn_subtype
+!###############################################################################
+
+
+!###############################################################################
+  subroutine append_unique_layer_id_from_meta_key(meta_key, ids)
+    !! Append a layer id parsed from athena_gnn_node_<id> if not present.
+    implicit none
+
+    character(*), intent(in) :: meta_key
+    integer, allocatable, intent(inout) :: ids(:)
+
+    integer :: layer_id, pos, stat, i
+    character(128) :: rest
+    logical :: exists
+
+    pos = index(trim(meta_key), 'athena_gnn_node_')
+    if(pos .eq. 0) return
+
+    rest = adjustl(trim(meta_key(pos+16:)))
+    read(rest, *, iostat=stat) layer_id
+    if(stat .ne. 0) return
+
+    exists = .false.
+    do i = 1, size(ids)
+       if(ids(i) .eq. layer_id)then
+          exists = .true.
+          exit
+       end if
+    end do
+    if(.not.exists) ids = [ids, layer_id]
+
+  end subroutine append_unique_layer_id_from_meta_key
+!###############################################################################
+
+
+!###############################################################################
+  subroutine append_unique_primary_layer_id(node_name, ids)
+    !! Append a layer id parsed from a primary node name node_<id>.
+    implicit none
+
+    character(*), intent(in) :: node_name
+    integer, allocatable, intent(inout) :: ids(:)
+
+    integer :: layer_id, i
+    logical :: is_primary, exists
+
+    call parse_primary_layer_id(node_name, layer_id, is_primary)
+    if(.not.is_primary) return
+
+    exists = .false.
+    do i = 1, size(ids)
+       if(ids(i) .eq. layer_id)then
+          exists = .true.
+          exit
+       end if
+    end do
+    if(.not.exists) ids = [ids, layer_id]
+
+  end subroutine append_unique_primary_layer_id
+!###############################################################################
+
+
+!###############################################################################
+  subroutine parse_primary_layer_id(node_name, layer_id, is_primary)
+    !! Parse node_<id> names and mark true only for primary layer nodes.
+    implicit none
+
+    character(*), intent(in) :: node_name
+    integer, intent(out) :: layer_id
+    logical, intent(out) :: is_primary
+
+    integer :: stat
+    character(128) :: rest
+
+    layer_id = -1
+    is_primary = .false.
+
+    if(index(trim(node_name), 'node_') .ne. 1) return
+    rest = trim(node_name(6:))
+    if(index(rest, '_') .gt. 0) return
+
+    read(rest, *, iostat=stat) layer_id
+    if(stat .eq. 0 .and. layer_id .gt. 0) is_primary = .true.
+
+  end subroutine parse_primary_layer_id
+!###############################################################################
+
+
+!###############################################################################
+  integer function find_metadata_for_layer_id(meta_keys, num_meta, layer_id)
+    !! Return metadata index for a given layer id, or 0 if absent.
+    implicit none
+
+    character(256), intent(in) :: meta_keys(:)
+    integer, intent(in) :: num_meta, layer_id
+
+    integer :: i, id_tmp
+    logical :: found
+
+    find_metadata_for_layer_id = 0
+    do i = 1, num_meta
+       call parse_meta_layer_id(meta_keys(i), id_tmp, found)
+       if(found .and. id_tmp .eq. layer_id)then
+          find_metadata_for_layer_id = i
+          return
+       end if
+    end do
+
+  end function find_metadata_for_layer_id
+!###############################################################################
+
+
+!###############################################################################
+  subroutine parse_meta_layer_id(meta_key, layer_id, found)
+    !! Parse athena_gnn_node_<id> metadata key layer id.
+    implicit none
+
+    character(*), intent(in) :: meta_key
+    integer, intent(out) :: layer_id
+    logical, intent(out) :: found
+
+    integer :: pos, stat
+    character(128) :: rest
+
+    layer_id = -1
+    found = .false.
+
+    pos = index(trim(meta_key), 'athena_gnn_node_')
+    if(pos .eq. 0) return
+
+    rest = adjustl(trim(meta_key(pos+16:)))
+    read(rest, *, iostat=stat) layer_id
+    if(stat .eq. 0 .and. layer_id .gt. 0) found = .true.
+
+  end subroutine parse_meta_layer_id
+!###############################################################################
+
+
+!###############################################################################
+  integer function find_primary_node_for_layer_id(nodes, num_nodes, layer_id)
+    !! Return node index for primary node_<id>, or 0 if not found.
+    implicit none
+
+    type(onnx_node_type), intent(in) :: nodes(:)
+    integer, intent(in) :: num_nodes, layer_id
+
+    integer :: i, id_tmp
+    logical :: is_primary
+
+    find_primary_node_for_layer_id = 0
+    do i = 1, num_nodes
+       call parse_primary_layer_id(nodes(i)%name, id_tmp, is_primary)
+       if(is_primary .and. id_tmp .eq. layer_id)then
+          find_primary_node_for_layer_id = i
+          return
+       end if
+    end do
+
+  end function find_primary_node_for_layer_id
+!###############################################################################
+
+
+!###############################################################################
+  integer function find_activation_node_for_layer_id(nodes, num_nodes, layer_id)
+    !! Return node index for activation attached to node_<id>, or 0.
+    implicit none
+
+    type(onnx_node_type), intent(in) :: nodes(:)
+    integer, intent(in) :: num_nodes, layer_id
+
+    integer :: i
+    character(128) :: prefix
+
+    write(prefix, '("node_",I0,"_")') layer_id
+    find_activation_node_for_layer_id = 0
+
+    do i = 1, num_nodes
+       if(index(trim(nodes(i)%name), trim(prefix)) .ne. 1) cycle
+       if(is_activation_op_type(trim(nodes(i)%op_type)))then
+          find_activation_node_for_layer_id = i
+          return
+       end if
+    end do
+
+  end function find_activation_node_for_layer_id
+!###############################################################################
+
+
+!###############################################################################
+  logical function is_activation_op_type(op_type)
+    !! Return true for ONNX activation nodes emitted by ATHENA export.
+    implicit none
+
+    character(*), intent(in) :: op_type
+
+    select case(trim(op_type))
+    case('Relu', 'LeakyRelu', 'Sigmoid', 'Softmax', 'Tanh', 'Selu', 'Swish')
+       is_activation_op_type = .true.
+    case default
+       is_activation_op_type = .false.
+    end select
+
+  end function is_activation_op_type
+!###############################################################################
+
+
+!###############################################################################
+  subroutine sort_int_array(values)
+    !! Sort an integer array in ascending order.
+    implicit none
+
+    integer, allocatable, intent(inout) :: values(:)
+
+    integer :: i, j, tmp
+
+    if(size(values) .le. 1) return
+
+    do i = 1, size(values) - 1
+       do j = i + 1, size(values)
+          if(values(j) .lt. values(i))then
+             tmp = values(i)
+             values(i) = values(j)
+             values(j) = tmp
+          end if
+       end do
+    end do
+
+  end subroutine sort_int_array
 !###############################################################################
 
 
@@ -891,7 +1253,8 @@ contains
           end do
        end do
 
-       if(op_type_name .eq. 'MaxPool' .or. op_type_name .eq. 'AvgPool')then
+       if(index(op_type_name, 'Pool', back=.true.) .eq. &
+            len_trim(op_type_name) - 3) then
           n_kernel_dims = 0
           if(allocated(nodes(i)%attributes))then
              do j = 1, size(nodes(i)%attributes)

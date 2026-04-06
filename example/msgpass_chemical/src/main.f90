@@ -57,7 +57,7 @@ program msgpass_chemical_example
   ! data loading and preprocessing
   type(graph_type), allocatable, dimension(:,:) :: graphs_in
   real(real32), allocatable, dimension(:,:) :: labels
-  character(1024) :: file, train_file
+  character(1024) :: file, train_file, onnx_file
 
   ! training loop variables
   integer :: num_tests = 10, num_epochs = 20, batch_size = 8
@@ -73,16 +73,12 @@ program msgpass_chemical_example
 
   class(*), allocatable, dimension(:,:) :: data_poly
 
-  ! ONNX export path (relative to run directory)
-  character(*), parameter :: onnx_file = &
-       "example/msgpass_chemical/model.json"
-
-
 
   !-----------------------------------------------------------------------------
   ! read training dataset
   !-----------------------------------------------------------------------------
   train_file = "example/msgpass_chemical/database.xyz"
+  onnx_file = "example/msgpass_chemical/model.json"
   write(*,*) "Reading training dataset..."
   call read_extxyz_db(train_file, graphs_in, output)!labels)
   write(*,*) "Reading finished"

@@ -149,6 +149,7 @@ contains
          onnx_create_layer_container('Dropout', create_from_onnx_dropout_layer), &
          onnx_create_layer_container('Flatten', create_from_onnx_flatten_layer), &
          onnx_create_layer_container('Gemm', create_from_onnx_full_layer), &
+         onnx_create_layer_container('LeakyRelu', create_from_onnx_actv_layer), &
          onnx_create_layer_container('MatMul', create_from_onnx_full_layer), &
          onnx_create_layer_container('MaxPool', create_from_onnx_maxpool_layer), &
          onnx_create_layer_container('Pad', create_from_onnx_pad_layer), &
