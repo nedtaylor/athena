@@ -174,6 +174,45 @@ contains
 
 
 !###############################################################################
+  module subroutine emit_onnx_nodes_base( &
+       this, prefix, &
+       nodes, num_nodes, max_nodes, &
+       inits, num_inits, max_inits &
+  )
+    !! Default implementation: no-op (standard layers are handled by write_onnx)
+    implicit none
+    class(base_layer_type), intent(in) :: this
+    character(*), intent(in) :: prefix
+    type(onnx_node_type), intent(inout), dimension(:) :: nodes
+    integer, intent(inout) :: num_nodes
+    integer, intent(in) :: max_nodes
+    type(onnx_initialiser_type), intent(inout), dimension(:) :: inits
+    integer, intent(inout) :: num_inits
+    integer, intent(in) :: max_inits
+
+    ! Default: do nothing. Standard layers are handled directly by write_onnx.
+  end subroutine emit_onnx_nodes_base
+!###############################################################################
+
+
+!###############################################################################
+  module subroutine emit_onnx_graph_inputs_base( &
+       this, prefix, &
+       graph_inputs, num_inputs &
+  )
+    !! Default implementation: no-op (standard layers don't add graph inputs)
+    implicit none
+    class(base_layer_type), intent(in) :: this
+    character(*), intent(in) :: prefix
+    type(onnx_tensor_type), intent(inout), dimension(:) :: graph_inputs
+    integer, intent(inout) :: num_inputs
+
+    ! Default: do nothing. Standard input layers are handled directly.
+  end subroutine emit_onnx_graph_inputs_base
+!###############################################################################
+
+
+!###############################################################################
   module subroutine set_rank_base(this, input_rank, output_rank)
     !! Set the input and output ranks of the layer
     implicit none

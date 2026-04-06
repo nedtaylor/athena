@@ -75,7 +75,7 @@ program msgpass_chemical_example
 
   ! ONNX export path (relative to run directory)
   character(*), parameter :: onnx_file = &
-       "example/msgpass_chemical/athena_gnn_init.onnx"
+       "example/msgpass_chemical/model.json"
 
 
 
@@ -178,10 +178,10 @@ program msgpass_chemical_example
   ! print network and dataset summary
   !-----------------------------------------------------------------------------
   num_params = network%get_num_params()
-  write(*,*) "NUMBER OF LAYERS",network%num_layers
-  write(*,*) "Number of parameters", num_params
-  write(*,*) "Number of samples",size(output(1,1)%val,2)
-  write(*,*) "Number of tests",num_tests
+  write(*,*) "Number of layers:", network%num_layers
+  write(*,*) "Number of parameters:", num_params
+  write(*,*) "Number of samples:", size(output(1,1)%val,2)
+  write(*,*) "Number of tests:", num_tests
 
 
   !-----------------------------------------------------------------------------
@@ -190,6 +190,81 @@ program msgpass_chemical_example
   write(*,*) "Writing ONNX file: ", trim(onnx_file)
   call write_onnx(onnx_file, network)
   write(*,*) "ONNX export complete"
+
+  !-----------------------------------------------------------------------------
+  ! forward pass on first sample with initial weights (matches ONNX export)
+  !-----------------------------------------------------------------------------
+  call network%set_batch_size(1)
+  do i = 1, network%num_layers
+     network%model(i)%layer%inference = .true.
+  end do
+  call network%forward(graphs_in(:,1:1))
+  ! Write output of leaf layer for cross-validation
+  open(newunit=n, file="example/msgpass_chemical/fortran_output.txt", &
+       status='replace')
+  write(n, '(*(ES20.12,1X))') network%model( &
+       network%auto_graph%vertex(network%leaf_vertices(1))%id &
+  )%layer%output(1,1)%val
+  close(n)
+  write(*,*) "Fortran forward pass output written"
+
+  !-----------------------------------------------------------------------------
+  ! ONNX round-trip test: read back and compare forward pass results
+  !-----------------------------------------------------------------------------
+  block
+    type(network_type) :: imported_network
+    real(real32) :: orig_output, imported_output, rel_diff
+
+    write(*,*) "Testing ONNX round-trip: reading back ", trim(onnx_file)
+    imported_network = read_onnx(onnx_file, verbose=1)
+
+    ! Compile the imported network
+    call imported_network%compile( &
+         optimiser = adam_optimiser_type( &
+              learning_rate = 1.E-2_real32 &
+         ), &
+         loss_method = "mse", &
+         metrics = metric_dict, &
+         batch_size = 1, verbose = 1, &
+         accuracy_method = "mse" &
+    )
+
+    ! Set up for inference
+    call imported_network%set_batch_size(1)
+    do i = 1, imported_network%num_layers
+       imported_network%model(i)%layer%inference = .true.
+    end do
+
+    ! Forward pass on same input
+    call imported_network%forward(graphs_in(:,1:1))
+    call network%print_summary()
+    call imported_network%print_summary()
+    write(*,*) imported_network%leaf_vertices(1)
+    write(*,*) imported_network%auto_graph%vertex(imported_network%leaf_vertices(1))%id
+
+    ! Compare outputs
+    orig_output = network%model( &
+         network%auto_graph%vertex(network%leaf_vertices(1))%id &
+    )%layer%output(1,1)%val(1,1)
+    imported_output = imported_network%model( &
+         imported_network%auto_graph%vertex( &
+              imported_network%leaf_vertices(1))%id &
+    )%layer%output(1,1)%val(1,1)
+
+    write(*,'(A,ES20.12)') " Original output:  ", orig_output
+    write(*,'(A,ES20.12)') " Imported output:  ", imported_output
+    rel_diff = abs(orig_output - imported_output) / &
+         (abs(orig_output) + 1.E-30_real32)
+    write(*,'(A,ES20.12)') " Relative diff:    ", rel_diff
+
+    if(rel_diff .lt. 1.E-5_real32)then
+       write(*,*) "ONNX round-trip test PASSED"
+    else
+       write(*,*) "ONNX round-trip test FAILED"
+    end if
+  end block
+
+  call network%set_batch_size(batch_size)
 
 
   !-----------------------------------------------------------------------------

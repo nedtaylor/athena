@@ -253,6 +253,8 @@ class DuvenaudMPNN(nn.Module):
         self.edge_channels = edge_channels
         self.max_degree = max_degree
         self.min_degree = min_degree
+        if min_degree < 1 or max_degree < min_degree:
+            raise ValueError("min_degree must be at least 1 and max_degree must be at least min_degree.")
         self.num_timesteps = num_timesteps
         self.num_outputs = num_outputs
 

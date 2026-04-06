@@ -46,7 +46,9 @@ submodule(athena__container_layer) athena__container_layer_submodule
        create_from_onnx_batchnorm_layer, &
        create_from_onnx_conv_layer, &
        create_from_onnx_maxpool_layer, &
-       create_from_onnx_pad_layer
+       create_from_onnx_pad_layer, &
+       create_from_onnx_duvenaud_layer, &
+       create_from_onnx_kipf_layer
 
 contains
 
@@ -146,6 +148,7 @@ contains
          onnx_create_layer_container('Conv', create_from_onnx_conv_layer), &
          onnx_create_layer_container('Dropout', create_from_onnx_dropout_layer), &
          onnx_create_layer_container('Flatten', create_from_onnx_flatten_layer), &
+         onnx_create_layer_container('Gemm', create_from_onnx_full_layer), &
          onnx_create_layer_container('MatMul', create_from_onnx_full_layer), &
          onnx_create_layer_container('MaxPool', create_from_onnx_maxpool_layer), &
          onnx_create_layer_container('Pad', create_from_onnx_pad_layer), &
@@ -162,5 +165,26 @@ contains
     end if
 
   end subroutine allocate_list_of_onnx_layer_creators
+
+  module subroutine allocate_list_of_onnx_gnn_layer_creators(addit_list)
+    implicit none
+    type(onnx_gnn_create_layer_container), &
+         dimension(:), intent(in), optional :: addit_list
+
+    if(.not.allocated(list_of_onnx_gnn_layer_creators)) &
+         allocate(list_of_onnx_gnn_layer_creators(0))
+    list_of_onnx_gnn_layer_creators = [ &
+         list_of_onnx_gnn_layer_creators, &
+         onnx_gnn_create_layer_container('duvenaud', &
+              create_from_onnx_duvenaud_layer), &
+         onnx_gnn_create_layer_container('kipf', &
+              create_from_onnx_kipf_layer) &
+    ]
+    if(present(addit_list))then
+       list_of_onnx_gnn_layer_creators = &
+            [list_of_onnx_gnn_layer_creators, addit_list]
+    end if
+
+  end subroutine allocate_list_of_onnx_gnn_layer_creators
 
 end submodule athena__container_layer_submodule
