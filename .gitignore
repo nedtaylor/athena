@@ -19,6 +19,7 @@ doc/html/
 *.pyc
 *.png
 *.csv
+*.json
 __pycache__/
 wandb/
 *.err
