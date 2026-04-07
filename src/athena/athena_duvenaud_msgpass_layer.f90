@@ -873,10 +873,7 @@ contains
     !! This override is called by write_onnx instead of the standard
     !! node emission logic, making the ONNX export extensible for new
     !! GNN layer types.
-    use athena__onnx_utils, only: emit_node, emit_squeeze_node, &
-         emit_constant_int64, emit_constant_float, &
-         emit_constant_of_shape_float, emit_activation_node, &
-         col_to_row_major_2d
+    use athena__onnx_msgpass_utils, only: emit_output_identity
     implicit none
 
     ! Arguments
@@ -900,7 +897,6 @@ contains
     ! Local variables
     integer :: t
     character(128) :: cur_vertex_name, readout_accum
-    character(:), allocatable :: suffix
 
     ! Must be called with vertex_input, edge_input etc. already set
     ! These are stored in the node's input naming convention
@@ -908,7 +904,7 @@ contains
 
     ! ===== Emit message passing time steps =====
     do t = 1, this%num_time_steps
-       call emit_duvenaud_timestep_impl( &
+       call emit_duvenaud_timestep( &
             prefix, t, &
             this%num_vertex_features(t-1), this%num_edge_features(0), &
             this%num_vertex_features(t), &
@@ -929,20 +925,10 @@ contains
          readout_accum &
     )
 
-    ! The readout output becomes the layer output for downstream layers
-    ! Rename to match expected naming convention (include activation suffix)
-    suffix = '_output'
-    if(this%activation%name .ne. "none")then
-       suffix = '_' // trim(adjustl(this%activation%name)) // '_output'
-    end if
-    num_nodes = num_nodes + 1
-    nodes(num_nodes)%name = trim(prefix) // '_identity'
-    nodes(num_nodes)%op_type = 'Identity'
-    allocate(nodes(num_nodes)%inputs(1))
-    nodes(num_nodes)%inputs(1) = trim(readout_accum)
-    allocate(nodes(num_nodes)%outputs(1))
-    nodes(num_nodes)%outputs(1) = trim(prefix) // trim(suffix)
-    nodes(num_nodes)%attributes_json = ''
+    ! The readout output becomes the layer output for downstream layers.
+    call emit_output_identity( &
+         prefix, trim(readout_accum), this%activation%name, &
+         nodes, num_nodes)
 
   end subroutine emit_onnx_nodes_duvenaud
 !###############################################################################
@@ -956,6 +942,7 @@ contains
     !! Emit graph input tensor declarations for Duvenaud GNN layer
     !!
     !! Adds: vertex features, edge features, edge_index [3, ncsr], degree
+    use athena__onnx_msgpass_utils, only: emit_msgpass_graph_inputs
     implicit none
     class(duvenaud_msgpass_layer_type), intent(in) :: this
     character(*), intent(in) :: prefix
@@ -963,70 +950,27 @@ contains
     type(onnx_tensor_type), intent(inout), dimension(:) :: graph_inputs
     integer, intent(inout) :: num_inputs
 
-    ! Vertex features: [num_nodes, nv]
-    num_inputs = num_inputs + 1
-    write(graph_inputs(num_inputs)%name, '(A,"_vertex")') trim(prefix)
-    graph_inputs(num_inputs)%elem_type = 1
-    allocate(graph_inputs(num_inputs)%dims(2))
-    allocate(graph_inputs(num_inputs)%dim_params(2))
-    graph_inputs(num_inputs)%dim_params(1) = 'num_nodes'
-    graph_inputs(num_inputs)%dims(1) = -1
-    graph_inputs(num_inputs)%dim_params(2) = ''
-    graph_inputs(num_inputs)%dims(2) = this%input_shape(1)
-
-    ! Edge features: [num_edges, ne]
-    if(this%input_shape(2) .gt. 0)then
-       num_inputs = num_inputs + 1
-       write(graph_inputs(num_inputs)%name, '(A,"_edge")') trim(prefix)
-       graph_inputs(num_inputs)%elem_type = 1
-       allocate(graph_inputs(num_inputs)%dims(2))
-       allocate(graph_inputs(num_inputs)%dim_params(2))
-       graph_inputs(num_inputs)%dim_params(1) = 'num_edges'
-       graph_inputs(num_inputs)%dims(1) = -1
-       graph_inputs(num_inputs)%dim_params(2) = ''
-       graph_inputs(num_inputs)%dims(2) = this%input_shape(2)
-    end if
-
-    ! Edge index: [3, num_csr_entries]
-    num_inputs = num_inputs + 1
-    write(graph_inputs(num_inputs)%name, '(A,"_edge_index")') trim(prefix)
-    graph_inputs(num_inputs)%elem_type = 7
-    allocate(graph_inputs(num_inputs)%dims(2))
-    allocate(graph_inputs(num_inputs)%dim_params(2))
-    graph_inputs(num_inputs)%dim_params(1) = ''
-    graph_inputs(num_inputs)%dims(1) = 3
-    graph_inputs(num_inputs)%dim_params(2) = 'num_csr_entries'
-    graph_inputs(num_inputs)%dims(2) = -1
-
-    ! Node degree: [num_nodes]
-    num_inputs = num_inputs + 1
-    write(graph_inputs(num_inputs)%name, '(A,"_degree")') trim(prefix)
-    graph_inputs(num_inputs)%elem_type = 7
-    allocate(graph_inputs(num_inputs)%dims(1))
-    allocate(graph_inputs(num_inputs)%dim_params(1))
-    graph_inputs(num_inputs)%dim_params(1) = 'num_nodes'
-    graph_inputs(num_inputs)%dims(1) = -1
+    call emit_msgpass_graph_inputs( &
+         prefix, this%input_shape, graph_inputs, num_inputs)
 
   end subroutine emit_onnx_graph_inputs_duvenaud
 !###############################################################################
 
 
 !###############################################################################
-  subroutine emit_duvenaud_timestep_impl( &
-       prefix, t, &
-       nv_in, ne_in, nv_out, &
-       min_degree, max_degree, &
-       weight_data, activation_name, &
+  subroutine emit_duvenaud_timestep( &
+       prefix, t, nv_in, ne_in, nv_out, &
+       min_degree, max_degree, weight_data, activation_name, &
        nodes, num_nodes, max_nodes, &
-       inits, num_inits, max_inits, &
-       vertex_out &
-  )
-    !! Emit ONNX nodes for one Duvenaud message passing time step
-    use athena__onnx_utils, only: emit_node, emit_squeeze_node, &
-         emit_constant_int64, emit_constant_float, &
-         emit_constant_of_shape_float, emit_activation_node, &
-         col_to_row_major_2d
+       inits, num_inits, max_inits, vertex_out)
+    !! Emit ONNX nodes for one Duvenaud message passing time step.
+    use athena__onnx_utils, only: emit_node, emit_constant_int64, &
+         emit_activation_node
+    use athena__onnx_msgpass_utils, only: get_timestep_output_name, &
+         emit_edge_index_component, emit_scatter_aggregator
     implicit none
+
+    ! Arguments
     character(*), intent(in) :: prefix
     integer, intent(in) :: t
     integer, intent(in) :: nv_in, ne_in, nv_out
@@ -1042,310 +986,273 @@ contains
     character(128), intent(out) :: vertex_out
 
     ! Local variables
-    character(128) :: tp
-    !! Time step prefix
-    character(128) :: tmp1, tmp2, tmp3, tmp4, tmp5, tmp6, tmp7
+    character(128) :: tp, tmp1, tmp2, tmp3
     character(128) :: vertex_in, edge_in, edge_index_in, degree_in
-    integer :: nd_buckets, interval
+    character(128) :: src_idx, edge_idx, target_idx
+    character(128) :: msg_name, aggr_name, sq_out
+    character(len=*), parameter :: onnx_axis0_attr = &
+         '        "attribute": [{"name": "axis", "i": "0", "type": "INT"}]'
+    character(len=*), parameter :: onnx_concat_axis1_attr = &
+         '        "attribute": [{"name": "axis", "i": "1", "type": "INT"}]'
 
-    nd_buckets = max_degree - min_degree + 1
-    interval = nv_out * (nv_in + ne_in)
     write(tp, '(A,"_t",I0)') trim(prefix), t
 
-    ! Input tensor names follow the convention set during write_onnx
-    ! For t=1: vertex_in = input from previous layer
-    ! For t>1: vertex_in = output of previous timestep (set by caller)
-    ! The edge/edge_index/degree inputs are always from the root input layer
-    ! These are injected by write_onnx based on the network graph
-
-    ! Read input names from the first two nodes emitted for this prefix
-    ! (they are set by the calling write_onnx procedure)
+    ! Input tensor names follow the convention set during write_onnx.
+    ! For t=1 the vertex input comes from the previous layer, while edge,
+    ! edge_index, and degree are always rooted at the original graph input.
     write(vertex_in, '(A,"_vertex_in")') trim(prefix)
     write(edge_in, '(A,"_edge_in")') trim(prefix)
     write(edge_index_in, '(A,"_edge_index_in")') trim(prefix)
     write(degree_in, '(A,"_degree_in")') trim(prefix)
-
-    ! If this is timestep > 1, vertex input is previous timestep output
-    if(t .gt. 1) then
-       if(trim(activation_name) .ne. "none")then
-          write(vertex_in, '(A,"_t",I0,"_sq_",A,"_output")') &
-               trim(prefix), t-1, trim(adjustl(activation_name))
-       else
-          write(vertex_in, '(A,"_t",I0,"_sq_out")') trim(prefix), t-1
-       end if
+    if(t .gt. 1)then
+       call get_timestep_output_name( &
+            prefix, t-1, activation_name, '_sq_out', '_sq', vertex_in)
     end if
 
     ! --- Step 1: Extract source and edge-feature indices from edge_index ---
-
-    ! Constant: index 0 (to select row 0 of edge_index)
     write(tmp1, '(A,"_idx0")') trim(tp)
     call emit_constant_int64(trim(tmp1), [0], [1], &
          nodes, num_nodes, inits, num_inits)
-
-    ! Constant: index 1 (to select row 1 of edge_index)
     write(tmp2, '(A,"_idx1")') trim(tp)
     call emit_constant_int64(trim(tmp2), [1], [1], &
          nodes, num_nodes, inits, num_inits)
+    write(tmp3, '(A,"_idx2")') trim(tp)
+    call emit_constant_int64(trim(tmp3), [2], [1], &
+         nodes, num_nodes, inits, num_inits)
 
-    ! Gather row 0 of edge_index → source vertex indices [num_csr]
-    write(tmp3, '(A,"_src_raw")') trim(tp)
-    call emit_node('Gather', trim(tp)//'_gather_src', &
-         trim(tmp3), &
-         '        "attribute": [{"name": "axis", "i": "0", "type": "INT"}]', &
-         nodes, num_nodes, &
-         in1=trim(edge_index_in), in2=trim(tmp1))
-
-    ! Squeeze to remove leading dim → [num_csr]
-    write(tmp4, '(A,"_src")') trim(tp)
-    call emit_squeeze_node(trim(tp)//'_sq_src', &
-         trim(tmp3), trim(tmp1), trim(tmp4), &
-         nodes, num_nodes)
-
-    ! Gather row 1 of edge_index → edge feature indices [num_csr]
-    write(tmp3, '(A,"_eidx_raw")') trim(tp)
-    call emit_node('Gather', trim(tp)//'_gather_eidx', &
-         trim(tmp3), &
-         '        "attribute": [{"name": "axis", "i": "0", "type": "INT"}]', &
-         nodes, num_nodes, &
-         in1=trim(edge_index_in), in2=trim(tmp2))
-
-    ! Squeeze → [num_csr]
-    write(tmp5, '(A,"_eidx")') trim(tp)
-    call emit_squeeze_node(trim(tp)//'_sq_eidx', &
-         trim(tmp3), trim(tmp1), trim(tmp5), &
-         nodes, num_nodes)
+    call emit_edge_index_component( &
+         tp, edge_index_in, trim(tmp1), 'src', src_idx, nodes, num_nodes)
+    call emit_edge_index_component( &
+         tp, edge_index_in, trim(tmp2), 'eidx', edge_idx, nodes, num_nodes)
+    call emit_edge_index_component( &
+         tp, edge_index_in, trim(tmp3), 'tgt', target_idx, nodes, num_nodes)
 
     ! --- Step 2: Gather source vertex features and edge features ---
     write(tmp1, '(A,"_src_feat")') trim(tp)
     call emit_node('Gather', trim(tp)//'_gather_vfeat', &
-         trim(tmp1), &
-         '        "attribute": [{"name": "axis", "i": "0", "type": "INT"}]', &
-         nodes, num_nodes, &
-         in1=trim(vertex_in), in2=trim(tmp4))
+         trim(tmp1), onnx_axis0_attr, nodes, num_nodes, &
+         in1=trim(vertex_in), in2=trim(src_idx))
 
     write(tmp2, '(A,"_edge_feat")') trim(tp)
     call emit_node('Gather', trim(tp)//'_gather_efeat', &
-         trim(tmp2), &
-         '        "attribute": [{"name": "axis", "i": "0", "type": "INT"}]', &
-         nodes, num_nodes, &
-         in1=trim(edge_in), in2=trim(tmp5))
+         trim(tmp2), onnx_axis0_attr, nodes, num_nodes, &
+         in1=trim(edge_in), in2=trim(edge_idx))
 
     ! --- Step 3: Concat source vertex + edge features ---
-    write(tmp3, '(A,"_msg")') trim(tp)
+    write(msg_name, '(A,"_msg")') trim(tp)
     call emit_node('Concat', trim(tp)//'_concat_msg', &
-         trim(tmp3), &
-         '        "attribute": [{"name": "axis", "i": "1", "type": "INT"}]', &
-         nodes, num_nodes, &
+         trim(msg_name), onnx_concat_axis1_attr, nodes, num_nodes, &
          in1=trim(tmp1), in2=trim(tmp2))
 
     ! --- Step 4: Scatter-add to aggregate messages per target vertex ---
-    ! Get target indices from edge_index row 2
-    write(tmp1, '(A,"_idx2")') trim(tp)
-    call emit_constant_int64(trim(tmp1), [2], [1], &
-         nodes, num_nodes, inits, num_inits)
-
-    write(tmp4, '(A,"_tgt_raw")') trim(tp)
-    call emit_node('Gather', trim(tp)//'_gather_tgt', &
-         trim(tmp4), &
-         '        "attribute": [{"name": "axis", "i": "0", "type": "INT"}]', &
-         nodes, num_nodes, &
-         in1=trim(edge_index_in), in2=trim(tmp1))
-
-    write(tmp5, '(A,"_tgt")') trim(tp)
-    write(tmp6, '(A,"_idx0b")') trim(tp)
-    call emit_constant_int64(trim(tmp6), [0], [1], &
-         nodes, num_nodes, inits, num_inits)
-    call emit_squeeze_node(trim(tp)//'_sq_tgt', &
-         trim(tmp4), trim(tmp6), trim(tmp5), &
-         nodes, num_nodes)
-
-    ! Get num_nodes from shape of vertex_in
-    write(tmp1, '(A,"_vshape")') trim(tp)
-    call emit_node('Shape', trim(tp)//'_shape_v', &
-         trim(tmp1), '', nodes, num_nodes, &
-         in1=trim(vertex_in))
-
-    ! Get num_nodes as scalar
-    write(tmp2, '(A,"_nnodes_idx")') trim(tp)
-    call emit_constant_int64(trim(tmp2), [0], [1], &
-         nodes, num_nodes, inits, num_inits)
-
-    write(tmp3, '(A,"_nnodes")') trim(tp)
-    call emit_node('Gather', trim(tp)//'_gather_nn', &
-         trim(tmp3), &
-         '        "attribute": [{"name": "axis", "i": "0", "type": "INT"}]', &
-         nodes, num_nodes, &
-         in1=trim(tmp1), in2=trim(tmp2))
-
-    ! Constant: [nv_in + ne_in] as int64
-    write(tmp6, '(A,"_feat_dim")') trim(tp)
-    call emit_constant_int64(trim(tmp6), [nv_in + ne_in], [1], &
-         nodes, num_nodes, inits, num_inits)
-
-    ! Concat [num_nodes, feat_dim] → shape for zeros
-    write(tmp7, '(A,"_aggr_shape")') trim(tp)
-    call emit_node('Concat', trim(tp)//'_cat_shape', &
-         trim(tmp7), &
-         '        "attribute": [{"name": "axis", "i": "0", "type": "INT"}]', &
-         nodes, num_nodes, &
-         in1=trim(tmp3), in2=trim(tmp6))
-
-    ! ConstantOfShape → zeros [num_nodes, feat_dim]
-    write(tmp1, '(A,"_zeros")') trim(tp)
-    call emit_constant_of_shape_float(trim(tp)//'_zeros', &
-         trim(tmp7), 0.0_real32, trim(tmp1), &
-         nodes, num_nodes, inits, num_inits)
-
-    ! Unsqueeze target [num_csr] → [num_csr, 1]
-    write(tmp2, '(A,"_tgt_us")') trim(tp)
-    write(tmp6, '(A,"_us_ax1")') trim(tp)
-    call emit_constant_int64(trim(tmp6), [1], [1], &
-         nodes, num_nodes, inits, num_inits)
-    call emit_node('Unsqueeze', trim(tp)//'_us_tgt', &
-         trim(tmp2), '', nodes, num_nodes, &
-         in1=trim(tmp5), in2=trim(tmp6))
-
-    ! Get message shape for Expand
-    write(tmp3, '(A,"_msg_shape")') trim(tp)
-    call emit_node('Shape', trim(tp)//'_shape_msg', &
-         trim(tmp3), '', nodes, num_nodes, &
-         in1=trim(tp)//'_msg')
-
-    write(tmp4, '(A,"_tgt_exp")') trim(tp)
-    call emit_node('Expand', trim(tp)//'_expand_tgt', &
-         trim(tmp4), '', nodes, num_nodes, &
-         in1=trim(tmp2), in2=trim(tmp3))
-
-    ! ScatterElements(zeros, expanded_target, messages, axis=0, reduction=add)
-    write(tmp6, '(A,"_aggr")') trim(tp)
-    call emit_node('ScatterElements', trim(tp)//'_scatter_add', &
-         trim(tmp6), &
-         '        "attribute": [' // &
-         '{"name": "axis", "i": "0", "type": "INT"}, ' // &
-         '{"name": "reduction", "s": "YWRk", "type": "STRING"}]', &
-         nodes, num_nodes, &
-         in1=trim(tmp1), in2=trim(tmp4), in3=trim(tp)//'_msg')
+    call emit_scatter_aggregator( &
+         tp, vertex_in, target_idx, msg_name, nv_in + ne_in, &
+         nodes, num_nodes, inits, num_inits, aggr_name)
 
     ! --- Step 5: Degree-specific weight application ---
-    ! Clip degree to [min_degree, max_degree]
-    write(tmp1, '(A,"_min_deg")') trim(tp)
-    call emit_constant_float(trim(tmp1), [real(min_degree, real32)], [1], &
-         nodes, num_nodes, inits, num_inits)
-    write(tmp2, '(A,"_max_deg")') trim(tp)
-    call emit_constant_float(trim(tmp2), [real(max_degree, real32)], [1], &
-         nodes, num_nodes, inits, num_inits)
-
-    ! Cast degree to float for Clip
-    write(tmp3, '(A,"_deg_f")') trim(tp)
-    call emit_node('Cast', trim(tp)//'_cast_deg', &
-         trim(tmp3), &
-         '        "attribute": [{"name": "to", "i": "1", "type": "INT"}]', &
-         nodes, num_nodes, &
-         in1=trim(degree_in))
-
-    write(tmp4, '(A,"_deg_clip")') trim(tp)
-    call emit_node('Clip', trim(tp)//'_clip_deg', &
-         trim(tmp4), '', nodes, num_nodes, &
-         in1=trim(tmp3), in2=trim(tmp1), in3=trim(tmp2))
-
-    ! Subtract min_degree to get weight index
-    write(tmp1, '(A,"_min_deg_f")') trim(tp)
-    call emit_constant_float(trim(tmp1), &
-         [real(min_degree, real32)], [1], &
-         nodes, num_nodes, inits, num_inits)
-
-    write(tmp5, '(A,"_deg_idx_f")') trim(tp)
-    call emit_node('Sub', trim(tp)//'_sub_mindeg', &
-         trim(tmp5), '', nodes, num_nodes, &
-         in1=trim(tmp4), in2=trim(tmp1))
-
-    ! Cast back to int64 for Gather
-    write(tmp6, '(A,"_deg_idx")') trim(tp)
-    call emit_node('Cast', trim(tp)//'_cast_degidx', &
-         trim(tmp6), &
-         '        "attribute": [{"name": "to", "i": "7", "type": "INT"}]', &
-         nodes, num_nodes, &
-         in1=trim(tmp5))
-
-    ! Store weight tensor as initialiser
-    write(tmp1, '(A,"_W")') trim(tp)
-    num_inits = num_inits + 1
-    inits(num_inits)%name = trim(tmp1)
-    inits(num_inits)%data_type = 1
-    allocate(inits(num_inits)%dims(3))
-    inits(num_inits)%dims = [nd_buckets, nv_out, nv_in + ne_in]
-    allocate(inits(num_inits)%data(size(weight_data)))
-    ! Transpose each [nv_out, nv_in+ne_in] slice from column-major to row-major
-    block
-      integer :: d, slice_size
-      slice_size = nv_out * (nv_in + ne_in)
-      do d = 1, nd_buckets
-         call col_to_row_major_2d( &
-              weight_data((d-1)*slice_size+1 : d*slice_size), &
-              inits(num_inits)%data((d-1)*slice_size+1 : d*slice_size), &
-              nv_out, nv_in + ne_in)
-      end do
-    end block
-
-    ! Gather weight slice for each vertex based on degree index
-    write(tmp2, '(A,"_W_sel")') trim(tp)
-    call emit_node('Gather', trim(tp)//'_gather_W', &
-         trim(tmp2), &
-         '        "attribute": [{"name": "axis", "i": "0", "type": "INT"}]', &
-         nodes, num_nodes, &
-         in1=trim(tmp1), in2=trim(tmp6))
-
-    ! Unsqueeze degree for broadcasting
-    write(tmp3, '(A,"_deg_us2")') trim(tp)
-    write(tmp7, '(A,"_us_ax1b")') trim(tp)
-    call emit_constant_int64(trim(tmp7), [1], [1], &
-         nodes, num_nodes, inits, num_inits)
-    call emit_node('Unsqueeze', trim(tp)//'_us_deg', &
-         trim(tmp3), '', nodes, num_nodes, &
-         in1=trim(tmp4), in2=trim(tmp7))
-
-    ! Divide aggregated by degree
-    write(tmp4, '(A,"_aggr_norm")') trim(tp)
-    call emit_node('Div', trim(tp)//'_div_deg', &
-         trim(tmp4), '', nodes, num_nodes, &
-         in1=trim(tp)//'_aggr', in2=trim(tmp3))
-
-    ! Unsqueeze aggr to [N, nv_in+ne_in, 1] for MatMul
-    write(tmp1, '(A,"_aggr_us")') trim(tp)
-    write(tmp5, '(A,"_us_ax2")') trim(tp)
-    call emit_constant_int64(trim(tmp5), [2], [1], &
-         nodes, num_nodes, inits, num_inits)
-    call emit_node('Unsqueeze', trim(tp)//'_us_aggr', &
-         trim(tmp1), '', nodes, num_nodes, &
-         in1=trim(tmp4), in2=trim(tmp5))
-
-    ! MatMul: W_selected @ aggregated
-    write(tmp2, '(A,"_matmul_out")') trim(tp)
-    call emit_node('MatMul', trim(tp)//'_matmul', &
-         trim(tmp2), '', nodes, num_nodes, &
-         in1=trim(tp)//'_W_sel', in2=trim(tmp1))
-
-    ! Squeeze to remove trailing dim → [N, nv_out]
-    write(tmp3, '(A,"_sq_out")') trim(tp)
-    call emit_squeeze_node(trim(tp)//'_sq_mm', &
-         trim(tmp2), trim(tmp5), trim(tmp3), &
-         nodes, num_nodes)
+    call emit_duvenaud_degree_update( &
+         tp, degree_in, min_degree, max_degree, nv_in + ne_in, nv_out, &
+         weight_data, aggr_name, nodes, num_nodes, inits, num_inits, sq_out)
 
     ! --- Step 6: Activation ---
-    if(trim(activation_name) .ne. "none")then
-       write(vertex_out, '(A,"_actv")') trim(tp)
-       call emit_activation_node( &
-            activation_name, &
-            trim(tp)//'_sq', trim(tmp3), &
-            nodes, num_nodes, max_nodes)
-       ! Fix output name
-       write(vertex_out, '(A)') &
-            trim(nodes(num_nodes)%outputs(1))
+    if(trim(activation_name) .ne. 'none')then
+       call emit_activation_node(activation_name, trim(tp)//'_sq', &
+            trim(sq_out), nodes, num_nodes, max_nodes)
+       vertex_out = trim(nodes(num_nodes)%outputs(1))
     else
-       vertex_out = trim(tmp3)
+       vertex_out = trim(sq_out)
     end if
 
-  end subroutine emit_duvenaud_timestep_impl
+  end subroutine emit_duvenaud_timestep
+!###############################################################################
+
+
+!###############################################################################
+  subroutine emit_duvenaud_degree_update( &
+       tp, degree_in, min_degree, max_degree, feature_dim, nv_out, &
+       weight_data, aggr_in, nodes, num_nodes, inits, num_inits, sq_out)
+    !! Emit the degree-dependent weight selection and update block.
+    use athena__onnx_utils, only: emit_node, emit_squeeze_node, &
+         emit_constant_int64, emit_constant_float
+    use athena__onnx_msgpass_utils, only: emit_weight_initialiser_3d
+    implicit none
+
+    ! Arguments
+    character(*), intent(in) :: tp, degree_in, aggr_in
+    integer, intent(in) :: min_degree, max_degree, feature_dim, nv_out
+    real(real32), intent(in) :: weight_data(:)
+    type(onnx_node_type), intent(inout), dimension(:) :: nodes
+    integer, intent(inout) :: num_nodes
+    type(onnx_initialiser_type), intent(inout), dimension(:) :: inits
+    integer, intent(inout) :: num_inits
+    character(128), intent(out) :: sq_out
+
+    ! Local variables
+    character(128) :: min_deg_name, max_deg_name, deg_float
+    character(128) :: deg_clip, deg_idx_float, deg_idx
+    character(128) :: weight_name, weight_sel, deg_us
+    character(128) :: aggr_norm, aggr_us, matmul_out
+    character(128) :: axes1_name, axes2_name
+    character(len=*), parameter :: onnx_axis0_attr = &
+         '        "attribute": [{"name": "axis", "i": "0", "type": "INT"}]'
+    character(len=*), parameter :: onnx_cast_float_attr = &
+         '        "attribute": [{"name": "to", "i": "1", "type": "INT"}]'
+    character(len=*), parameter :: onnx_cast_int64_attr = &
+         '        "attribute": [{"name": "to", "i": "7", "type": "INT"}]'
+
+    ! Clip degree to the supported bucket interval.
+    write(min_deg_name, '(A,"_min_deg")') trim(tp)
+    call emit_constant_float(trim(min_deg_name), &
+         [ real(min_degree, real32) ], [1], &
+         nodes, num_nodes, inits, num_inits)
+
+    write(max_deg_name, '(A,"_max_deg")') trim(tp)
+    call emit_constant_float(trim(max_deg_name), &
+         [ real(max_degree, real32) ], [1], &
+         nodes, num_nodes, inits, num_inits)
+
+    write(deg_float, '(A,"_deg_f")') trim(tp)
+    call emit_node('Cast', trim(tp)//'_cast_deg', &
+         trim(deg_float), onnx_cast_float_attr, nodes, num_nodes, &
+         in1=trim(degree_in))
+
+    write(deg_clip, '(A,"_deg_clip")') trim(tp)
+    call emit_node('Clip', trim(tp)//'_clip_deg', &
+         trim(deg_clip), '', nodes, num_nodes, &
+         in1=trim(deg_float), in2=trim(min_deg_name), in3=trim(max_deg_name))
+
+    ! Shift clipped degrees so they can index the weight bank from zero.
+    write(deg_idx_float, '(A,"_deg_idx_f")') trim(tp)
+    call emit_node('Sub', trim(tp)//'_sub_mindeg', &
+         trim(deg_idx_float), '', nodes, num_nodes, &
+         in1=trim(deg_clip), in2=trim(min_deg_name))
+
+    write(deg_idx, '(A,"_deg_idx")') trim(tp)
+    call emit_node('Cast', trim(tp)//'_cast_degidx', &
+         trim(deg_idx), onnx_cast_int64_attr, nodes, num_nodes, &
+         in1=trim(deg_idx_float))
+
+    ! Store the degree-specific weight bank as a 3D initialiser.
+    write(weight_name, '(A,"_W")') trim(tp)
+    call emit_weight_initialiser_3d( &
+         trim(weight_name), max_degree - min_degree + 1, &
+         nv_out, feature_dim, weight_data, inits, num_inits)
+
+    write(weight_sel, '(A,"_W_sel")') trim(tp)
+    call emit_node('Gather', trim(tp)//'_gather_W', &
+         trim(weight_sel), onnx_axis0_attr, nodes, num_nodes, &
+         in1=trim(weight_name), in2=trim(deg_idx))
+
+    ! Divide by degree and reshape for batched MatMul.
+    write(axes1_name, '(A,"_us_ax1_deg")') trim(tp)
+    call emit_constant_int64(trim(axes1_name), [1], [1], &
+         nodes, num_nodes, inits, num_inits)
+
+    write(deg_us, '(A,"_deg_us")') trim(tp)
+    call emit_node('Unsqueeze', trim(tp)//'_us_deg', &
+         trim(deg_us), '', nodes, num_nodes, &
+         in1=trim(deg_clip), in2=trim(axes1_name))
+
+    write(aggr_norm, '(A,"_aggr_norm")') trim(tp)
+    call emit_node('Div', trim(tp)//'_div_deg', &
+         trim(aggr_norm), '', nodes, num_nodes, &
+         in1=trim(aggr_in), in2=trim(deg_us))
+
+    write(axes2_name, '(A,"_us_ax2")') trim(tp)
+    call emit_constant_int64(trim(axes2_name), [2], [1], &
+         nodes, num_nodes, inits, num_inits)
+
+    write(aggr_us, '(A,"_aggr_us")') trim(tp)
+    call emit_node('Unsqueeze', trim(tp)//'_us_aggr', &
+         trim(aggr_us), '', nodes, num_nodes, &
+         in1=trim(aggr_norm), in2=trim(axes2_name))
+
+    write(matmul_out, '(A,"_matmul_out")') trim(tp)
+    call emit_node('MatMul', trim(tp)//'_matmul', &
+         trim(matmul_out), '', nodes, num_nodes, &
+         in1=trim(weight_sel), in2=trim(aggr_us))
+
+    write(sq_out, '(A,"_sq_out")') trim(tp)
+    call emit_squeeze_node(trim(tp)//'_sq_mm', &
+         trim(matmul_out), trim(axes2_name), trim(sq_out), &
+         nodes, num_nodes)
+
+  end subroutine emit_duvenaud_degree_update
+!###############################################################################
+
+
+!###############################################################################
+  subroutine emit_duvenaud_readout_step( &
+       prefix, activation_name, t, nv, no, weight_data, &
+       nodes, num_nodes, inits, num_inits, step_sum)
+    !! Emit one Duvenaud readout timestep.
+    !!
+    !! This expands to the timestep readout projection, the readout softmax,
+    !! and the reduction over nodes before the timestep contributions are added.
+    use athena__onnx_utils, only: emit_node, emit_constant_int64
+    use athena__onnx_msgpass_utils, only: get_timestep_output_name, &
+         emit_weight_initialiser_2d
+    implicit none
+
+    ! Arguments
+    character(*), intent(in) :: prefix
+    character(*), intent(in) :: activation_name
+    integer, intent(in) :: t, nv, no
+    real(real32), intent(in) :: weight_data(:)
+    type(onnx_node_type), intent(inout), dimension(:) :: nodes
+    integer, intent(inout) :: num_nodes
+    type(onnx_initialiser_type), intent(inout), dimension(:) :: inits
+    integer, intent(inout) :: num_inits
+    character(128), intent(out) :: step_sum
+
+    ! Local variables
+    character(128) :: tp, z_name, weight_name, z_transpose
+    character(128) :: matmul_out, softmax_out, axis1_name
+    character(len=*), parameter :: onnx_softmax_axis0_attr = &
+         '        "attribute": [{"name": "axis", "i": "0", "type": "INT"}]'
+    character(len=*), parameter :: onnx_transpose_10_attr = &
+         '        "attribute": [{"name": "perm", "ints": ["1", "0"], ' // &
+         '"type": "INTS"}]'
+    character(len=*), parameter :: onnx_reduce_sum_attr = &
+         '        "attribute": [{"name": "keepdims", "i": "0", ' // &
+         '"type": "INT"}]'
+
+    write(tp, '(A,"_ro_t",I0)') trim(prefix), t
+    call get_timestep_output_name( &
+         prefix, t, activation_name, '_sq_out', '_sq', z_name)
+
+    ! Store the readout matrix for timestep t as an ONNX initialiser.
+    write(weight_name, '(A,"_R")') trim(tp)
+    call emit_weight_initialiser_2d( &
+         trim(weight_name), no, nv, weight_data, inits, num_inits)
+
+    ! Transpose node features before multiplying by the readout matrix.
+    write(z_transpose, '(A,"_zt")') trim(tp)
+    call emit_node('Transpose', trim(tp)//'_transpose_z', &
+         trim(z_transpose), onnx_transpose_10_attr, nodes, num_nodes, &
+         in1=trim(z_name))
+
+    write(matmul_out, '(A,"_Rz")') trim(tp)
+    call emit_node('MatMul', trim(tp)//'_matmul_R', &
+         trim(matmul_out), '', nodes, num_nodes, &
+         in1=trim(weight_name), in2=trim(z_transpose))
+
+    ! Softmax and ReduceSum reproduce the ATHENA readout accumulation.
+    write(softmax_out, '(A,"_sm")') trim(tp)
+    call emit_node('Softmax', trim(tp)//'_softmax', &
+         trim(softmax_out), onnx_softmax_axis0_attr, nodes, num_nodes, &
+         in1=trim(matmul_out))
+
+    write(axis1_name, '(A,"_ax1")') trim(tp)
+    call emit_constant_int64(trim(axis1_name), [1], [1], &
+         nodes, num_nodes, inits, num_inits)
+
+    write(step_sum, '(A,"_sum")') trim(tp)
+    call emit_node('ReduceSum', trim(tp)//'_reducesum', &
+         trim(step_sum), onnx_reduce_sum_attr, nodes, num_nodes, &
+         in1=trim(softmax_out), in2=trim(axis1_name))
+
+  end subroutine emit_duvenaud_readout_step
 !###############################################################################
 
 
@@ -1357,8 +1264,7 @@ contains
        readout_output &
   )
     !! Emit ONNX nodes for Duvenaud readout
-    use athena__onnx_utils, only: emit_node, emit_constant_int64, &
-         col_to_row_major_2d
+    use athena__onnx_utils, only: emit_node, emit_constant_int64
     implicit none
     character(*), intent(in) :: prefix
     class(duvenaud_msgpass_layer_type), intent(in) :: layer
@@ -1372,77 +1278,23 @@ contains
 
     ! Local variables
     integer :: t
-    character(128) :: tp, tmp1, tmp2, tmp3, tmp4, tmp5
-    character(128) :: z_name, prev_accum
-    integer :: nv, no
-
-    no = layer%num_outputs
+    character(128) :: tmp1, prev_accum, step_sum
 
     do t = 1, layer%num_time_steps
-       nv = layer%num_vertex_features(t)
-       write(tp, '(A,"_ro_t",I0)') trim(prefix), t
-
-       ! The z tensor for timestep t is the output of that timestep
-       if(trim(layer%activation%name) .ne. "none")then
-          write(z_name, '(A,"_t",I0,"_sq_",A,"_output")') &
-               trim(prefix), t, &
-               trim(adjustl(layer%activation%name))
-       else
-          write(z_name, '(A,"_t",I0,"_sq_out")') trim(prefix), t
-       end if
-
-       ! Store readout weight as initialiser
-       write(tmp1, '(A,"_R")') trim(tp)
-       num_inits = num_inits + 1
-       inits(num_inits)%name = trim(tmp1)
-       inits(num_inits)%data_type = 1
-       allocate(inits(num_inits)%dims(2))
-       inits(num_inits)%dims = [no, nv]
-       allocate(inits(num_inits)%data( &
-            size(layer%params(t + layer%num_time_steps)%val(:,1))))
-       call col_to_row_major_2d( &
+       call emit_duvenaud_readout_step( &
+            prefix, layer%activation%name, t, &
+            layer%num_vertex_features(t), layer%num_outputs, &
             layer%params(t + layer%num_time_steps)%val(:,1), &
-            inits(num_inits)%data, no, nv)
-
-       ! Transpose z: [num_nodes, nv] → [nv, num_nodes]
-       write(tmp2, '(A,"_zt")') trim(tp)
-       call emit_node('Transpose', trim(tp)//'_transpose_z', &
-            trim(tmp2), &
-            '        "attribute": [{"name": "perm", "ints": ["1", "0"], ' // &
-            '"type": "INTS"}]', &
-            nodes, num_nodes, in1=trim(z_name))
-
-       ! MatMul: R @ z^T → [no, num_nodes]
-       write(tmp3, '(A,"_Rz")') trim(tp)
-       call emit_node('MatMul', trim(tp)//'_matmul_R', &
-            trim(tmp3), '', nodes, num_nodes, &
-            in1=trim(tmp1), in2=trim(tmp2))
-
-       ! Softmax along axis=0 (over output features)
-       write(tmp4, '(A,"_sm")') trim(tp)
-       call emit_node('Softmax', trim(tp)//'_softmax', &
-            trim(tmp4), &
-            '        "attribute": [{"name": "axis", "i": "0", "type": "INT"}]', &
-            nodes, num_nodes, in1=trim(tmp3))
-
-       ! ReduceSum over nodes (axis=1) → [no, 1]
-       write(tmp5, '(A,"_sum")') trim(tp)
-       write(tmp1, '(A,"_ax1")') trim(tp)
-       call emit_constant_int64(trim(tmp1), [1], [1], &
-            nodes, num_nodes, inits, num_inits)
-       call emit_node('ReduceSum', trim(tp)//'_reducesum', &
-            trim(tmp5), &
-            '        "attribute": [{"name": "keepdims", "i": "0", "type": "INT"}]', &
-            nodes, num_nodes, in1=trim(tmp4), in2=trim(tmp1))
+            nodes, num_nodes, inits, num_inits, step_sum)
 
        ! Accumulate across timesteps
        if(t .eq. 1)then
-          prev_accum = trim(tmp5)
+          prev_accum = trim(step_sum)
        else
-          write(tmp1, '(A,"_accum")') trim(tp)
-          call emit_node('Add', trim(tp)//'_add_accum', &
+          write(tmp1, '(A,"_ro_t",I0,"_accum")') trim(prefix), t
+          call emit_node('Add', trim(tmp1)//'_node', &
                trim(tmp1), '', nodes, num_nodes, &
-               in1=trim(prev_accum), in2=trim(tmp5))
+               in1=trim(prev_accum), in2=trim(step_sum))
           prev_accum = trim(tmp1)
        end if
     end do
