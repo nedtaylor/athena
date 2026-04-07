@@ -231,7 +231,7 @@ contains
        ) - min_degree + 1
        tmp = reshape(this%left_operand%val((d-1)*interval+1:d*interval,1), &
             [num_output_features, num_input_features] )
-       output(:,v) = matmul(upstream_grad(:,v), tmp)
+       output(:,v) = matmul(upstream_grad(:,v), tmp) / real(d, real32)
     end do
 
   end subroutine get_partial_duvenaud_update_val
@@ -244,7 +244,7 @@ contains
     real(real32), dimension(:,:), intent(in) :: upstream_grad
     real(real32), dimension(:,:), intent(out) :: output
 
-    integer :: v, i, j, d
+    integer :: v, i, j, d_offset, d_val
     integer :: interval, num_output_features, num_input_features
     integer :: min_degree, max_degree
 
@@ -255,14 +255,16 @@ contains
     min_degree = this%left_operand%indices(1)
     max_degree = this%left_operand%indices(2)
     do concurrent(v=1:size(upstream_grad,2))
-       d = ( max( &
+       d_val = max( &
             min_degree, &
             min(this%indices(v+1) - this%indices(v), max_degree ) &
-       ) - min_degree ) * interval
+       ) - min_degree + 1
+       d_offset = (d_val - 1) * interval
        do concurrent(i = 1:num_output_features, j=1:num_input_features)
-          output(d+i+num_output_features*(j-1),1) = &
-               output(d+i+num_output_features*(j-1),1) + &
-               upstream_grad(i,v) * this%right_operand%val(j,v)
+          output(d_offset+i+num_output_features*(j-1),1) = &
+               output(d_offset+i+num_output_features*(j-1),1) + &
+               upstream_grad(i,v) * this%right_operand%val(j,v) / &
+               real(d_val, real32)
        end do
     end do
 
