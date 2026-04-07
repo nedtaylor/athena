@@ -353,6 +353,9 @@ ONNX Compatibility
 * Batch normalisation
 * Dropout
 * Flatten, Reshape
+* Message passing layers
+  * Duvenaud-style graph convolution
+  * Kipf-style graph convolution
 
 **Limitations:**
 
