@@ -164,10 +164,10 @@ https://github.com/halimb/MNIST-txt/tree/master
 The link to the original MNIST database is: http://yann.lecun.com/exdb/mnist/
 
 > **_NOTE:_**
-For the mnist examples, the MNIST dataset must be downloaded. By default, the database is expected to be found in the directory path ``../../DMNIST``. However, this can be chaned by editing the following line in the ``example/mnist[_VAR]/test_job.in`` file to point to the desired path:
+For the mnist examples, the MNIST dataset must be downloaded. By default, the database is expected to be found in the directory path ``../MNIST-txt``. However, this can be chaned by editing the following line in the ``example/mnist[_VAR]/test_job.in`` file to point to the desired path:
 
 ```
-  dataset_dir = "../../DMNIST"
+  dataset_dir = "../MNIST-txt"
 ```
 
 #### Running examples using fpm
