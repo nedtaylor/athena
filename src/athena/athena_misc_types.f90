@@ -61,12 +61,15 @@ module athena__misc_types
 ! ONNX node type
 !-------------------------------------------------------------------------------
   type :: onnx_node_type
-     character(256) :: op_type
-     character(64) :: name
-     character(64), allocatable, dimension(:) :: inputs
-     character(64), allocatable, dimension(:) :: outputs
+     character(128) :: op_type = ''
+     character(128) :: name = ''
+     character(128), allocatable, dimension(:) :: inputs
+     character(128), allocatable, dimension(:) :: outputs
      type(onnx_attribute_type), allocatable, dimension(:) :: attributes
-     integer :: num_inputs, num_outputs
+     character(4096) :: attributes_json = ''
+     !! Pre-formatted JSON for attributes block (empty = no attributes)
+     integer :: num_inputs = 0
+     integer :: num_outputs = 0
   end type onnx_node_type
 !-------------------------------------------------------------------------------
 
@@ -74,9 +77,12 @@ module athena__misc_types
 ! ONNX initialiser type
 !-------------------------------------------------------------------------------
   type :: onnx_initialiser_type
-     character(64) :: name
+     character(128) :: name = ''
+     integer :: data_type = 1
+     !! 1=float32, 7=int64
      integer, allocatable, dimension(:) :: dims
      real(real32), allocatable, dimension(:) :: data
+     integer, allocatable, dimension(:) :: int_data
   end type onnx_initialiser_type
 !-------------------------------------------------------------------------------
 
@@ -84,9 +90,11 @@ module athena__misc_types
 ! ONNX tensor type
 !-------------------------------------------------------------------------------
   type :: onnx_tensor_type
-     character(64) :: name
-     integer :: elem_type
+     character(128) :: name = ''
+     integer :: elem_type = 1
      integer, allocatable, dimension(:) :: dims
+     character(64), allocatable, dimension(:) :: dim_params
+     !! If dim_params(i) /= '', it is a symbolic dimension name
   end type onnx_tensor_type
 !-------------------------------------------------------------------------------
 
