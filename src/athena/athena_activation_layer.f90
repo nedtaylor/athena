@@ -459,7 +459,7 @@ contains
   function create_from_onnx_actv_layer(node, initialisers, value_info, verbose) &
        result(layer)
     !! Build activation layer from attributes and return layer
-    use coreutils, only: to_lower
+    use athena__onnx_utils, only: onnx_to_athena_activation
     implicit none
 
     ! Arguments
@@ -479,7 +479,8 @@ contains
     !! Verbosity level
 
     if(present(verbose)) verbose_ = verbose
-    allocate(layer, source=actv_layer_type(to_lower(trim(node%op_type))))
+    allocate(layer, source=actv_layer_type( &
+         onnx_to_athena_activation(trim(node%op_type))))
     call layer%build_from_onnx(node, initialisers, value_info, verbose=verbose_)
 
   end function create_from_onnx_actv_layer
