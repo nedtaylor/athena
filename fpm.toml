@@ -95,6 +95,13 @@ example_library = { path = "example/example_library"}
 atomstruc = { git = "https://github.com/nedtaylor/atomstruc", branch = "column-major-order" }
 
 [[example]]
+name = "onnx_gnn"
+source-dir = "example/onnx_gnn/src"
+[example.dependencies]
+example_library = { path = "example/example_library"}
+atomstruc = { git = "https://github.com/nedtaylor/atomstruc", branch = "column-major-order" }
+
+[[example]]
 name = "msgpass_euler"
 source-dir = "example/msgpass_euler/src"
 [example.dependencies]
@@ -127,6 +134,10 @@ example_library = { path = "example/example_library"}
 [[example]]
 name = "onnx"
 source-dir = "example/onnx/src"
+
+[[example]]
+name = "onnx_nop"
+source-dir = "example/onnx_nop/src"
 
 [[example]]
 name = "resnet"
