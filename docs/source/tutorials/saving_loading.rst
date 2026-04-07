@@ -249,7 +249,7 @@ Export a trained athena network to ONNX format:
         loss_method="categorical_crossentropy", batch_size=32)
 
    ! Export to ONNX
-   call write_onnx("model.onnx", net)
+   call write_onnx("model.json", net)
 
 The ONNX file can then be:
 
@@ -271,7 +271,7 @@ Load an ONNX model into athena:
    type(network_type) :: net
 
    ! Read ONNX file
-   net = read_onnx("model.onnx")
+   net = read_onnx("model.json")
    call net%compile( &
         optimiser=adam_optimiser_type(learning_rate=0.01_real32), &
         metrics=["loss"], &
@@ -323,7 +323,7 @@ Complete ONNX Example
           batch_size=1)
 
       ! Write network to ONNX
-      onnx_file = "test_network.onnx"
+      onnx_file = "test_network.json"
       write(*,*) "Writing network to ONNX file: ", trim(onnx_file)
       call write_onnx(onnx_file, network_write)
       write(*,*) "ONNX file written successfully"
