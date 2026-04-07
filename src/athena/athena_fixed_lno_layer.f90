@@ -683,9 +683,9 @@ contains
     attributes(3) = onnx_attribute_type( &
          name='num_modes', type='int', val=trim(buf))
     if(this%use_bias)then
-       buf = 'T'
+       buf = '1'
     else
-       buf = 'F'
+       buf = '0'
     end if
     attributes(4) = onnx_attribute_type( &
          name='use_bias', type='int', val=trim(buf))

@@ -796,9 +796,9 @@ contains
     attributes(2) = onnx_attribute_type( &
          name='num_outputs', type='int', val=trim(buf))
     if(this%use_bias)then
-       buf = 'T'
+       buf = '1'
     else
-       buf = 'F'
+       buf = '0'
     end if
     attributes(3) = onnx_attribute_type( &
          name='use_bias', type='int', val=trim(buf))

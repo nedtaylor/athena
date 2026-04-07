@@ -580,7 +580,11 @@ contains
        case('num_modes')
           read(val, *) num_modes
        case('use_bias')
-          read(val, *) use_bias
+          use_bias = read_logical_from_string(val, stat)
+          if(stat .ne. 0)then
+             call stop_program("create_from_onnx_dynamic_lno_layer: " // &
+                  "invalid logical value for use_bias")
+          end if
        case('activation')
           activation_name = trim(val)
        end select
@@ -913,7 +917,7 @@ contains
     logical, intent(inout) :: use_bias
     character(64), intent(inout) :: activation_name
 
-    integer :: k, pos, pos2
+    integer :: k, pos, pos2, stat
     character(256) :: token, key, val
 
     pos = 1
@@ -938,7 +942,11 @@ contains
        case('num_modes', 'num_basis')
           read(val, *) num_modes
        case('use_bias')
-          read(val, *) use_bias
+          use_bias = read_logical_from_string(val, stat)
+          if(stat .ne. 0)then
+             call stop_program("parse_nop_metadata: " // &
+                   "invalid logical value for use_bias")
+          end if
        case('activation')
           activation_name = trim(val)
        end select
@@ -1004,6 +1012,38 @@ contains
     end do
 
   end subroutine load_nop_param_from_inits
+!###############################################################################
+
+
+!###############################################################################
+   function read_logical_from_string(val, stat) result(logical_val)
+      !! Convert a string to a logical value
+      !!
+      !! Acceptable true values: "true", "1" (case-insensitive)
+      !! Acceptable false values: "false", "0" (case-insensitive)
+      use coreutils, only: to_lower
+      implicit none
+
+      ! Arguments
+      character(*), intent(in) :: val
+      !! Input string to convert
+      integer, intent(out) :: stat
+      !! Status code: 0 for success, non-zero for invalid input
+
+      logical :: logical_val
+      !! Local variable for the resulting logical value
+
+      stat = 0
+      if(to_lower(trim(adjustl(val))) .eq. 'true' .or. trim(adjustl(val)) .eq. '1') then
+          logical_val = .true.
+      else if(to_lower(trim(adjustl(val))) .eq. 'false' .or. trim(adjustl(val)) .eq. '0') then
+          logical_val = .false.
+      else
+          stat = 1
+          logical_val = .false.  ! Default value in case of error
+      end if
+
+   end function read_logical_from_string
 !###############################################################################
 
 end module athena__onnx_creators
