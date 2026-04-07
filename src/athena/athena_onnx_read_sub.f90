@@ -369,12 +369,19 @@ contains
     !! Parse one line from the initialiser section.
     implicit none
 
+    ! Arguments
     character(*), intent(in) :: line
+    !! Current JSON line to parse
     type(json_initialiser_state_type), intent(inout) :: state
+    !! Mutable parser state for the active initialiser object
     type(json_parse_result_type), intent(inout) :: parsed
+    !! Parsed ONNX content accumulated so far
     character(32), intent(inout) :: section
+    !! Current top-level JSON section name
 
+    ! Local variables
     integer :: pos, pos2
+    !! Temporary string positions used to slice the rawData field
 
     if(.not.state%in_object .and. is_json_object_start(line))then
        call reset_initialiser_state(state)
@@ -430,12 +437,19 @@ contains
          decode_base64_to_int64
     implicit none
 
+    ! Arguments
     type(json_initialiser_state_type), intent(in) :: state
+    !! Completed initialiser parse state to copy into the result object
     type(json_parse_result_type), intent(inout) :: parsed
+    !! Parsed ONNX content accumulated so far
 
+    ! Local variables
     integer :: j, n_decoded
+    !! Integer loop index and decoded tensor length
     real(real32), allocatable :: decoded_floats(:)
+    !! Float payload decoded from base64 rawData
     integer, allocatable :: decoded_ints(:)
+    !! Int64 payload decoded from base64 rawData
 
     parsed%num_inits = parsed%num_inits + 1
     parsed%inits(parsed%num_inits)%name = state%name

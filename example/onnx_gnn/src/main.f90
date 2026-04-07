@@ -85,9 +85,7 @@ program onnx_gnn_example
   )
 
   call network%set_batch_size(1)
-  do i = 1, network%num_layers
-     network%model(i)%layer%inference = .true.
-  end do
+  call network%set_inference_mode()
 
   call network%forward(graphs_in(:,1:1))
   orig_output = network%model( &
@@ -113,9 +111,7 @@ program onnx_gnn_example
   )
 
   call reloaded_network%set_batch_size(1)
-  do i = 1, reloaded_network%num_layers
-     reloaded_network%model(i)%layer%inference = .true.
-  end do
+  call reloaded_network%set_inference_mode()
 
   call reloaded_network%forward(graphs_in(:,1:1))
   imported_output = reloaded_network%model( &

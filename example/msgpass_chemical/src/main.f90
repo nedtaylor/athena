@@ -58,11 +58,12 @@ program msgpass_chemical_example
   type(graph_type), allocatable, dimension(:,:) :: graphs_in
   real(real32), allocatable, dimension(:,:) :: labels
   character(1024) :: file, train_file, onnx_file
+  integer :: unit
 
   ! training loop variables
   integer :: num_tests = 10, num_epochs = 20, batch_size = 8
   integer :: num_time_steps = 4
-  integer :: i, j, n, s
+  integer :: i, j, s
 
   integer :: num_dense_inputs = 10, num_outputs = 1
   integer :: num_params
@@ -187,32 +188,99 @@ program msgpass_chemical_example
   call write_onnx(onnx_file, network)
   write(*,*) "ONNX export complete"
 
+
   !-----------------------------------------------------------------------------
   ! forward pass on first sample with initial weights (matches ONNX export)
   !-----------------------------------------------------------------------------
   call network%set_batch_size(1)
-  do i = 1, network%num_layers
-     network%model(i)%layer%inference = .true.
-  end do
+  call network%set_inference_mode()
   call network%forward(graphs_in(:,1:1))
   ! Write output of leaf layer for cross-validation
-  open(newunit=n, file="example/msgpass_chemical/fortran_output.txt", &
+  open(newunit=unit, file="example/msgpass_chemical/fortran_output.txt", &
        status='replace')
-  write(n, '(*(ES20.12,1X))') network%model( &
+  write(unit, '(*(ES20.12,1X))') network%model( &
        network%auto_graph%vertex(network%leaf_vertices(1))%id &
   )%layer%output(1,1)%val
-  close(n)
+  close(unit)
   write(*,*) "Fortran forward pass output written"
+
 
   !-----------------------------------------------------------------------------
   ! ONNX round-trip test: read back and compare forward pass results
   !-----------------------------------------------------------------------------
-  block
-    type(network_type) :: imported_network
-    real(real32) :: orig_output, imported_output, rel_diff
+  call onnx_import_test(onnx_file)
+  call network%set_batch_size(batch_size)
 
-    write(*,*) "Testing ONNX round-trip: reading back ", trim(onnx_file)
-    imported_network = read_onnx(onnx_file, verbose=1)
+
+!-----------------------------------------------------------------------------
+! export ALL graphs for Python cross-validation
+!-----------------------------------------------------------------------------
+  call export_all_graphs("example/msgpass_chemical/all_graphs.txt")
+
+
+  !-----------------------------------------------------------------------------
+  ! forward pass on first sample for cross-language comparison
+  !-----------------------------------------------------------------------------
+  call network%set_batch_size(1)
+  output_min = minval(output(1,1)%val)
+  output_max = maxval(output(1,1)%val)
+  write(*,'(A,ES20.12)') "output_min = ", output_min
+  write(*,'(A,ES20.12)') "output_max = ", output_max
+  write(*,'(A,ES20.12)') "output_range = ", output_max - output_min
+  output(1,1)%val = ( output(1,1)%val - output_min ) / &
+       ( output_max - output_min )
+
+
+  !-----------------------------------------------------------------------------
+  ! training loop
+  !-----------------------------------------------------------------------------
+  call network%set_batch_size(batch_size)
+  call network%train( &
+       graphs_in, &
+       output, &
+       num_epochs = num_epochs, &
+       shuffle_batches = .true. &
+  )
+
+
+  !--------------------------------------------------------------------------
+  ! testing loop
+  !--------------------------------------------------------------------------
+  write(*,*) "Starting testing..."
+  call network%test( &
+       graphs_in, &
+       output &
+  )
+  write(*,*) "Testing finished"
+  write(6,'("Overall accuracy=",F0.5)') network%accuracy_val
+  write(6,'("Overall loss=",F0.5)')     network%loss_val
+
+  if(.not.restart)then
+     call network%print(file="network.txt")
+  else
+     call network%print(file="tmp.txt")
+  end if
+
+contains
+
+!###############################################################################
+  subroutine onnx_import_test(file)
+    !! Test ONNX import by writing the network to an ONNX file, reading it back,
+    !! and comparing the forward pass results on the same input.
+    implicit none
+
+    ! Arguments
+    character(*), intent(in) :: file
+    !! File to import the network from
+
+    ! Local variables
+    type(network_type) :: imported_network
+    !! Imported network reconstructed from the ONNX file
+    real(real32) :: orig_output, imported_output, rel_diff
+    !! Original output, imported output, and relative difference
+
+    write(*,*) "Testing ONNX round-trip: reading back ", trim(file)
+    imported_network = read_onnx(file, verbose=1)
 
     ! Compile the imported network
     call imported_network%compile( &
@@ -227,9 +295,7 @@ program msgpass_chemical_example
 
     ! Set up for inference
     call imported_network%set_batch_size(1)
-    do i = 1, imported_network%num_layers
-       imported_network%model(i)%layer%inference = .true.
-    end do
+    call imported_network%set_inference_mode()
 
     ! Forward pass on same input
     call imported_network%forward(graphs_in(:,1:1))
@@ -258,102 +324,55 @@ program msgpass_chemical_example
     else
        write(*,*) "ONNX round-trip test FAILED"
     end if
-  end block
-
-  call network%set_batch_size(batch_size)
-
-
-  !-----------------------------------------------------------------------------
-  ! export ALL graphs for Python cross-validation
-  ! Format: one file per graph property, samples separated by blank lines
-  !-----------------------------------------------------------------------------
-  write(*,*) "Exporting all graph data for cross-validation..."
-  open(newunit=n, file="example/msgpass_chemical/all_graphs.txt", &
-       status='replace')
-  write(n, '(I0)') size(graphs_in,2)
-  do s = 1, size(graphs_in,2)
-     ! Header: num_vertices num_edges num_csr_entries num_vertex_features num_edge_features
-     write(n, '(I0,1X,I0,1X,I0,1X,I0,1X,I0)') &
-          graphs_in(1,s)%num_vertices, &
-          graphs_in(1,s)%num_edges, &
-          size(graphs_in(1,s)%adj_ja, 2), &
-          graphs_in(1,s)%num_vertex_features, &
-          graphs_in(1,s)%num_edge_features
-     ! Vertex features: one row per vertex
-     do j = 1, graphs_in(1,s)%num_vertices
-        write(n, '(*(ES16.8E2,1X))') graphs_in(1,s)%vertex_features(:,j)
-     end do
-     ! Edge features: one row per edge
-     do j = 1, graphs_in(1,s)%num_edges
-        write(n, '(*(ES16.8E2,1X))') graphs_in(1,s)%edge_features(:,j)
-     end do
-     ! CSR adj_ia (num_vertices + 1 values)
-     write(n, '(*(I0,1X))') graphs_in(1,s)%adj_ia
-     ! CSR adj_ja (2 x num_csr_entries)
-     do j = 1, size(graphs_in(1,s)%adj_ja, 2)
-        write(n, '(I0,1X,I0)') graphs_in(1,s)%adj_ja(1,j), &
-             graphs_in(1,s)%adj_ja(2,j)
-     end do
-     ! Write energy label for this sample
-     write(n, '(ES16.8E2)') output(1,1)%val(1,s)
-  end do
-  close(n)
-  write(*,*) "Graph export complete"
+  end subroutine onnx_import_test
+!###############################################################################
 
 
+!###############################################################################
+  subroutine export_all_graphs(file)
+    !! Export all input graphs to a text file for cross-language validation
+    implicit none
 
-  !-----------------------------------------------------------------------------
-  ! forward pass on first sample for cross-language comparison
-  !-----------------------------------------------------------------------------
-  call network%set_batch_size(1)
-  output_min = minval(output(1,1)%val)
-  output_max = maxval(output(1,1)%val)
-  write(*,'(A,ES20.12)') "output_min = ", output_min
-  write(*,'(A,ES20.12)') "output_max = ", output_max
-  write(*,'(A,ES20.12)') "output_range = ", output_max - output_min
-  output(1,1)%val = ( output(1,1)%val - output_min ) / &
-       ( output_max - output_min )
+    ! Arguments
+    character(*), intent(in) :: file
+    !! File to write the graph data to
 
+    ! Local variables
+    integer :: j, s, unit
+    !! Loop indices and file unit
 
-  !-----------------------------------------------------------------------------
-  ! training loop (optional)
-  !-----------------------------------------------------------------------------
-  call network%set_batch_size(batch_size)
-
-  ! Write path hint for batch ordering export
-  call network%train( &
-       graphs_in, &
-       output, &
-       num_epochs = num_epochs, &
-       shuffle_batches = .true. &
-  )
-
-
-  !--------------------------------------------------------------------------
-  ! testing loop
-  !--------------------------------------------------------------------------
-  write(*,*) "Starting testing..."
-  call network%test( &
-       graphs_in, &
-       output &
-  )
-  write(*,*) "Testing finished"
-
-  ! data_poly = network%predict_generic( graphs_in, output_as_graph = .false.)
-  ! select type(data_poly)
-  ! type is(array_type)
-  !    write(*,*) "Predicted output:"
-  !    write(*,*) data_poly(1,1)%val * ( output_max - output_min ) + output_min
-  !    write(*,*) output(1,1)%val * ( output_max - output_min ) + output_min
-  ! end select
-
-  write(6,'("Overall accuracy=",F0.5)') network%accuracy_val
-  write(6,'("Overall loss=",F0.5)')     network%loss_val
-
-  if(.not.restart)then
-     call network%print(file="network.txt")
-  else
-     call network%print(file="tmp.txt")
-  end if
+    write(*,*) "Exporting all graph data for cross-validation..."
+    open(newunit=unit, file=file, status='replace')
+    write(unit, '(I0)') size(graphs_in,2)
+    do s = 1, size(graphs_in,2)
+       ! Header: num_vertices num_edges num_csr_entries num_vertex_features num_edge_features
+       write(unit, '(I0,1X,I0,1X,I0,1X,I0,1X,I0)') &
+            graphs_in(1,s)%num_vertices, &
+            graphs_in(1,s)%num_edges, &
+            size(graphs_in(1,s)%adj_ja, 2), &
+            graphs_in(1,s)%num_vertex_features, &
+            graphs_in(1,s)%num_edge_features
+       ! Vertex features: one row per vertex
+       do j = 1, graphs_in(1,s)%num_vertices
+          write(unit, '(*(ES16.8E2,1X))') graphs_in(1,s)%vertex_features(:,j)
+       end do
+       ! Edge features: one row per edge
+       do j = 1, graphs_in(1,s)%num_edges
+          write(unit, '(*(ES16.8E2,1X))') graphs_in(1,s)%edge_features(:,j)
+       end do
+       ! CSR adj_ia (num_vertices + 1 values)
+       write(unit, '(*(I0,1X))') graphs_in(1,s)%adj_ia
+       ! CSR adj_ja (2 x num_csr_entries)
+       do j = 1, size(graphs_in(1,s)%adj_ja, 2)
+          write(unit, '(I0,1X,I0)') graphs_in(1,s)%adj_ja(1,j), &
+               graphs_in(1,s)%adj_ja(2,j)
+       end do
+       ! Write energy label for this sample
+       write(unit, '(ES16.8E2)') output(1,1)%val(1,s)
+    end do
+    close(unit)
+    write(*,*) "Graph export complete"
+  end subroutine export_all_graphs
+!###############################################################################
 
 end program msgpass_chemical_example

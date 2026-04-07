@@ -46,12 +46,20 @@ contains
     !! Emit a simple ONNX node (individual string interface)
     !! Avoids gfortran array constructor issues
     implicit none
-    character(*), intent(in) :: op_type, name, out1, attr_json
-    type(onnx_node_type), intent(inout), dimension(:) :: nodes
-    integer, intent(inout) :: num_nodes
-    character(*), intent(in), optional :: in1, in2, in3
 
+    ! Arguments
+    character(*), intent(in) :: op_type, name, out1, attr_json
+    !! ONNX operation type, node name, output name, and attribute JSON
+    type(onnx_node_type), intent(inout), dimension(:) :: nodes
+    !! Node accumulator array
+    integer, intent(inout) :: num_nodes
+    !! Current number of populated nodes
+    character(*), intent(in), optional :: in1, in2, in3
+    !! Optional input tensor names
+
+    ! Local variables
     integer :: n_in
+    !! Number of connected inputs for the emitted node
 
     n_in = 0
     if(present(in1)) n_in = 1
@@ -78,9 +86,14 @@ contains
        nodes, num_nodes)
     !! Emit a Squeeze node (ONNX opset 13+: axes as input)
     implicit none
+
+    ! Arguments
     character(*), intent(in) :: name, input, axes_input, output
+    !! Node name, data input, axes input, and output tensor name
     type(onnx_node_type), intent(inout), dimension(:) :: nodes
+    !! Node accumulator array
     integer, intent(inout) :: num_nodes
+    !! Current number of populated nodes
 
     call emit_node('Squeeze', name, output, '', nodes, num_nodes, &
          in1=input, in2=axes_input)
@@ -94,16 +107,28 @@ contains
        nodes, num_nodes, inits, num_inits)
     !! Emit a Constant node producing an int64 tensor
     implicit none
-    character(*), intent(in) :: name
-    integer, intent(in) :: values(:), dims(:)
-    type(onnx_node_type), intent(inout), dimension(:) :: nodes
-    integer, intent(inout) :: num_nodes
-    type(onnx_initialiser_type), intent(inout), dimension(:) :: inits
-    integer, intent(inout) :: num_inits
 
+    ! Arguments
+    character(*), intent(in) :: name
+    !! Constant node and output tensor name
+    integer, intent(in) :: values(:), dims(:)
+    !! Constant values and tensor dimensions
+    type(onnx_node_type), intent(inout), dimension(:) :: nodes
+    !! Node accumulator array
+    integer, intent(inout) :: num_nodes
+    !! Current number of populated nodes
+    type(onnx_initialiser_type), intent(inout), dimension(:) :: inits
+    !! Initialiser accumulator array (unused, kept for interface symmetry)
+    integer, intent(inout) :: num_inits
+    !! Current number of populated initialisers (unused)
+
+    ! Local variables
     character(4096) :: attr_str
+    !! Serialized ONNX attribute JSON for the constant payload
     character(256) :: raw_b64
+    !! Base64-encoded raw tensor data
     integer :: i
+    !! Dimension loop index
 
     ! Encode int64 values as base64
     call encode_int64_base64(values, raw_b64)
@@ -138,17 +163,30 @@ contains
        nodes, num_nodes, inits, num_inits)
     !! Emit a Constant node producing a float32 tensor
     implicit none
-    character(*), intent(in) :: name
-    real(real32), intent(in) :: values(:)
-    integer, intent(in) :: dims(:)
-    type(onnx_node_type), intent(inout), dimension(:) :: nodes
-    integer, intent(inout) :: num_nodes
-    type(onnx_initialiser_type), intent(inout), dimension(:) :: inits
-    integer, intent(inout) :: num_inits
 
+    ! Arguments
+    character(*), intent(in) :: name
+    !! Constant node and output tensor name
+    real(real32), intent(in) :: values(:)
+    !! Float32 constant values to embed in the node
+    integer, intent(in) :: dims(:)
+    !! Tensor dimensions for the constant value
+    type(onnx_node_type), intent(inout), dimension(:) :: nodes
+    !! Node accumulator array
+    integer, intent(inout) :: num_nodes
+    !! Current number of populated nodes
+    type(onnx_initialiser_type), intent(inout), dimension(:) :: inits
+    !! Initialiser accumulator array (unused, kept for interface symmetry)
+    integer, intent(inout) :: num_inits
+    !! Current number of populated initialisers (unused)
+
+    ! Local variables
     character(4096) :: attr_str
+    !! Serialized ONNX attribute JSON for the constant payload
     character(256) :: raw_b64
+    !! Base64-encoded raw tensor data
     integer :: i
+    !! Dimension loop index
 
     call encode_float32_base64(values, size(values), raw_b64)
 
@@ -181,15 +219,26 @@ contains
        nodes, num_nodes, inits, num_inits)
     !! Emit a ConstantOfShape node
     implicit none
-    character(*), intent(in) :: name, shape_input, output
-    real(real32), intent(in) :: value
-    type(onnx_node_type), intent(inout), dimension(:) :: nodes
-    integer, intent(inout) :: num_nodes
-    type(onnx_initialiser_type), intent(inout), dimension(:) :: inits
-    integer, intent(inout) :: num_inits
 
+    ! Arguments
+    character(*), intent(in) :: name, shape_input, output
+    !! Node name, shape tensor input, and output tensor name
+    real(real32), intent(in) :: value
+    !! Fill value to use for the generated tensor
+    type(onnx_node_type), intent(inout), dimension(:) :: nodes
+    !! Node accumulator array
+    integer, intent(inout) :: num_nodes
+    !! Current number of populated nodes
+    type(onnx_initialiser_type), intent(inout), dimension(:) :: inits
+    !! Initialiser accumulator array (unused, kept for interface symmetry)
+    integer, intent(inout) :: num_inits
+    !! Current number of populated initialisers (unused)
+
+    ! Local variables
     character(4096) :: attr_str
+    !! Serialized ONNX attribute JSON for the fill tensor
     character(256) :: raw_b64
+    !! Base64-encoded fill value
 
     call encode_float32_base64([value], 1, raw_b64)
 
@@ -211,13 +260,22 @@ contains
     !! Emit an activation function node
     use coreutils, only: to_camel_case
     implicit none
-    character(*), intent(in) :: name, prefix, input_override
-    type(onnx_node_type), intent(inout), dimension(:) :: nodes
-    integer, intent(inout) :: num_nodes
-    integer, intent(in) :: max_nodes
 
+    ! Arguments
+    character(*), intent(in) :: name, prefix, input_override
+    !! Activation name, node prefix, and optional override for the input name
+    type(onnx_node_type), intent(inout), dimension(:) :: nodes
+    !! Node accumulator array
+    integer, intent(inout) :: num_nodes
+    !! Current number of populated nodes
+    integer, intent(in) :: max_nodes
+    !! Maximum number of nodes available in the accumulator
+
+    ! Local variables
     character(128) :: actv_name, input_n, output_n
+    !! Normalised ONNX op name, input tensor name, and output tensor name
     character(4096) :: attr_str
+    !! Serialized ONNX attribute JSON for activation-specific options
 
     actv_name = to_camel_case( &
          trim(adjustl(name)), &
@@ -251,14 +309,24 @@ contains
   subroutine emit_initialisers(layer, prefix, inits, num_inits, max_inits)
     !! Emit initialisers for a learnable layer
     implicit none
-    class(learnable_layer_type), intent(in) :: layer
-    character(*), intent(in) :: prefix
-    type(onnx_initialiser_type), intent(inout), dimension(:) :: inits
-    integer, intent(inout) :: num_inits
-    integer, intent(in) :: max_inits
 
+    ! Arguments
+    class(learnable_layer_type), intent(in) :: layer
+    !! Learnable layer containing parameter tensors and shape metadata
+    character(*), intent(in) :: prefix
+    !! Name prefix used to generate exported initialiser names
+    type(onnx_initialiser_type), intent(inout), dimension(:) :: inits
+    !! Initialiser accumulator array
+    integer, intent(inout) :: num_inits
+    !! Current number of populated initialisers
+    integer, intent(in) :: max_inits
+    !! Maximum number of initialisers available in the accumulator
+
+    ! Local variables
     integer :: i, j, n
+    !! Parameter index, shape index, and flattened tensor size
     character(128) :: name
+    !! Generated ONNX initialiser name for the current parameter tensor
 
     if(.not.allocated(layer%params)) return
 
@@ -321,16 +389,28 @@ contains
   subroutine build_attributes_json(layer, op_type, attr_json)
     !! Build JSON string for layer attributes
     implicit none
-    class(base_layer_type), intent(in) :: layer
-    character(*), intent(in) :: op_type
-    character(4096), intent(out) :: attr_json
 
+    ! Arguments
+    class(base_layer_type), intent(in) :: layer
+    !! Layer supplying ONNX attribute metadata
+    character(*), intent(in) :: op_type
+    !! ONNX operation type used to handle special cases
+    character(4096), intent(out) :: attr_json
+    !! Serialized JSON fragment containing the emitted attributes
+
+    ! Local variables
     type(onnx_attribute_type), allocatable, dimension(:) :: attributes
+    !! Attribute list returned by the layer
     integer :: i, j, itmp1
+    !! Attribute index, value index, and temporary integer count
     character(256) :: buf
+    !! Temporary string buffer for serialised scalar values
     integer, allocatable :: ivar_list(:)
+    !! Parsed integer attribute payload for INTS-valued attributes
     real(real32), allocatable :: rvar_list(:)
+    !! Placeholder for future real-valued list attributes
     character(10) :: type_lw
+    !! Lower-case attribute type string used in the select case
 
     attr_json = ''
 
@@ -400,11 +480,18 @@ contains
   subroutine write_json_nodes(unit, nodes, num_nodes)
     !! Write nodes array to JSON
     implicit none
-    integer, intent(in) :: unit
-    type(onnx_node_type), intent(in), dimension(:) :: nodes
-    integer, intent(in) :: num_nodes
 
+    ! Arguments
+    integer, intent(in) :: unit
+    !! Output unit receiving the JSON text
+    type(onnx_node_type), intent(in), dimension(:) :: nodes
+    !! Node collection to serialise
+    integer, intent(in) :: num_nodes
+    !! Number of populated nodes in the collection
+
+    ! Local variables
     integer :: i, j
+    !! Node and tensor index counters
 
     write(unit, '(A)') '    "node": ['
     do i = 1, num_nodes
@@ -459,12 +546,20 @@ contains
   subroutine write_json_initialisers(unit, inits, num_inits)
     !! Write initialisers array to JSON with base64-encoded rawData
     implicit none
-    integer, intent(in) :: unit
-    type(onnx_initialiser_type), intent(in), dimension(:) :: inits
-    integer, intent(in) :: num_inits
 
+    ! Arguments
+    integer, intent(in) :: unit
+    !! Output unit receiving the JSON text
+    type(onnx_initialiser_type), intent(in), dimension(:) :: inits
+    !! Initialiser collection to serialise
+    integer, intent(in) :: num_inits
+    !! Number of populated initialisers in the collection
+
+    ! Local variables
     integer :: i, j, n
+    !! Initialiser index, dimension index, and raw element count
     character(:), allocatable :: raw_b64
+    !! Base64-encoded raw tensor payload
 
     write(unit, '(A)') '    "initializer": ['
     do i = 1, num_inits
@@ -511,12 +606,20 @@ contains
   subroutine write_json_tensors(unit, section_name, tensors, num_tensors)
     !! Write input/output tensor specifications to JSON
     implicit none
-    integer, intent(in) :: unit
-    character(*), intent(in) :: section_name
-    type(onnx_tensor_type), intent(in), dimension(:) :: tensors
-    integer, intent(in) :: num_tensors
 
+    ! Arguments
+    integer, intent(in) :: unit
+    !! Output unit receiving the JSON text
+    character(*), intent(in) :: section_name
+    !! JSON section name, e.g. input or output
+    type(onnx_tensor_type), intent(in), dimension(:) :: tensors
+    !! Tensor collection to serialise
+    integer, intent(in) :: num_tensors
+    !! Number of populated tensors in the collection
+
+    ! Local variables
     integer :: i, j
+    !! Tensor and dimension index counters
 
     write(unit, '(A,A,A)') '    "', trim(section_name), '": ['
     do i = 1, num_tensors
@@ -854,9 +957,12 @@ contains
           v3 = 0
        end if
 
-       if(j .le. nbytes) bytes(j) = int(ior(ishft(v0, 2), ishft(v1, -4)), int8)
-       if(j + 1 .le. nbytes) bytes(j+1) = int(ior(ishft(iand(v1, 15), 4), ishft(v2, -2)), int8)
-       if(j + 2 .le. nbytes) bytes(j+2) = int(ior(ishft(iand(v2, 3), 6), v3), int8)
+       if(j .le. nbytes) &
+            bytes(j) = int(ior(ishft(v0, 2), ishft(v1, -4)), int8)
+       if(j + 1 .le. nbytes) &
+            bytes(j+1) = int(ior(ishft(iand(v1, 15), 4), ishft(v2, -2)), int8)
+       if(j + 2 .le. nbytes) &
+            bytes(j+2) = int(ior(ishft(iand(v2, 3), 6), v3), int8)
        j = j + 3
     end do
 
