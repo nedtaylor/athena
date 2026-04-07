@@ -64,10 +64,14 @@ program test_orthogonal_attention_layer
              layer1%num_params
      end if
      ! Check phi basis is allocated
-     if(.not.layer1%phi%allocated)then
-        success = .false.
-        write(0,*) 'phi not allocated'
-     end if
+     block
+       type(array_type) :: phi
+       phi = layer1%get_bases()
+       if(.not.phi%allocated)then
+          success = .false.
+          write(0,*) 'phi not allocated'
+       end if
+     end block
   class default
      success = .false.
      write(0,*) 'layer1 has wrong type'
@@ -85,11 +89,13 @@ program test_orthogonal_attention_layer
        integer :: n, k, i, j
        real(real32), allocatable :: Q(:,:), QtQ(:,:)
        real(real32) :: metric, val
+       type(array_type) :: phi
 
        n = layer1%num_inputs
        k = layer1%num_basis
        allocate(Q(n, k), QtQ(k, k))
-       Q = reshape(layer1%phi%val(:,1), [n, k])
+       phi = layer1%get_bases()
+       Q = reshape(phi%val(:,1), [n, k])
        QtQ = matmul(transpose(Q), Q)
        metric = 0.0_real32
        do j = 1, k
