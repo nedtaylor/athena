@@ -37,7 +37,8 @@ module athena__orthogonal_nop_block
   !! Plus bypass: W @ u -> [n_out, batch]
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: learnable_layer_type, base_layer_type
-  use athena__misc_types, only: base_actv_type, base_init_type
+  use athena__misc_types, only: base_actv_type, base_init_type, &
+       onnx_attribute_type
   use diffstruc, only: array_type, matmul, operator(+)
   use athena__diffstruc_extd, only: ono_encode, ono_decode
   implicit none
@@ -64,6 +65,7 @@ module athena__orthogonal_nop_block
      procedure, pass(this) :: forward => forward_ono
      procedure, pass(this) :: get_bases => get_bases_ono
      procedure, pass(this) :: get_orthogonality_metric
+     procedure, pass(this) :: get_attributes => get_attributes_ono
 
      final :: finalise_ono
   end type orthogonal_nop_block_type
@@ -750,6 +752,39 @@ contains
     this%output(1,1)%is_temporary = .false.
 
   end subroutine forward_ono
+!###############################################################################
+
+
+!###############################################################################
+  function get_attributes_ono(this) result(attributes)
+    implicit none
+    class(orthogonal_nop_block_type), intent(in) :: this
+    type(onnx_attribute_type), allocatable, dimension(:) :: attributes
+
+    character(32) :: buf
+
+    allocate(attributes(5))
+
+    write(buf, '(I0)') this%num_inputs
+    attributes(1) = onnx_attribute_type( &
+         name='num_inputs', type='int', val=trim(buf))
+    write(buf, '(I0)') this%num_outputs
+    attributes(2) = onnx_attribute_type( &
+         name='num_outputs', type='int', val=trim(buf))
+    write(buf, '(I0)') this%num_basis
+    attributes(3) = onnx_attribute_type( &
+         name='num_basis', type='int', val=trim(buf))
+    if(this%use_bias)then
+       buf = '1'
+    else
+       buf = '0'
+    end if
+    attributes(4) = onnx_attribute_type( &
+         name='use_bias', type='int', val=trim(buf))
+    attributes(5) = onnx_attribute_type( &
+         name='activation', type='string', val=trim(this%activation%name))
+
+  end function get_attributes_ono
 !###############################################################################
 
 end module athena__orthogonal_nop_block
