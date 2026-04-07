@@ -61,7 +61,7 @@ program pinn_chemical_example
   character(1024) :: file, train_file
 
   ! training loop variables
-  integer :: num_tests = 10, num_epochs = 100, batch_size = 8
+  integer :: num_tests = 10, num_epochs = 10, batch_size = 8
   integer :: num_time_steps = 2
   integer :: i, j, n, s
 
@@ -237,8 +237,7 @@ program pinn_chemical_example
            write(*,'("Epoch: ", I0, "/", I0, " Batch: ", I0, " Loss: ", F8.6)') &
                 i, num_epochs, s/batch_size + 1, sum(loss%val(1,:))/real(batch_size)
         end if
-        call loss%nullify_graph()
-        deallocate(loss)
+        call loss%reset_graph()
         nullify(loss)
      end do
   end do
