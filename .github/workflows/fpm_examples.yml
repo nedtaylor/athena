@@ -81,7 +81,6 @@ jobs:
         unzip MNIST_txt.zip
         cd ../athena
         echo "Returning to athena directory"
-        find example/mnist*/test_job.in -type f -exec sed -i 's|dataset_dir = "../../DMNIST"|dataset_dir = "../MNIST-txt"|' {} \;
 
     - name: Run examples
       shell: bash -l {0}
