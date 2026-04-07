@@ -1037,7 +1037,7 @@ contains
     !! Gradients
 
     ! Local variables
-    real(real32) :: learning_rate
+    real(real32) :: learning_rate, bias_correction1, bias_correction2
     !! Learning rate
 
 
@@ -1052,34 +1052,41 @@ contains
     this%m = this%beta1 * this%m + &
          (1._real32 - this%beta1) * gradient
     this%v = this%beta2 * this%v + &
-         (1._real32 - this%beta2) * gradient ** 2._real32
+         (1._real32 - this%beta2) * gradient * gradient
+
+    ! Bias corrections
+    bias_correction1 = 1._real32 - this%beta1**this%iter
+    bias_correction2 = 1._real32 - this%beta2**this%iter
 
     ! Update parameters
     associate( &
-         m_hat => this%m / (1._real32 - this%beta1**this%iter), &
-         v_hat => this%v / (1._real32 - this%beta2**this%iter) )
-       select type(regulariser => this%regulariser)
-       type is (l2_regulariser_type)
-          select case(regulariser%decoupled)
-          case(.true.)
-             ! decoupled weight decay (AdamW)
-             param = param - learning_rate * &
-                  ( &
-                       m_hat / (sqrt(v_hat) + this%epsilon) + &
-                       regulariser%l2 * param &
-                  )
-          case(.false.)
-             ! classical L2 regularisation (included in gradient)
+         m_hat => this%m / bias_correction1, &
+         v_hat => this%v / bias_correction2 )
+       if(this%regularisation .and. allocated(this%regulariser)) then
+          select type(regulariser => this%regulariser)
+          type is (l2_regulariser_type)
+             select case(regulariser%decoupled)
+             case(.true.)
+                ! decoupled weight decay (AdamW)
+                param = param - learning_rate * regulariser%l2 * param
+                param = param - learning_rate * ( m_hat / (sqrt(v_hat) + this%epsilon) )
+             case(.false.)
+                ! classical L2 regularisation (included in gradient)
+                param = param - learning_rate * ( &
+                     ( m_hat + regulariser%l2 * param ) / &
+                     ( sqrt(v_hat) + this%epsilon ) &
+                )
+             end select
+          class default
+             ! unknown regulariser — fall back to standard Adam
              param = param - learning_rate * ( &
-                  ( m_hat + regulariser%l2 * param ) / &
-                  ( sqrt(v_hat) + this%epsilon ) &
-             )
+                  m_hat / (sqrt(v_hat) + this%epsilon) )
           end select
-       class default
+       else
           ! no regularisation — standard Adam
           param = param - learning_rate * ( &
                m_hat / (sqrt(v_hat) + this%epsilon) )
-       end select
+       end if
     end associate
   end subroutine minimise_adam
 !###############################################################################
