@@ -33,6 +33,7 @@ module athena__fixed_lno_layer
   use coreutils, only: real32, stop_program, pi
   use athena__base_layer, only: learnable_layer_type, base_layer_type
   use athena__misc_types, only: base_actv_type, base_init_type, &
+       onnx_attribute_type, &
        onnx_node_type, onnx_initialiser_type, onnx_tensor_type
   use diffstruc, only: array_type, matmul, operator(+)
   implicit none
@@ -66,6 +67,7 @@ module athena__fixed_lno_layer
      procedure, pass(this) :: read => read_fixed_lno
 
      procedure, pass(this) :: forward => forward_fixed_lno
+     procedure, pass(this) :: get_attributes => get_attributes_fixed_lno
 
      final :: finalise_fixed_lno
   end type fixed_lno_layer_type
@@ -658,6 +660,39 @@ contains
     this%output(1,1)%is_temporary = .false.
 
   end subroutine forward_fixed_lno
+!###############################################################################
+
+
+!###############################################################################
+  function get_attributes_fixed_lno(this) result(attributes)
+    implicit none
+    class(fixed_lno_layer_type), intent(in) :: this
+    type(onnx_attribute_type), allocatable, dimension(:) :: attributes
+
+    character(32) :: buf
+
+    allocate(attributes(5))
+
+    write(buf, '(I0)') this%num_inputs
+    attributes(1) = onnx_attribute_type( &
+         name='num_inputs', type='int', val=trim(buf))
+    write(buf, '(I0)') this%num_outputs
+    attributes(2) = onnx_attribute_type( &
+         name='num_outputs', type='int', val=trim(buf))
+    write(buf, '(I0)') this%num_modes
+    attributes(3) = onnx_attribute_type( &
+         name='num_modes', type='int', val=trim(buf))
+    if(this%use_bias)then
+       buf = '1'
+    else
+       buf = '0'
+    end if
+    attributes(4) = onnx_attribute_type( &
+         name='use_bias', type='int', val=trim(buf))
+    attributes(5) = onnx_attribute_type( &
+         name='activation', type='string', val=trim(this%activation%name))
+
+  end function get_attributes_fixed_lno
 !###############################################################################
 
 end module athena__fixed_lno_layer
