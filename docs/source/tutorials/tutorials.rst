@@ -25,6 +25,7 @@ Welcome to the athena tutorials! These guides will help you get started with bui
    resnet_example
    msgpass_example
    pinn_example
+   lno_rollout_example
    inverse_design_example
    wandb_logging_optimisation
 

@@ -167,6 +167,22 @@ module athena
   use athena__full_layer,      only: full_layer_type, read_full_layer
 
 
+  ! Neural operator layer types
+  !-----------------------------------------------------------------------------
+  use athena__neural_operator_layer, only: &
+       neural_operator_layer_type, read_neural_operator_layer
+  use athena__dynamic_lno_layer, only: dynamic_lno_layer_type, read_dynamic_lno_layer
+  use athena__fixed_lno_layer, only: fixed_lno_layer_type, read_fixed_lno_layer
+  use athena__graph_nop_layer, only: &
+       graph_nop_layer_type, read_graph_nop_layer
+  use athena__spectral_filter_layer, only: &
+       spectral_filter_layer_type, read_spectral_filter_layer
+  use athena__orthogonal_attention_layer, only: &
+       orthogonal_attention_layer_type, read_orthogonal_attention_layer
+  use athena__orthogonal_nop_block, only: &
+       orthogonal_nop_block_type, read_orthogonal_nop_block
+
+
   ! Merge layer types
   !-----------------------------------------------------------------------------
   use athena__add_layer, only: add_layer_type, read_add_layer
