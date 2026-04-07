@@ -58,12 +58,6 @@ module athena__dynamic_lno_layer
      !! Number of outputs (discretisation points)
      integer :: num_modes
      !! Number of Laplace spectral modes
-     type(array_type) :: encoder_basis
-     !! Dynamic Laplace encoder basis E [num_modes x num_inputs],
-     !! rebuilt from learnable poles at each forward call
-     type(array_type) :: decoder_basis
-     !! Dynamic Laplace decoder basis D [num_outputs x num_modes],
-     !! rebuilt from learnable poles at each forward call
      type(array_type), dimension(1) :: z
      !! Temporary array for pre-activation values
    contains
@@ -108,8 +102,6 @@ contains
     if(allocated(this%input_shape)) deallocate(this%input_shape)
     if(allocated(this%output)) deallocate(this%output)
     if(this%z(1)%allocated) call this%z(1)%deallocate()
-    if(this%encoder_basis%allocated) call this%encoder_basis%deallocate()
-    if(this%decoder_basis%allocated) call this%decoder_basis%deallocate()
 
   end subroutine finalise_dynamic_lno
 !###############################################################################
