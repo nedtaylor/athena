@@ -18,7 +18,8 @@ module athena__duvenaud_msgpass_layer
   !! Reference: Duvenaud et al. (2015), NeurIPS
   use coreutils, only: real32
   use graphstruc, only: graph_type
-  use athena__misc_types, only: base_actv_type, base_init_type
+  use athena__misc_types, only: base_actv_type, base_init_type, onnx_attribute_type, &
+       onnx_node_type, onnx_initialiser_type, onnx_tensor_type
   use diffstruc, only: array_type, sum, matmul, operator(+)
   use athena__base_layer, only: base_layer_type
   use athena__msgpass_layer, only: msgpass_layer_type
@@ -50,6 +51,8 @@ module athena__duvenaud_msgpass_layer
    contains
      procedure, pass(this) :: get_num_params => get_num_params_duvenaud
      !! Get the number of parameters for the message passing layer
+     procedure, pass(this) :: get_attributes => get_attributes_duvenaud
+     !! Get the attributes of the layer (for ONNX export)
      procedure, pass(this) :: set_hyperparams => set_hyperparams_duvenaud
      !! Set the hyperparameters for the message passing layer
      procedure, pass(this) :: init => init_duvenaud
@@ -67,6 +70,12 @@ module athena__duvenaud_msgpass_layer
 
      procedure, pass(this) :: update_readout => update_readout_duvenaud
      !! Update the readout
+
+     procedure, pass(this) :: emit_onnx_nodes => emit_onnx_nodes_duvenaud
+     !! Emit ONNX JSON nodes for Duvenaud GNN layer
+     procedure, pass(this) :: emit_onnx_graph_inputs => &
+          emit_onnx_graph_inputs_duvenaud
+     !! Emit graph input tensor declarations for Duvenaud GNN layer
 
      final :: finalise_duvenaud
      !! Finalise the message passing layer
@@ -117,6 +126,77 @@ module athena__duvenaud_msgpass_layer
 
 
 contains
+
+!###############################################################################
+  function get_attributes_duvenaud(this) result(attributes)
+    !! Get the attributes of the Duvenaud message passing layer (for ONNX export)
+    !!
+    !! Exports hyperparameters needed to reconstruct the layer architecture:
+    !!   - num_time_steps: number of message passing iterations
+    !!   - min_vertex_degree, max_vertex_degree: degree bucket range
+    !!   - num_vertex_features: vertex feature dimensions per time step
+    !!   - num_edge_features: edge feature dimensions per time step
+    !!   - num_outputs: readout output dimension
+    !!   - message_activation, readout_activation: activation function names
+    implicit none
+
+    ! Arguments
+    class(duvenaud_msgpass_layer_type), intent(in) :: this
+    !! Instance of the layer
+    type(onnx_attribute_type), allocatable, dimension(:) :: attributes
+    !! Attributes of the layer
+
+    ! Local variables
+    integer :: t
+    character(256) :: buf
+
+    allocate(attributes(7))
+
+    write(buf, '(I0)') this%num_time_steps
+    attributes(1) = onnx_attribute_type( &
+         name='num_time_steps', type='int', val=trim(buf))
+
+    write(buf, '(I0)') this%min_vertex_degree
+    attributes(2) = onnx_attribute_type( &
+         name='min_vertex_degree', type='int', val=trim(buf))
+
+    write(buf, '(I0)') this%max_vertex_degree
+    attributes(3) = onnx_attribute_type( &
+         name='max_vertex_degree', type='int', val=trim(buf))
+
+    buf = ''
+    do t = 0, this%num_time_steps
+       if(t .eq. 0)then
+          write(buf, '(I0)') this%num_vertex_features(t)
+       else
+          write(buf, '(A," ",I0)') trim(buf), this%num_vertex_features(t)
+       end if
+    end do
+    attributes(4) = onnx_attribute_type( &
+         name='num_vertex_features', type='ints', val=trim(buf))
+
+    buf = ''
+    do t = 0, this%num_time_steps
+       if(t .eq. 0)then
+          write(buf, '(I0)') this%num_edge_features(t)
+       else
+          write(buf, '(A," ",I0)') trim(buf), this%num_edge_features(t)
+       end if
+    end do
+    attributes(5) = onnx_attribute_type( &
+         name='num_edge_features', type='ints', val=trim(buf))
+
+    write(buf, '(I0)') this%num_outputs
+    attributes(6) = onnx_attribute_type( &
+         name='num_outputs', type='int', val=trim(buf))
+
+    attributes(7) = onnx_attribute_type( &
+         name='message_activation', type='string', &
+         val=trim(this%activation%name))
+
+  end function get_attributes_duvenaud
+!###############################################################################
+
 
 !###############################################################################
   subroutine finalise_duvenaud(this)
@@ -775,6 +855,460 @@ contains
     this%output(1,1)%is_temporary = .false.
 
   end subroutine update_readout_duvenaud
+!###############################################################################
+
+
+!###############################################################################
+  subroutine emit_onnx_nodes_duvenaud( &
+       this, prefix, &
+       nodes, num_nodes, max_nodes, &
+       inits, num_inits, max_inits &
+  )
+    !! Emit ONNX JSON nodes for Duvenaud GNN layer
+    !!
+    !! Decomposes the Duvenaud message passing layer into standard ONNX ops:
+    !!   Gather, Concat, ScatterElements, MatMul, Sigmoid/activation,
+    !!   Softmax, ReduceSum, Add, Div, Clip, Sub, etc.
+    !!
+    !! This override is called by write_onnx instead of the standard
+    !! node emission logic, making the ONNX export extensible for new
+    !! GNN layer types.
+    use athena__onnx_msgpass_utils, only: emit_output_identity
+    implicit none
+
+    ! Arguments
+    class(duvenaud_msgpass_layer_type), intent(in) :: this
+    !! Instance of the layer
+    character(*), intent(in) :: prefix
+    !! Node name prefix (e.g. "node_2")
+    type(onnx_node_type), intent(inout), dimension(:) :: nodes
+    !! Accumulator for ONNX nodes
+    integer, intent(inout) :: num_nodes
+    !! Current number of nodes
+    integer, intent(in) :: max_nodes
+    !! Maximum capacity
+    type(onnx_initialiser_type), intent(inout), dimension(:) :: inits
+    !! Accumulator for ONNX initialisers
+    integer, intent(inout) :: num_inits
+    !! Current number of initialisers
+    integer, intent(in) :: max_inits
+    !! Maximum capacity
+
+    ! Local variables
+    integer :: t
+    character(128) :: cur_vertex_name, readout_accum
+
+    ! Must be called with vertex_input, edge_input etc. already set
+    ! These are stored in the node's input naming convention
+    ! prefix is e.g. "node_2", inputs come from the calling context
+
+    ! ===== Emit message passing time steps =====
+    do t = 1, this%num_time_steps
+       call emit_duvenaud_timestep( &
+            prefix, t, &
+            this%num_vertex_features(t-1), this%num_edge_features(0), &
+            this%num_vertex_features(t), &
+            this%min_vertex_degree, this%max_vertex_degree, &
+            this%params(t)%val(:,1), &
+            this%activation%name, &
+            nodes, num_nodes, max_nodes, &
+            inits, num_inits, max_inits, &
+            cur_vertex_name &
+       )
+    end do
+
+    ! ===== Emit readout =====
+    call emit_duvenaud_readout_impl( &
+         prefix, this, &
+         nodes, num_nodes, max_nodes, &
+         inits, num_inits, max_inits, &
+         readout_accum &
+    )
+
+    ! The readout output becomes the layer output for downstream layers.
+    call emit_output_identity( &
+         prefix, trim(readout_accum), this%activation%name, &
+         nodes, num_nodes)
+
+  end subroutine emit_onnx_nodes_duvenaud
+!###############################################################################
+
+
+!###############################################################################
+  subroutine emit_onnx_graph_inputs_duvenaud( &
+       this, prefix, &
+       graph_inputs, num_inputs &
+  )
+    !! Emit graph input tensor declarations for Duvenaud GNN layer
+    !!
+    !! Adds: vertex features, edge features, edge_index [3, ncsr], degree
+    use athena__onnx_msgpass_utils, only: emit_msgpass_graph_inputs
+    implicit none
+    class(duvenaud_msgpass_layer_type), intent(in) :: this
+    character(*), intent(in) :: prefix
+    !! Input name prefix (e.g. "input_1")
+    type(onnx_tensor_type), intent(inout), dimension(:) :: graph_inputs
+    integer, intent(inout) :: num_inputs
+
+    call emit_msgpass_graph_inputs( &
+         prefix, this%input_shape, graph_inputs, num_inputs)
+
+  end subroutine emit_onnx_graph_inputs_duvenaud
+!###############################################################################
+
+
+!###############################################################################
+  subroutine emit_duvenaud_timestep( &
+       prefix, t, nv_in, ne_in, nv_out, &
+       min_degree, max_degree, weight_data, activation_name, &
+       nodes, num_nodes, max_nodes, &
+       inits, num_inits, max_inits, vertex_out)
+    !! Emit ONNX nodes for one Duvenaud message passing time step.
+    use athena__onnx_utils, only: emit_node, emit_constant_int64, &
+         emit_activation_node
+    use athena__onnx_msgpass_utils, only: get_timestep_output_name, &
+         emit_edge_index_component, emit_scatter_aggregator
+    implicit none
+
+    ! Arguments
+    character(*), intent(in) :: prefix
+    integer, intent(in) :: t
+    integer, intent(in) :: nv_in, ne_in, nv_out
+    integer, intent(in) :: min_degree, max_degree
+    real(real32), intent(in) :: weight_data(:)
+    character(*), intent(in) :: activation_name
+    type(onnx_node_type), intent(inout), dimension(:) :: nodes
+    integer, intent(inout) :: num_nodes
+    integer, intent(in) :: max_nodes
+    type(onnx_initialiser_type), intent(inout), dimension(:) :: inits
+    integer, intent(inout) :: num_inits
+    integer, intent(in) :: max_inits
+    character(128), intent(out) :: vertex_out
+
+    ! Local variables
+    character(128) :: tp, tmp1, tmp2, tmp3
+    character(128) :: vertex_in, edge_in, edge_index_in, degree_in
+    character(128) :: src_idx, edge_idx, target_idx
+    character(128) :: msg_name, aggr_name, sq_out
+    character(len=*), parameter :: onnx_axis0_attr = &
+         '        "attribute": [{"name": "axis", "i": "0", "type": "INT"}]'
+    character(len=*), parameter :: onnx_concat_axis1_attr = &
+         '        "attribute": [{"name": "axis", "i": "1", "type": "INT"}]'
+
+    write(tp, '(A,"_t",I0)') trim(prefix), t
+
+    ! Input tensor names follow the convention set during write_onnx.
+    ! For t=1 the vertex input comes from the previous layer, while edge,
+    ! edge_index, and degree are always rooted at the original graph input.
+    write(vertex_in, '(A,"_vertex_in")') trim(prefix)
+    write(edge_in, '(A,"_edge_in")') trim(prefix)
+    write(edge_index_in, '(A,"_edge_index_in")') trim(prefix)
+    write(degree_in, '(A,"_degree_in")') trim(prefix)
+    if(t .gt. 1)then
+       call get_timestep_output_name( &
+            prefix, t-1, activation_name, '_sq_out', '_sq', vertex_in)
+    end if
+
+    ! --- Step 1: Extract source and edge-feature indices from edge_index ---
+    write(tmp1, '(A,"_idx0")') trim(tp)
+    call emit_constant_int64(trim(tmp1), [0], [1], &
+         nodes, num_nodes, inits, num_inits)
+    write(tmp2, '(A,"_idx1")') trim(tp)
+    call emit_constant_int64(trim(tmp2), [1], [1], &
+         nodes, num_nodes, inits, num_inits)
+    write(tmp3, '(A,"_idx2")') trim(tp)
+    call emit_constant_int64(trim(tmp3), [2], [1], &
+         nodes, num_nodes, inits, num_inits)
+
+    call emit_edge_index_component( &
+         tp, edge_index_in, trim(tmp1), 'src', src_idx, nodes, num_nodes)
+    call emit_edge_index_component( &
+         tp, edge_index_in, trim(tmp2), 'eidx', edge_idx, nodes, num_nodes)
+    call emit_edge_index_component( &
+         tp, edge_index_in, trim(tmp3), 'tgt', target_idx, nodes, num_nodes)
+
+    ! --- Step 2: Gather source vertex features and edge features ---
+    write(tmp1, '(A,"_src_feat")') trim(tp)
+    call emit_node('Gather', trim(tp)//'_gather_vfeat', &
+         trim(tmp1), onnx_axis0_attr, nodes, num_nodes, &
+         in1=trim(vertex_in), in2=trim(src_idx))
+
+    write(tmp2, '(A,"_edge_feat")') trim(tp)
+    call emit_node('Gather', trim(tp)//'_gather_efeat', &
+         trim(tmp2), onnx_axis0_attr, nodes, num_nodes, &
+         in1=trim(edge_in), in2=trim(edge_idx))
+
+    ! --- Step 3: Concat source vertex + edge features ---
+    write(msg_name, '(A,"_msg")') trim(tp)
+    call emit_node('Concat', trim(tp)//'_concat_msg', &
+         trim(msg_name), onnx_concat_axis1_attr, nodes, num_nodes, &
+         in1=trim(tmp1), in2=trim(tmp2))
+
+    ! --- Step 4: Scatter-add to aggregate messages per target vertex ---
+    call emit_scatter_aggregator( &
+         tp, vertex_in, target_idx, msg_name, nv_in + ne_in, &
+         nodes, num_nodes, inits, num_inits, aggr_name)
+
+    ! --- Step 5: Degree-specific weight application ---
+    call emit_duvenaud_degree_update( &
+         tp, degree_in, min_degree, max_degree, nv_in + ne_in, nv_out, &
+         weight_data, aggr_name, nodes, num_nodes, inits, num_inits, sq_out)
+
+    ! --- Step 6: Activation ---
+    if(trim(activation_name) .ne. 'none')then
+       call emit_activation_node(activation_name, trim(tp)//'_sq', &
+            trim(sq_out), nodes, num_nodes, max_nodes)
+       vertex_out = trim(nodes(num_nodes)%outputs(1))
+    else
+       vertex_out = trim(sq_out)
+    end if
+
+  end subroutine emit_duvenaud_timestep
+!###############################################################################
+
+
+!###############################################################################
+  subroutine emit_duvenaud_degree_update( &
+       tp, degree_in, min_degree, max_degree, feature_dim, nv_out, &
+       weight_data, aggr_in, nodes, num_nodes, inits, num_inits, sq_out)
+    !! Emit the degree-dependent weight selection and update block.
+    use athena__onnx_utils, only: emit_node, emit_squeeze_node, &
+         emit_constant_int64, emit_constant_float
+    use athena__onnx_msgpass_utils, only: emit_weight_initialiser_3d
+    implicit none
+
+    ! Arguments
+    character(*), intent(in) :: tp, degree_in, aggr_in
+    integer, intent(in) :: min_degree, max_degree, feature_dim, nv_out
+    real(real32), intent(in) :: weight_data(:)
+    type(onnx_node_type), intent(inout), dimension(:) :: nodes
+    integer, intent(inout) :: num_nodes
+    type(onnx_initialiser_type), intent(inout), dimension(:) :: inits
+    integer, intent(inout) :: num_inits
+    character(128), intent(out) :: sq_out
+
+    ! Local variables
+    character(128) :: min_deg_name, max_deg_name, deg_float
+    character(128) :: deg_clip, deg_idx_float, deg_idx
+    character(128) :: weight_name, weight_sel, deg_us
+    character(128) :: aggr_norm, aggr_us, matmul_out
+    character(128) :: axes1_name, axes2_name
+    character(len=*), parameter :: onnx_axis0_attr = &
+         '        "attribute": [{"name": "axis", "i": "0", "type": "INT"}]'
+    character(len=*), parameter :: onnx_cast_float_attr = &
+         '        "attribute": [{"name": "to", "i": "1", "type": "INT"}]'
+    character(len=*), parameter :: onnx_cast_int64_attr = &
+         '        "attribute": [{"name": "to", "i": "7", "type": "INT"}]'
+
+    ! Clip degree to the supported bucket interval.
+    write(min_deg_name, '(A,"_min_deg")') trim(tp)
+    call emit_constant_float(trim(min_deg_name), &
+         [ real(min_degree, real32) ], [1], &
+         nodes, num_nodes, inits, num_inits)
+
+    write(max_deg_name, '(A,"_max_deg")') trim(tp)
+    call emit_constant_float(trim(max_deg_name), &
+         [ real(max_degree, real32) ], [1], &
+         nodes, num_nodes, inits, num_inits)
+
+    write(deg_float, '(A,"_deg_f")') trim(tp)
+    call emit_node('Cast', trim(tp)//'_cast_deg', &
+         trim(deg_float), onnx_cast_float_attr, nodes, num_nodes, &
+         in1=trim(degree_in))
+
+    write(deg_clip, '(A,"_deg_clip")') trim(tp)
+    call emit_node('Clip', trim(tp)//'_clip_deg', &
+         trim(deg_clip), '', nodes, num_nodes, &
+         in1=trim(deg_float), in2=trim(min_deg_name), in3=trim(max_deg_name))
+
+    ! Shift clipped degrees so they can index the weight bank from zero.
+    write(deg_idx_float, '(A,"_deg_idx_f")') trim(tp)
+    call emit_node('Sub', trim(tp)//'_sub_mindeg', &
+         trim(deg_idx_float), '', nodes, num_nodes, &
+         in1=trim(deg_clip), in2=trim(min_deg_name))
+
+    write(deg_idx, '(A,"_deg_idx")') trim(tp)
+    call emit_node('Cast', trim(tp)//'_cast_degidx', &
+         trim(deg_idx), onnx_cast_int64_attr, nodes, num_nodes, &
+         in1=trim(deg_idx_float))
+
+    ! Store the degree-specific weight bank as a 3D initialiser.
+    write(weight_name, '(A,"_W")') trim(tp)
+    call emit_weight_initialiser_3d( &
+         trim(weight_name), max_degree - min_degree + 1, &
+         nv_out, feature_dim, weight_data, inits, num_inits)
+
+    write(weight_sel, '(A,"_W_sel")') trim(tp)
+    call emit_node('Gather', trim(tp)//'_gather_W', &
+         trim(weight_sel), onnx_axis0_attr, nodes, num_nodes, &
+         in1=trim(weight_name), in2=trim(deg_idx))
+
+    ! Divide by degree and reshape for batched MatMul.
+    write(axes1_name, '(A,"_us_ax1_deg")') trim(tp)
+    call emit_constant_int64(trim(axes1_name), [1], [1], &
+         nodes, num_nodes, inits, num_inits)
+
+    write(deg_us, '(A,"_deg_us")') trim(tp)
+    call emit_node('Unsqueeze', trim(tp)//'_us_deg', &
+         trim(deg_us), '', nodes, num_nodes, &
+         in1=trim(deg_clip), in2=trim(axes1_name))
+
+    write(aggr_norm, '(A,"_aggr_norm")') trim(tp)
+    call emit_node('Div', trim(tp)//'_div_deg', &
+         trim(aggr_norm), '', nodes, num_nodes, &
+         in1=trim(aggr_in), in2=trim(deg_us))
+
+    write(axes2_name, '(A,"_us_ax2")') trim(tp)
+    call emit_constant_int64(trim(axes2_name), [2], [1], &
+         nodes, num_nodes, inits, num_inits)
+
+    write(aggr_us, '(A,"_aggr_us")') trim(tp)
+    call emit_node('Unsqueeze', trim(tp)//'_us_aggr', &
+         trim(aggr_us), '', nodes, num_nodes, &
+         in1=trim(aggr_norm), in2=trim(axes2_name))
+
+    write(matmul_out, '(A,"_matmul_out")') trim(tp)
+    call emit_node('MatMul', trim(tp)//'_matmul', &
+         trim(matmul_out), '', nodes, num_nodes, &
+         in1=trim(weight_sel), in2=trim(aggr_us))
+
+    write(sq_out, '(A,"_sq_out")') trim(tp)
+    call emit_squeeze_node(trim(tp)//'_sq_mm', &
+         trim(matmul_out), trim(axes2_name), trim(sq_out), &
+         nodes, num_nodes)
+
+  end subroutine emit_duvenaud_degree_update
+!###############################################################################
+
+
+!###############################################################################
+  subroutine emit_duvenaud_readout_step( &
+       prefix, activation_name, t, nv, no, weight_data, &
+       nodes, num_nodes, inits, num_inits, step_sum)
+    !! Emit one Duvenaud readout timestep.
+    !!
+    !! This expands to the timestep readout projection, the readout softmax,
+    !! and the reduction over nodes before the timestep contributions are added.
+    use athena__onnx_utils, only: emit_node, emit_constant_int64
+    use athena__onnx_msgpass_utils, only: get_timestep_output_name, &
+         emit_weight_initialiser_2d
+    implicit none
+
+    ! Arguments
+    character(*), intent(in) :: prefix
+    character(*), intent(in) :: activation_name
+    integer, intent(in) :: t, nv, no
+    real(real32), intent(in) :: weight_data(:)
+    type(onnx_node_type), intent(inout), dimension(:) :: nodes
+    integer, intent(inout) :: num_nodes
+    type(onnx_initialiser_type), intent(inout), dimension(:) :: inits
+    integer, intent(inout) :: num_inits
+    character(128), intent(out) :: step_sum
+
+    ! Local variables
+    character(128) :: tp, z_name, weight_name, z_transpose
+    character(128) :: matmul_out, softmax_out, axis1_name
+    character(len=*), parameter :: onnx_softmax_axis0_attr = &
+         '        "attribute": [{"name": "axis", "i": "0", "type": "INT"}]'
+    character(len=*), parameter :: onnx_transpose_10_attr = &
+         '        "attribute": [{"name": "perm", "ints": ["1", "0"], ' // &
+         '"type": "INTS"}]'
+    character(len=*), parameter :: onnx_reduce_sum_attr = &
+         '        "attribute": [{"name": "keepdims", "i": "0", ' // &
+         '"type": "INT"}]'
+
+    write(tp, '(A,"_ro_t",I0)') trim(prefix), t
+    call get_timestep_output_name( &
+         prefix, t, activation_name, '_sq_out', '_sq', z_name)
+
+    ! Store the readout matrix for timestep t as an ONNX initialiser.
+    write(weight_name, '(A,"_R")') trim(tp)
+    call emit_weight_initialiser_2d( &
+         trim(weight_name), no, nv, weight_data, inits, num_inits)
+
+    ! Transpose node features before multiplying by the readout matrix.
+    write(z_transpose, '(A,"_zt")') trim(tp)
+    call emit_node('Transpose', trim(tp)//'_transpose_z', &
+         trim(z_transpose), onnx_transpose_10_attr, nodes, num_nodes, &
+         in1=trim(z_name))
+
+    write(matmul_out, '(A,"_Rz")') trim(tp)
+    call emit_node('MatMul', trim(tp)//'_matmul_R', &
+         trim(matmul_out), '', nodes, num_nodes, &
+         in1=trim(weight_name), in2=trim(z_transpose))
+
+    ! Softmax and ReduceSum reproduce the ATHENA readout accumulation.
+    write(softmax_out, '(A,"_sm")') trim(tp)
+    call emit_node('Softmax', trim(tp)//'_softmax', &
+         trim(softmax_out), onnx_softmax_axis0_attr, nodes, num_nodes, &
+         in1=trim(matmul_out))
+
+    write(axis1_name, '(A,"_ax1")') trim(tp)
+    call emit_constant_int64(trim(axis1_name), [1], [1], &
+         nodes, num_nodes, inits, num_inits)
+
+    write(step_sum, '(A,"_sum")') trim(tp)
+    call emit_node('ReduceSum', trim(tp)//'_reducesum', &
+         trim(step_sum), onnx_reduce_sum_attr, nodes, num_nodes, &
+         in1=trim(softmax_out), in2=trim(axis1_name))
+
+  end subroutine emit_duvenaud_readout_step
+!###############################################################################
+
+
+!###############################################################################
+  subroutine emit_duvenaud_readout_impl( &
+       prefix, layer, &
+       nodes, num_nodes, max_nodes, &
+       inits, num_inits, max_inits, &
+       readout_output &
+  )
+    !! Emit ONNX nodes for Duvenaud readout
+    use athena__onnx_utils, only: emit_node, emit_constant_int64
+    implicit none
+    character(*), intent(in) :: prefix
+    class(duvenaud_msgpass_layer_type), intent(in) :: layer
+    type(onnx_node_type), intent(inout), dimension(:) :: nodes
+    integer, intent(inout) :: num_nodes
+    integer, intent(in) :: max_nodes
+    type(onnx_initialiser_type), intent(inout), dimension(:) :: inits
+    integer, intent(inout) :: num_inits
+    integer, intent(in) :: max_inits
+    character(128), intent(out) :: readout_output
+
+    ! Local variables
+    integer :: t
+    character(128) :: tmp1, prev_accum, step_sum
+
+    do t = 1, layer%num_time_steps
+       call emit_duvenaud_readout_step( &
+            prefix, layer%activation%name, t, &
+            layer%num_vertex_features(t), layer%num_outputs, &
+            layer%params(t + layer%num_time_steps)%val(:,1), &
+            nodes, num_nodes, inits, num_inits, step_sum)
+
+       ! Accumulate across timesteps
+       if(t .eq. 1)then
+          prev_accum = trim(step_sum)
+       else
+          write(tmp1, '(A,"_ro_t",I0,"_accum")') trim(prefix), t
+          call emit_node('Add', trim(tmp1)//'_node', &
+               trim(tmp1), '', nodes, num_nodes, &
+               in1=trim(prev_accum), in2=trim(step_sum))
+          prev_accum = trim(tmp1)
+       end if
+    end do
+
+    ! Unsqueeze to add batch dimension: [no] → [1, no]
+    write(tmp1, '(A,"_ro_ax0")') trim(prefix)
+    call emit_constant_int64(trim(tmp1), [0], [1], &
+         nodes, num_nodes, inits, num_inits)
+    write(readout_output, '(A,"_readout")') trim(prefix)
+    call emit_node('Unsqueeze', trim(prefix)//'_us_readout', &
+         trim(readout_output), '', nodes, num_nodes, &
+         in1=trim(prev_accum), in2=trim(tmp1))
+
+  end subroutine emit_duvenaud_readout_impl
 !###############################################################################
 
 end module athena__duvenaud_msgpass_layer

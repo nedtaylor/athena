@@ -97,6 +97,11 @@ module athena__base_layer
      !! Build layer from ONNX node and initialiser
      procedure, pass(this) :: set_graph => set_graph_base
      !! Set the graph structure of the input data !! this is adjacency and edge weighting
+     procedure, pass(this) :: emit_onnx_nodes => emit_onnx_nodes_base
+     !! Emit ONNX JSON nodes for this layer (polymorphic for extensibility)
+     procedure, pass(this) :: emit_onnx_graph_inputs => &
+          emit_onnx_graph_inputs_base
+     !! Emit graph input tensor declarations for this layer
   end type base_layer_type
 
   interface
@@ -243,6 +248,47 @@ module athena__base_layer
        integer, intent(in) :: verbose
        !! Verbosity level
      end subroutine build_from_onnx_base
+
+     module subroutine emit_onnx_nodes_base( &
+          this, prefix, &
+          nodes, num_nodes, max_nodes, &
+          inits, num_inits, max_inits &
+     )
+       !! Emit ONNX JSON nodes for this layer
+       !! Default implementation does nothing; override for GNN layers
+       class(base_layer_type), intent(in) :: this
+       !! Instance of the layer
+       character(*), intent(in) :: prefix
+       !! Node name prefix (e.g. "node_2")
+       type(onnx_node_type), intent(inout), dimension(:) :: nodes
+       !! Accumulator for ONNX nodes
+       integer, intent(inout) :: num_nodes
+       !! Current number of nodes
+       integer, intent(in) :: max_nodes
+       !! Maximum capacity
+       type(onnx_initialiser_type), intent(inout), dimension(:) :: inits
+       !! Accumulator for ONNX initialisers
+       integer, intent(inout) :: num_inits
+       !! Current number of initialisers
+       integer, intent(in) :: max_inits
+       !! Maximum capacity
+     end subroutine emit_onnx_nodes_base
+
+     module subroutine emit_onnx_graph_inputs_base( &
+          this, prefix, &
+          graph_inputs, num_inputs &
+     )
+       !! Emit graph input tensor declarations for this layer
+       !! Default implementation does nothing; override for GNN layers
+       class(base_layer_type), intent(in) :: this
+       !! Instance of the layer
+       character(*), intent(in) :: prefix
+       !! Input name prefix (e.g. "input_1")
+       type(onnx_tensor_type), intent(inout), dimension(:) :: graph_inputs
+       !! Accumulator for graph inputs
+       integer, intent(inout) :: num_inputs
+       !! Current number of inputs
+     end subroutine emit_onnx_graph_inputs_base
   end interface
 
 

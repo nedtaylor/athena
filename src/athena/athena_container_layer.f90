@@ -19,6 +19,9 @@ module athena__container_layer
   public :: onnx_create_layer_container
   public :: list_of_onnx_layer_creators
   public :: allocate_list_of_onnx_layer_creators
+  public :: onnx_gnn_create_layer_container
+  public :: list_of_onnx_gnn_layer_creators
+  public :: allocate_list_of_onnx_gnn_layer_creators
 #if defined(GFORTRAN)
   public :: container_reduction
 #endif
@@ -73,6 +76,37 @@ module athena__container_layer
        list_of_onnx_layer_creators
   !! List of layer names and their associated ONNX creation functions
 
+  abstract interface
+     function create_gnn_from_onnx_layer(meta_key, meta_value, inits, verbose) &
+          result(layer)
+       !! Create a GNN layer from ONNX metadata and initialisers
+       import :: base_layer_type, onnx_initialiser_type
+       character(*), intent(in) :: meta_key
+       !! GNN metadata key (e.g. "athena_gnn_node_1")
+       character(*), intent(in) :: meta_value
+       !! Semicolon-separated GNN metadata value string
+       type(onnx_initialiser_type), dimension(:), intent(in) :: inits
+       !! ONNX initialisers (valid slice only)
+       integer, optional, intent(in) :: verbose
+       !! Verbosity level
+       class(base_layer_type), allocatable :: layer
+       !! Constructed GNN layer
+     end function create_gnn_from_onnx_layer
+  end interface
+
+  type :: onnx_gnn_create_layer_container
+     !! Type containing information needed to create a GNN layer from ONNX
+     character(20) :: gnn_subtype
+     !! GNN subtype name (e.g. "duvenaud", "kipf")
+     procedure(create_gnn_from_onnx_layer), nopass, pointer :: &
+          create_ptr => null()
+     !! Pointer to the GNN layer creation function
+  end type onnx_gnn_create_layer_container
+  type(onnx_gnn_create_layer_container), dimension(:), allocatable :: &
+       list_of_onnx_gnn_layer_creators
+  !! List of GNN subtype names and their associated ONNX creation functions
+
+
   interface
      module function read_layer(unit, verbose) result(layer)
        !! Read a layer from a file
@@ -115,6 +149,14 @@ module athena__container_layer
             addit_list
        !! Additional list of ONNX layer creation procedures
      end subroutine allocate_list_of_onnx_layer_creators
+
+     module subroutine allocate_list_of_onnx_gnn_layer_creators(addit_list)
+       !! Allocate the list of GNN ONNX layer creation procedures
+       type(onnx_gnn_create_layer_container), &
+            dimension(:), intent(in), optional :: addit_list
+       !! Additional list of GNN ONNX layer creation procedures
+     end subroutine allocate_list_of_onnx_gnn_layer_creators
+
   end interface
 
   interface
