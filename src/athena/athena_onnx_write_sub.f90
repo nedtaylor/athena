@@ -164,6 +164,13 @@ contains
           call build_gnn_metadata( &
                network%model(layer_id)%layer, trim(node_name), &
                gnn_metadata, num_gnn_meta)
+       case('nop')
+          call emit_standard_node_json( &
+               network, layer_id, i, nodes, num_nodes, max_nodes, &
+               inits, num_inits, max_inits)
+          call build_nop_metadata( &
+               network%model(layer_id)%layer, trim(node_name), &
+               gnn_metadata, num_gnn_meta)
        case default
           call emit_standard_node_json( &
                network, layer_id, i, nodes, num_nodes, max_nodes, &
@@ -651,6 +658,47 @@ contains
          '", "value": "' // trim(value_str) // '"}'
 
   end subroutine build_gnn_metadata
+!###############################################################################
+
+
+!###############################################################################
+  subroutine build_nop_metadata(layer, prefix, metadata, num_meta)
+    !! Build the metadata entry required to reconstruct a NOP layer.
+    implicit none
+
+    ! Arguments
+    class(base_layer_type), intent(in) :: layer
+    !! NOP layer instance
+    character(*), intent(in) :: prefix
+    !! Node prefix used for this exported layer
+    character(4096), intent(inout) :: metadata(:)
+    !! Metadata strings to append to
+    integer, intent(inout) :: num_meta
+    !! Number of metadata entries
+
+    ! Local variables
+    type(onnx_attribute_type), allocatable :: attrs(:)
+    !! Layer attributes returned by polymorphic dispatch
+    integer :: i
+    !! Loop index
+    character(2048) :: value_str
+    !! Semicolon-separated metadata payload
+
+    attrs = layer%get_attributes()
+    if(.not.allocated(attrs) .or. size(attrs) .eq. 0) return
+
+    value_str = 'subtype=' // trim(adjustl(layer%name))
+    do i = 1, size(attrs)
+       value_str = trim(value_str) // ';' // trim(attrs(i)%name) // '=' // &
+            trim(adjustl(attrs(i)%val))
+    end do
+
+    num_meta = num_meta + 1
+    write(metadata(num_meta), '(A)') &
+         '      {"key": "athena_nop_' // trim(prefix) // &
+         '", "value": "' // trim(value_str) // '"}'
+
+  end subroutine build_nop_metadata
 !###############################################################################
 
 end submodule athena__onnx_write_submodule

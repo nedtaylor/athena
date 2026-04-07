@@ -44,7 +44,8 @@ module athena__orthogonal_attention_layer
   !!   - \(\mathbf{b}   \in \mathbb{R}^{n_{out}}\)  (optional bias)
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: learnable_layer_type, base_layer_type
-  use athena__misc_types, only: base_actv_type, base_init_type
+  use athena__misc_types, only: base_actv_type, base_init_type, &
+       onnx_attribute_type
   use diffstruc, only: array_type, matmul, operator(+), operator(*)
   use athena__diffstruc_extd, only: ono_encode, ono_decode
   implicit none
@@ -77,6 +78,7 @@ module athena__orthogonal_attention_layer
 
      procedure, pass(this) :: forward => forward_ono_attn
      procedure, pass(this) :: get_bases => get_bases_ono_attn
+     procedure, pass(this) :: get_attributes => get_attributes_ono_attn
 
      final :: finalise_ono_attn
   end type orthogonal_attention_layer_type
@@ -798,6 +800,42 @@ contains
     this%output(1,1)%is_temporary = .false.
 
   end subroutine forward_ono_attn
+!###############################################################################
+
+
+!###############################################################################
+  function get_attributes_ono_attn(this) result(attributes)
+    implicit none
+    class(orthogonal_attention_layer_type), intent(in) :: this
+    type(onnx_attribute_type), allocatable, dimension(:) :: attributes
+
+    character(32) :: buf
+
+    allocate(attributes(6))
+
+    write(buf, '(I0)') this%num_inputs
+    attributes(1) = onnx_attribute_type( &
+         name='num_inputs', type='int', val=trim(buf))
+    write(buf, '(I0)') this%num_outputs
+    attributes(2) = onnx_attribute_type( &
+         name='num_outputs', type='int', val=trim(buf))
+    write(buf, '(I0)') this%num_basis
+    attributes(3) = onnx_attribute_type( &
+         name='num_basis', type='int', val=trim(buf))
+    write(buf, '(I0)') this%key_dim
+    attributes(4) = onnx_attribute_type( &
+         name='key_dim', type='int', val=trim(buf))
+    if(this%use_bias)then
+       buf = 'T'
+    else
+       buf = 'F'
+    end if
+    attributes(5) = onnx_attribute_type( &
+         name='use_bias', type='int', val=trim(buf))
+    attributes(6) = onnx_attribute_type( &
+         name='activation', type='string', val=trim(this%activation%name))
+
+  end function get_attributes_ono_attn
 !###############################################################################
 
 end module athena__orthogonal_attention_layer

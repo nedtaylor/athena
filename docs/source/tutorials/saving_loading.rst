@@ -356,11 +356,13 @@ ONNX Compatibility
 * Message passing layers
   * Duvenaud-style graph convolution
   * Kipf-style graph convolution
+* Neural operators
 
 **Limitations:**
 
 * Some athena-specific features may not translate to ONNX
 * Graph-based layers (message passing) have limited ONNX support
+* Neural operators can be imported and exported by athena, but currently not supported by other frameworks
 
 Safety and Reliability
 ----------------------

@@ -669,6 +669,8 @@ contains
     use athena__base_layer, only: base_layer_type
     use athena__container_layer, only: list_of_onnx_gnn_layer_creators, &
          allocate_list_of_onnx_gnn_layer_creators, &
+         list_of_onnx_nop_layer_creators, &
+         allocate_list_of_onnx_nop_layer_creators, &
          list_of_onnx_layer_creators, &
          allocate_list_of_onnx_layer_creators
     implicit none
@@ -691,6 +693,9 @@ contains
 
     if(.not.allocated(list_of_onnx_gnn_layer_creators))then
        call allocate_list_of_onnx_gnn_layer_creators()
+    end if
+    if(.not.allocated(list_of_onnx_nop_layer_creators))then
+       call allocate_list_of_onnx_nop_layer_creators()
     end if
     if(.not.allocated(list_of_onnx_layer_creators))then
        call allocate_list_of_onnx_layer_creators()
@@ -741,9 +746,10 @@ contains
 !###############################################################################
   subroutine add_gnn_layer_from_metadata(network, meta_key, meta_value, inits, &
        num_inits, verbose_)
-    !! Create one GNN layer from metadata and append it to the network.
+    !! Create one GNN or NOP layer from metadata and append it to the network.
     use athena__base_layer, only: base_layer_type
-    use athena__container_layer, only: list_of_onnx_gnn_layer_creators
+    use athena__container_layer, only: list_of_onnx_gnn_layer_creators, &
+         list_of_onnx_nop_layer_creators
     implicit none
 
     type(network_type), intent(inout) :: network
@@ -751,22 +757,53 @@ contains
     type(onnx_initialiser_type), intent(in) :: inits(:)
     integer, intent(in) :: num_inits, verbose_
 
-    character(64) :: gnn_subtype
+    character(64) :: subtype_name
     integer :: i, layer_index
 
-    call extract_gnn_subtype(meta_value, gnn_subtype)
+    call extract_gnn_subtype(meta_value, subtype_name)
 
+    !--------------------------------------------------------------------------
+    ! Try NOP creators first when the key uses the athena_nop_ prefix
+    !--------------------------------------------------------------------------
+    if(index(trim(meta_key), 'athena_nop_') .gt. 0)then
+       layer_index = 0
+       do i = 1, size(list_of_onnx_nop_layer_creators)
+          if(trim(list_of_onnx_nop_layer_creators(i)%nop_subtype) .eq. &
+               trim(subtype_name))then
+             layer_index = i
+             exit
+          end if
+       end do
+
+       if(layer_index .eq. 0)then
+          write(*,*) 'ERROR: Unknown NOP subtype: ', trim(subtype_name)
+          return
+       end if
+
+       block
+         class(base_layer_type), allocatable :: nop_layer
+
+         nop_layer = list_of_onnx_nop_layer_creators(layer_index)%create_ptr(&
+              meta_key, meta_value, inits(1:num_inits), verbose_)
+         call network%add(nop_layer)
+       end block
+       return
+    end if
+
+    !--------------------------------------------------------------------------
+    ! Fall back to GNN creators for athena_gnn_ prefix
+    !--------------------------------------------------------------------------
     layer_index = 0
     do i = 1, size(list_of_onnx_gnn_layer_creators)
        if(trim(list_of_onnx_gnn_layer_creators(i)%gnn_subtype) .eq. &
-            trim(gnn_subtype))then
+            trim(subtype_name))then
           layer_index = i
           exit
        end if
     end do
 
     if(layer_index .eq. 0)then
-       write(*,*) 'ERROR: Unknown GNN subtype: ', trim(gnn_subtype)
+       write(*,*) 'ERROR: Unknown GNN subtype: ', trim(subtype_name)
        return
     end if
 
@@ -981,7 +1018,8 @@ contains
 
 !###############################################################################
   subroutine append_unique_layer_id_from_meta_key(meta_key, ids)
-    !! Append a layer id parsed from athena_gnn_node_<id> if not present.
+    !! Append a layer id parsed from athena_gnn_node_<id> or
+    !! athena_nop_node_<id> if not already present.
     implicit none
 
     character(*), intent(in) :: meta_key
@@ -992,6 +1030,7 @@ contains
     logical :: exists
 
     pos = index(trim(meta_key), 'athena_gnn_node_')
+    if(pos .eq. 0) pos = index(trim(meta_key), 'athena_nop_node_')
     if(pos .eq. 0) return
 
     rest = adjustl(trim(meta_key(pos+16:)))
@@ -1090,7 +1129,7 @@ contains
 
 !###############################################################################
   subroutine parse_meta_layer_id(meta_key, layer_id, found)
-    !! Parse athena_gnn_node_<id> metadata key layer id.
+    !! Parse athena_gnn_node_<id> or athena_nop_node_<id> metadata key layer id.
     implicit none
 
     character(*), intent(in) :: meta_key
@@ -1104,11 +1143,20 @@ contains
     found = .false.
 
     pos = index(trim(meta_key), 'athena_gnn_node_')
-    if(pos .eq. 0) return
+    if(pos .gt. 0)then
+       rest = adjustl(trim(meta_key(pos+16:)))
+       read(rest, *, iostat=stat) layer_id
+       if(stat .eq. 0 .and. layer_id .gt. 0) found = .true.
+       return
+    end if
 
-    rest = adjustl(trim(meta_key(pos+16:)))
-    read(rest, *, iostat=stat) layer_id
-    if(stat .eq. 0 .and. layer_id .gt. 0) found = .true.
+    pos = index(trim(meta_key), 'athena_nop_node_')
+    if(pos .gt. 0)then
+       rest = adjustl(trim(meta_key(pos+16:)))
+       read(rest, *, iostat=stat) layer_id
+       if(stat .eq. 0 .and. layer_id .gt. 0) found = .true.
+       return
+    end if
 
   end subroutine parse_meta_layer_id
 !###############################################################################

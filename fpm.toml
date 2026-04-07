@@ -136,6 +136,10 @@ name = "onnx"
 source-dir = "example/onnx/src"
 
 [[example]]
+name = "onnx_nop"
+source-dir = "example/onnx_nop/src"
+
+[[example]]
 name = "resnet"
 source-dir = "example/resnet/src"
 
