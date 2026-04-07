@@ -487,7 +487,7 @@ def main() -> None:
     parser.add_argument('--dt', type=float, default=8.0e-4)
     parser.add_argument('--bc_left', type=float, default=-1.0)
     parser.add_argument('--bc_right', type=float, default=1.0)
-    parser.add_argument('--epochs', type=int, default=600)
+    parser.add_argument('--epochs', type=int, default=20)
     parser.add_argument('--hidden', type=int, default=32)
     parser.add_argument('--lr', type=float, default=1.0e-4)
     parser.add_argument('--seed', type=int, default=7)
@@ -495,6 +495,8 @@ def main() -> None:
                         help='Model architecture: mlp or lno')
     parser.add_argument('--num_modes', type=int, default=16,
                         help='Number of Laplace spectral modes (LNO only)')
+    parser.add_argument('--export_model', action='store_true', default=True,
+                        help='Export the initial model to ONNX format')
     args = parser.parse_args()
 
     ensure_dirs()
@@ -516,6 +518,19 @@ def main() -> None:
     else:
         model = RolloutMLP(config['grid_size'], config['hidden'])
         print(f'Model: RolloutMLP (params={sum(p.numel() for p in model.parameters())})')
+
+    if args.export_model:
+        # export the model to an onnx json-format file for inspection (not used for inference in this script)
+        dummy_input = torch.randn(1, config['grid_size'])
+        torch.onnx.export(model, dummy_input, SHARED_DIR / 'model.onnx', verbose=False, input_names=['input'], output_names=['output'], opset_version=14)
+        import onnx
+        from google.protobuf.json_format import MessageToJson
+
+        onnx_model = onnx.load(SHARED_DIR / 'model.onnx')
+
+        with open(SHARED_DIR / 'model.json', "w") as f:
+            f.write(MessageToJson(onnx_model))
+
     apply_shared_initialization(model, config['seed'])
     train_rollout(model, train_traj, val_traj, config)
     benchmark(model, benchmark_traj, config)
