@@ -71,7 +71,7 @@ program onnx_example
        batch_size=1)
 
   ! Write network to ONNX
-  onnx_file = "test_network.onnx"
+  onnx_file = "test_network.json"
   write(*,*) "Writing network to ONNX file: ", trim(onnx_file)
   call write_onnx(onnx_file, network_write)
   write(*,*) "ONNX file written successfully"
@@ -88,7 +88,7 @@ program onnx_example
        batch_size=1)
   write(*,*) size(network_read%model)
   call network_read%print_summary()
-  call write_onnx("test_network_second_pass.onnx", network_read)
+  call write_onnx("test_network_second_pass.json", network_read)
 
   write(*,*) ""
   write(*,*) "Network read completed"
