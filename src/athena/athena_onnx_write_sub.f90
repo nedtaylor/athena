@@ -367,7 +367,7 @@ contains
     write(unit, '(A)') '{'
     write(unit, '(A)') '  "irVersion": "8",'
     write(unit, '(A)') '  "producerName": "Athena",'
-    write(unit, '(A,A,A)') '  "producerVersion": ",', &
+    write(unit, '(A,A,A)') '  "producerVersion": "', &
          trim(athena__version__), '",'
     write(unit, '(A)') '  "graph": {'
 
