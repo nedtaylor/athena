@@ -462,6 +462,10 @@ contains
        layer_name = 'BatchNormalization'
     case('drop')
        layer_name = 'Dropout'
+    case('nop')
+       layer_name = to_camel_case( &
+            trim(adjustl(network%model(layer_id)%layer%name)), &
+            capitalise_first_letter = .true.)
     case default
        layer_name = 'Unknown'
     end select

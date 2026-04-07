@@ -13,53 +13,89 @@ submodule(athena__onnx) athena__onnx_read_submodule
 
   type :: json_parse_result_type
      type(onnx_node_type) :: nodes(MAX_ITEMS)
+     !! Parsed ONNX nodes
      integer :: num_nodes = 0
+     !! Number of valid entries in nodes
      type(onnx_initialiser_type) :: inits(MAX_ITEMS)
+     !! Parsed ONNX initialisers
      integer :: num_inits = 0
+     !! Number of valid entries in inits
      type(onnx_tensor_type) :: inputs(MAX_ITEMS)
+     !! Parsed graph input tensors
      integer :: num_inputs = 0
+     !! Number of valid entries in inputs
      type(onnx_tensor_type) :: outputs(MAX_ITEMS)
+     !! Parsed graph output tensors
      integer :: num_outputs = 0
+     !! Number of valid entries in outputs
      character(256) :: meta_keys(MAX_GNN_METADATA)
+     !! Metadata keys read from metadataProps
      character(256) :: meta_values(MAX_GNN_METADATA)
+     !! Metadata values read from metadataProps
      integer :: num_meta = 0
+     !! Number of valid metadata key/value pairs
   end type json_parse_result_type
 
   type :: json_node_state_type
      logical :: in_object = .false.
+     !! Whether parser is currently inside a node object
      logical :: in_attribute = .false.
+     !! Whether parser is currently inside an attribute array
      character(256) :: name = ''
+     !! Node name parsed from JSON
      character(256) :: op_type = ''
+     !! Node opType parsed from JSON
      character(128), allocatable :: inputs(:)
+     !! Temporary node input names
      character(128), allocatable :: outputs(:)
+     !! Temporary node output names
      integer :: num_inputs = 0
+     !! Number of valid input names
      integer :: num_outputs = 0
+     !! Number of valid output names
      type(onnx_attribute_type), allocatable :: attrs(:)
+     !! Temporary parsed node attributes
      integer :: num_attrs = 0
+     !! Number of valid attribute entries
   end type json_node_state_type
 
   type :: json_initialiser_state_type
      logical :: in_object = .false.
+     !! Whether parser is currently inside an initialiser object
      character(128) :: name = ''
+     !! Initialiser tensor name
      integer :: data_type = 1
+     !! ONNX dataType enum value
      integer, allocatable :: dims(:)
+     !! Parsed tensor dimensions
      character(:), allocatable :: raw_data
+     !! Base64 payload from rawData field
   end type json_initialiser_state_type
 
   type :: json_tensor_state_type
      logical :: in_object = .false.
+     !! Whether parser is currently inside a tensor object
      integer :: object_depth = 0
+     !! Nested JSON object depth within this tensor block
      character(128) :: name = ''
+     !! Tensor name
      integer :: elem_type = 1
+     !! ONNX element type enum value
      integer, allocatable :: dim_values(:)
+     !! Parsed tensor dimensions (-1 for dimParam)
   end type json_tensor_state_type
 
   type :: json_parser_state_type
      character(32) :: section = ''
+     !! Active top-level section name
      type(json_node_state_type) :: node
+     !! Reusable node parser state
      type(json_initialiser_state_type) :: initialiser
+     !! Reusable initialiser parser state
      type(json_tensor_state_type) :: input_tensor
+     !! Reusable input tensor parser state
      type(json_tensor_state_type) :: output_tensor
+     !! Reusable output tensor parser state
   end type json_parser_state_type
 
 contains
@@ -183,7 +219,9 @@ contains
     !! Initialise the reusable parser state objects.
     implicit none
 
+    ! Arguments
     type(json_parser_state_type), intent(out) :: parser
+    !! Parser state container to initialise
 
     parser%section = ''
     call reset_node_state(parser%node)
@@ -200,8 +238,11 @@ contains
     !! Detect the active top-level graph section.
     implicit none
 
+    ! Arguments
     character(*), intent(in) :: line
+    !! Current trimmed JSON line
     type(json_parser_state_type), intent(inout) :: parser
+    !! Parser state with mutable active section
 
     if(len_trim(parser%section) .gt. 0) return
 
@@ -238,10 +279,15 @@ contains
     !! Parse one line from the node section.
     implicit none
 
+    ! Arguments
     character(*), intent(in) :: line
+    !! Current JSON line to parse
     type(json_node_state_type), intent(inout) :: state
+    !! Mutable node parser state
     type(json_parse_result_type), intent(inout) :: parsed
+    !! Parsed ONNX content accumulated so far
     character(32), intent(inout) :: section
+    !! Current top-level JSON section name
 
     if(.not.state%in_object .and. is_json_object_start(line))then
        call reset_node_state(state)
@@ -310,8 +356,11 @@ contains
     !! Copy the current node state into the parsed result collection.
     implicit none
 
+    ! Arguments
     type(json_node_state_type), intent(in) :: state
+    !! Completed node parser state
     type(json_parse_result_type), intent(inout) :: parsed
+    !! Parsed ONNX content accumulated so far
 
     parsed%num_nodes = parsed%num_nodes + 1
     parsed%nodes(parsed%num_nodes)%name = state%name
@@ -345,7 +394,9 @@ contains
     !! Reset the reusable node parser state.
     implicit none
 
+    ! Arguments
     type(json_node_state_type), intent(inout) :: state
+    !! Node parser state to reset
 
     state%in_object = .false.
     state%in_attribute = .false.
@@ -488,7 +539,9 @@ contains
     !! Reset the reusable initialiser parser state.
     implicit none
 
+    ! Arguments
     type(json_initialiser_state_type), intent(inout) :: state
+    !! Initialiser parser state to reset
 
     state%in_object = .false.
     state%name = ''
@@ -508,14 +561,23 @@ contains
     !! Parse one line from the input or output tensor section.
     implicit none
 
+    ! Arguments
     character(*), intent(in) :: line
+    !! Current JSON line to parse
     type(json_tensor_state_type), intent(inout) :: state
+    !! Mutable tensor parser state
     type(onnx_tensor_type), intent(inout) :: tensors(:)
+    !! Parsed tensor destination array
     integer, intent(inout) :: num_tensors
+    !! Number of valid tensor entries in tensors
     character(32), intent(inout) :: section
+    !! Current top-level JSON section name
 
+    ! Local variables
     integer :: stat, dim_value
+    !! Read status and parsed dimension value
     character(256) :: tmpstr
+    !! Temporary string buffer for dimValue parsing
 
     if(.not.state%in_object .and. is_json_object_start(line))then
        call reset_tensor_state(state)
@@ -566,9 +628,13 @@ contains
     !! Copy the current tensor state into the parsed result collection.
     implicit none
 
+    ! Arguments
     type(json_tensor_state_type), intent(in) :: state
+    !! Completed tensor parser state
     type(onnx_tensor_type), intent(inout) :: tensors(:)
+    !! Parsed tensor destination array
     integer, intent(inout) :: num_tensors
+    !! Number of valid tensor entries in tensors
 
     num_tensors = num_tensors + 1
     tensors(num_tensors)%name = state%name
@@ -585,7 +651,9 @@ contains
     !! Reset the reusable tensor parser state.
     implicit none
 
+    ! Arguments
     type(json_tensor_state_type), intent(inout) :: state
+    !! Tensor parser state to reset
 
     state%in_object = .false.
     state%object_depth = 0
@@ -603,9 +671,13 @@ contains
     !! Parse one metadataProps line.
     implicit none
 
+    ! Arguments
     character(*), intent(in) :: line
+    !! Current metadata JSON line
     type(json_parse_result_type), intent(inout) :: parsed
+    !! Parsed ONNX content accumulated so far
     character(32), intent(inout) :: section
+    !! Current top-level JSON section name
 
     if(index(line, '"key"') .gt. 0 .and. index(line, '"value"') .gt. 0)then
        parsed%num_meta = parsed%num_meta + 1
@@ -626,7 +698,9 @@ contains
     !! Return true for section object lines like `{`.
     implicit none
 
+    ! Arguments
     character(*), intent(in) :: line
+    !! Current JSON line to classify
 
     is_json_object_start = index(line, '{') .gt. 0 .and. &
          index(line, '"') .eq. 0
@@ -640,10 +714,15 @@ contains
     !! Update a nested object depth counter from one JSON line.
     implicit none
 
+    ! Arguments
     character(*), intent(in) :: line
+    !! Current JSON line
     integer, intent(inout) :: object_depth
+    !! Mutable object depth counter
 
+    ! Local variables
     integer :: i
+    !! Character index while scanning braces
 
     do i = 1, len_trim(line)
        if(line(i:i) .eq. '{') object_depth = object_depth + 1
@@ -675,21 +754,37 @@ contains
          allocate_list_of_onnx_layer_creators
     implicit none
 
+    ! Arguments
     type(network_type), intent(inout) :: network
+    !! Network to populate from parsed ONNX content
     type(onnx_node_type), intent(in) :: nodes(:)
+    !! Parsed ONNX nodes
     integer, intent(in) :: num_nodes
+    !! Number of valid entries in nodes
     type(onnx_initialiser_type), intent(in) :: inits(:)
+    !! Parsed ONNX initialisers
     integer, intent(in) :: num_inits
+    !! Number of valid entries in inits
     type(onnx_tensor_type), intent(in) :: inputs(:)
+    !! Parsed graph input tensors
     integer, intent(in) :: num_inputs
+    !! Number of valid entries in inputs
     type(onnx_tensor_type), intent(in) :: outputs(:)
+    !! Parsed graph output tensors
     integer, intent(in) :: num_outputs
+    !! Number of valid entries in outputs
     character(256), intent(in) :: meta_keys(:), meta_values(:)
+    !! Metadata keys and values from metadataProps
     integer, intent(in) :: num_meta
+    !! Number of valid metadata entries
     integer, intent(in) :: verbose_
+    !! Effective verbosity level
 
+    ! Local variables
     integer, allocatable :: ordered_layer_ids(:)
+    !! Sorted unique layer ids discovered from metadata and node names
     integer :: i, layer_id, meta_index, node_index
+    !! Loop index and per-layer lookup indices
 
     if(.not.allocated(list_of_onnx_gnn_layer_creators))then
        call allocate_list_of_onnx_gnn_layer_creators()
@@ -752,13 +847,21 @@ contains
          list_of_onnx_nop_layer_creators
     implicit none
 
+    ! Arguments
     type(network_type), intent(inout) :: network
+    !! Network receiving the created layer
     character(*), intent(in) :: meta_key, meta_value
+    !! Metadata key/value pair describing one layer
     type(onnx_initialiser_type), intent(in) :: inits(:)
+    !! Parsed ONNX initialisers
     integer, intent(in) :: num_inits, verbose_
+    !! Number of initialisers and effective verbosity level
 
+    ! Local variables
     character(64) :: subtype_name
+    !! Parsed subtype token from metadata payload
     integer :: i, layer_index
+    !! Creator search index and selected creator slot
 
     call extract_gnn_subtype(meta_value, subtype_name)
 
@@ -832,17 +935,29 @@ contains
     use athena__onnx_utils, only: row_to_col_major_2d
     implicit none
 
+    ! Arguments
     type(network_type), intent(inout) :: network
+    !! Network receiving the created layer(s)
     integer, intent(in) :: layer_id, node_index, num_nodes, num_inits
+    !! Layer id, primary node index, node count and initialiser count
     integer, intent(in) :: verbose_
+    !! Effective verbosity level
     type(onnx_node_type), intent(in) :: nodes(:)
+    !! Parsed ONNX nodes
     type(onnx_initialiser_type), intent(in) :: inits(:)
+    !! Parsed ONNX initialisers
 
+    ! Local variables
     integer :: j, k, layer_index, actv_index, ndims, num_matching
+    !! Loop indices and creator/shape lookup values
     character(128) :: op_type_name, out_name
+    !! Current ONNX op_type and output tensor name
     type(onnx_initialiser_type), allocatable :: init_list(:)
+    !! Initialisers matched to the active node inputs
     type(onnx_tensor_type), allocatable :: value_info_list(:)
+    !! Synthetic output shape hints passed to creator
     class(base_layer_type), allocatable :: layer
+    !! Created ATHENA layer instance
 
     op_type_name = trim(adjustl(nodes(node_index)%op_type))
 
@@ -985,11 +1100,17 @@ contains
     !! Extract the subtype=... token from one metadata value string.
     implicit none
 
+    ! Arguments
     character(*), intent(in) :: meta_value
+    !! Metadata payload string
     character(*), intent(out) :: gnn_subtype
+    !! Extracted subtype token
 
+    ! Local variables
     integer :: pos, pos2, k
+    !! Token scanning positions and key delimiter index
     character(256) :: token, key
+    !! Current token and token key
 
     gnn_subtype = ''
     pos = 1
@@ -1022,12 +1143,19 @@ contains
     !! athena_nop_node_<id> if not already present.
     implicit none
 
+    ! Arguments
     character(*), intent(in) :: meta_key
+    !! Metadata key potentially containing a layer id
     integer, allocatable, intent(inout) :: ids(:)
+    !! Unique set of discovered layer ids
 
+    ! Local variables
     integer :: layer_id, pos, stat, i
+    !! Parsed id, prefix position, read status and loop index
     character(128) :: rest
+    !! Metadata suffix containing the candidate id
     logical :: exists
+    !! Whether the id already exists in ids
 
     pos = index(trim(meta_key), 'athena_gnn_node_')
     if(pos .eq. 0) pos = index(trim(meta_key), 'athena_nop_node_')
@@ -1055,11 +1183,17 @@ contains
     !! Append a layer id parsed from a primary node name node_<id>.
     implicit none
 
+    ! Arguments
     character(*), intent(in) :: node_name
+    !! Node name potentially containing a primary layer id
     integer, allocatable, intent(inout) :: ids(:)
+    !! Unique set of discovered layer ids
 
+    ! Local variables
     integer :: layer_id, i
+    !! Parsed id and loop index
     logical :: is_primary, exists
+    !! Primary-node flag and duplicate-id flag
 
     call parse_primary_layer_id(node_name, layer_id, is_primary)
     if(.not.is_primary) return
@@ -1082,12 +1216,19 @@ contains
     !! Parse node_<id> names and mark true only for primary layer nodes.
     implicit none
 
+    ! Arguments
     character(*), intent(in) :: node_name
+    !! Candidate ONNX node name
     integer, intent(out) :: layer_id
+    !! Parsed layer id when present
     logical, intent(out) :: is_primary
+    !! Whether node_name matches primary pattern node_<id>
 
+    ! Local variables
     integer :: stat
+    !! Read status for integer parse
     character(128) :: rest
+    !! Node name suffix after node_ prefix
 
     layer_id = -1
     is_primary = .false.
@@ -1108,11 +1249,17 @@ contains
     !! Return metadata index for a given layer id, or 0 if absent.
     implicit none
 
+    ! Arguments
     character(256), intent(in) :: meta_keys(:)
+    !! Metadata keys list
     integer, intent(in) :: num_meta, layer_id
+    !! Number of metadata entries and target layer id
 
+    ! Local variables
     integer :: i, id_tmp
+    !! Loop index and parsed id candidate
     logical :: found
+    !! Whether a key parsed successfully
 
     find_metadata_for_layer_id = 0
     do i = 1, num_meta
@@ -1132,12 +1279,19 @@ contains
     !! Parse athena_gnn_node_<id> or athena_nop_node_<id> metadata key layer id.
     implicit none
 
+    ! Arguments
     character(*), intent(in) :: meta_key
+    !! Metadata key potentially containing a layer id
     integer, intent(out) :: layer_id
+    !! Parsed layer id value
     logical, intent(out) :: found
+    !! Whether parsing succeeded
 
+    ! Local variables
     integer :: pos, stat
+    !! Prefix position and read status
     character(128) :: rest
+    !! Metadata suffix containing the candidate id
 
     layer_id = -1
     found = .false.
@@ -1167,11 +1321,17 @@ contains
     !! Return node index for primary node_<id>, or 0 if not found.
     implicit none
 
+    ! Arguments
     type(onnx_node_type), intent(in) :: nodes(:)
+    !! Parsed ONNX nodes
     integer, intent(in) :: num_nodes, layer_id
+    !! Number of valid nodes and target layer id
 
+    ! Local variables
     integer :: i, id_tmp
+    !! Loop index and parsed node id candidate
     logical :: is_primary
+    !! Whether current node matches primary pattern
 
     find_primary_node_for_layer_id = 0
     do i = 1, num_nodes
@@ -1191,11 +1351,17 @@ contains
     !! Return node index for activation attached to node_<id>, or 0.
     implicit none
 
+    ! Arguments
     type(onnx_node_type), intent(in) :: nodes(:)
+    !! Parsed ONNX nodes
     integer, intent(in) :: num_nodes, layer_id
+    !! Number of valid nodes and target layer id
 
+    ! Local variables
     integer :: i
+    !! Loop index
     character(128) :: prefix
+    !! Prefix for activation nodes linked to layer_id
 
     write(prefix, '("node_",I0,"_")') layer_id
     find_activation_node_for_layer_id = 0
@@ -1217,7 +1383,9 @@ contains
     !! Return true for ONNX activation nodes emitted by ATHENA export.
     implicit none
 
+    ! Arguments
     character(*), intent(in) :: op_type
+    !! ONNX operation type string
 
     select case(trim(op_type))
     case('Relu', 'LeakyRelu', 'Sigmoid', 'Softmax', 'Tanh', 'Selu', 'Swish')
@@ -1235,9 +1403,13 @@ contains
     !! Sort an integer array in ascending order.
     implicit none
 
+    ! Arguments
     integer, allocatable, intent(inout) :: values(:)
+    !! Integer array sorted in ascending order in-place
 
+    ! Local variables
     integer :: i, j, tmp
+    !! Loop indices and swap temporary
 
     if(size(values) .le. 1) return
 
@@ -1266,19 +1438,33 @@ contains
     !! build_from_onnx.
     implicit none
 
+    ! Arguments
     type(network_type), intent(inout) :: network
+    !! Network to populate from parsed ONNX content
     type(onnx_node_type), intent(in) :: nodes(:)
+    !! Parsed ONNX nodes
     integer, intent(in) :: num_nodes
+    !! Number of valid entries in nodes
     type(onnx_initialiser_type), intent(in) :: inits(:)
+    !! Parsed ONNX initialisers
     integer, intent(in) :: num_inits
+    !! Number of valid entries in inits
     type(onnx_tensor_type), intent(in) :: inputs(:)
+    !! Parsed graph input tensors
     integer, intent(in) :: num_inputs
+    !! Number of valid entries in inputs
     integer, intent(in) :: verbose_
+    !! Effective verbosity level
 
+    ! Local variables
     type(onnx_tensor_type), allocatable :: value_infos(:)
+    !! Synthesised tensor value_info entries
     integer :: i, j, k, num_vi, ndims, n_kernel_dims
+    !! Loop indices and temporary dimension counters
     character(128) :: out_name
+    !! Current node output tensor name
     character(32) :: op_type_name
+    !! Current node ONNX op type
 
     allocate(value_infos(num_nodes))
     num_vi = 0
@@ -1371,10 +1557,15 @@ contains
     !! Extract a string value from a JSON key-value pair.
     implicit none
 
+    ! Arguments
     character(*), intent(in) :: line, key
+    !! Source line and key token to find
     character(*), intent(out) :: value
+    !! Extracted string value
 
+    ! Local variables
     integer :: pos, pos2, pos3
+    !! Temporary indices used while slicing quoted text
 
     value = ''
     pos = index(line, trim(key))
@@ -1397,11 +1588,17 @@ contains
     !! Extract an integer value from a JSON key-value pair.
     implicit none
 
+    ! Arguments
     character(*), intent(in) :: line, key
+    !! Source line and key token to find
     integer, intent(out) :: value
+    !! Extracted integer value
 
+    ! Local variables
     integer :: pos, pos2, stat
+    !! Temporary indices and read status
     character(64) :: numstr
+    !! Numeric substring buffer
 
     value = 0
     pos = index(line, trim(key))
@@ -1432,11 +1629,17 @@ contains
     !! Parse a JSON string array from one line.
     implicit none
 
+    ! Arguments
     character(*), intent(in) :: line, key
+    !! Source line and array key token
     character(128), intent(inout) :: values(:)
+    !! Destination array for parsed values
     integer, intent(inout) :: n
+    !! Number of valid parsed values
 
+    ! Local variables
     integer :: pos, pos2, pos3
+    !! Temporary indices while scanning quoted values
 
     pos = index(line, trim(key))
     if(pos .eq. 0) return
@@ -1470,11 +1673,17 @@ contains
     !! Parse a JSON array of string-encoded integers.
     implicit none
 
+    ! Arguments
     character(*), intent(in) :: line
+    !! Source line containing a JSON array
     integer, allocatable, intent(inout) :: values(:)
+    !! Parsed integer values
 
+    ! Local variables
     integer :: pos, pos2, pos3, stat, ival
+    !! Temporary indices, read status and parsed integer value
     character(64) :: numstr
+    !! Numeric token buffer
 
     if(allocated(values)) deallocate(values)
     allocate(values(0))
@@ -1507,11 +1716,17 @@ contains
     !! Parse one or more JSON attribute objects from a line.
     implicit none
 
+    ! Arguments
     character(*), intent(in) :: line
+    !! Source line containing one or more JSON attribute objects
     type(onnx_attribute_type), allocatable, intent(inout) :: attrs(:)
+    !! Destination list of parsed attributes
     integer, intent(inout) :: n_attrs
+    !! Number of valid attributes in attrs
 
+    ! Local variables
     integer :: pos, brace_start, brace_end, depth, k
+    !! Scan positions and brace depth state
 
     pos = 1
     do while(pos .le. len_trim(line))
@@ -1546,13 +1761,21 @@ contains
     !! Parse a single JSON attribute object.
     implicit none
 
+    ! Arguments
     character(*), intent(in) :: line
+    !! Source line for one JSON attribute object
     type(onnx_attribute_type), allocatable, intent(inout) :: attrs(:)
+    !! Destination list of parsed attributes
     integer, intent(inout) :: n_attrs
+    !! Number of valid attributes in attrs
 
+    ! Local variables
     type(onnx_attribute_type) :: attr
+    !! Parsed attribute record
     character(64) :: attr_type_str
+    !! Raw attribute type token
     character(256) :: val_str
+    !! Temporary attribute value buffer
 
     attr%name = ''
     attr%type = ''

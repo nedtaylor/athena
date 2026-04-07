@@ -108,8 +108,12 @@ contains
 
 !###############################################################################
   subroutine finalise_ono_attn(this)
+    !! Finalise the orthogonal attention layer
     implicit none
+
+    ! Arguments
     type(orthogonal_attention_layer_type), intent(inout) :: this
+    !! Layer instance to release
 
     if(allocated(this%input_shape)) deallocate(this%input_shape)
     if(allocated(this%output)) deallocate(this%output)
@@ -121,9 +125,14 @@ contains
 
 !###############################################################################
   pure function get_num_params_ono_attn(this) result(num_params)
+    !! Return the number of learnable parameters for the layer
     implicit none
+
+    ! Arguments
     class(orthogonal_attention_layer_type), intent(in) :: this
+    !! Layer instance
     integer :: num_params
+    !! Total number of learnable parameters
 
     ! W_Q: key_dim * num_inputs
     ! W_K: key_dim * num_inputs
@@ -153,22 +162,38 @@ contains
     use athena__initialiser, only: initialiser_setup
     implicit none
 
+    ! Arguments
     integer, intent(in) :: num_outputs
+    !! Number of output features
     integer, intent(in) :: num_basis
+    !! Number of orthogonal basis vectors
     integer, optional, intent(in) :: key_dim
+    !! Query/key projection dimension
     integer, optional, intent(in) :: num_inputs
+    !! Number of input features when known at construction time
     logical, optional, intent(in) :: use_bias
+    !! Whether to allocate a bias term
     class(*), optional, intent(in) :: activation
+    !! Activation function specification
     class(*), optional, intent(in) :: kernel_initialiser, bias_initialiser
+    !! Kernel and bias initialiser specifications
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
 
     type(orthogonal_attention_layer_type) :: layer
+    !! Constructed orthogonal attention layer
 
+    ! Local variables
     integer :: verbose_ = 0
+    !! Effective verbosity level
     integer :: key_dim_
+    !! Query/key projection dimension after defaults
     logical :: use_bias_ = .true.
+    !! Effective bias flag
     class(base_actv_type), allocatable :: activation_
+    !! Materialised activation object
     class(base_init_type), allocatable :: kernel_initialiser_, bias_initialiser_
+    !! Materialised kernel and bias initialisers
 
     if(present(verbose)) verbose_ = verbose
     if(present(use_bias)) use_bias_ = use_bias
@@ -217,17 +242,28 @@ contains
     use athena__initialiser, only: get_default_initialiser, initialiser_setup
     implicit none
 
+    ! Arguments
     class(orthogonal_attention_layer_type), intent(inout) :: this
+    !! Layer instance to configure
     integer, intent(in) :: num_outputs
+    !! Number of output features
     integer, intent(in) :: num_basis
+    !! Number of orthogonal basis vectors
     integer, intent(in) :: key_dim
+    !! Query/key projection dimension
     logical, intent(in) :: use_bias
+    !! Whether to use a bias term
     class(base_actv_type), allocatable, intent(in) :: activation
+    !! Activation function object
     class(base_init_type), allocatable, intent(in) :: &
          kernel_initialiser, bias_initialiser
+    !! Kernel and bias initialiser objects
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
 
+    ! Local variables
     character(len=256) :: buffer
+    !! Buffer for default initialiser lookup
 
     this%name = "orthogonal_attention"
     this%type = "nop"
@@ -275,14 +311,22 @@ contains
 
 !###############################################################################
   subroutine init_ono_attn(this, input_shape, verbose)
+    !! Initialise parameter storage and output buffers for the layer
     implicit none
 
+    ! Arguments
     class(orthogonal_attention_layer_type), intent(inout) :: this
+    !! Layer instance to initialise
     integer, dimension(:), intent(in) :: input_shape
+    !! Input shape used to infer num_inputs
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
 
+    ! Local variables
     integer :: num_inputs, idx, nparams
+    !! Effective fan-in size and reserved scratch integers
     integer :: verbose_ = 0
+    !! Effective verbosity level
 
     if(present(verbose)) verbose_ = verbose
 
@@ -419,12 +463,20 @@ contains
   function get_bases_ono_attn(this) result(phi)
     !! Orthogonalise the basis matrix B using modified Gram-Schmidt
     implicit none
-    class(orthogonal_attention_layer_type), intent(in) :: this
-    type(array_type) :: phi
 
+    ! Arguments
+    class(orthogonal_attention_layer_type), intent(in) :: this
+    !! Layer instance providing basis parameters
+    type(array_type) :: phi
+    !! Orthogonalised basis matrix packed in an array_type
+
+    ! Local variables
     integer :: n, k, i, j
+    !! Basis dimensions and Gram-Schmidt loop indices
     real(real32), allocatable :: B(:,:), Q(:,:)
+    !! Raw basis matrix and orthogonalised copy
     real(real32) :: norm_val, proj
+    !! Gram-Schmidt norm and projection scalars
 
     n = this%num_inputs
     k = this%num_basis
@@ -467,11 +519,15 @@ contains
 
 !###############################################################################
   subroutine print_to_unit_ono_attn(this, unit)
+    !! Print orthogonal attention layer settings and parameters to a unit
     use coreutils, only: to_upper
     implicit none
 
+    ! Arguments
     class(orthogonal_attention_layer_type), intent(in) :: this
+    !! Layer instance to print
     integer, intent(in) :: unit
+    !! Output unit number
 
     write(unit,'(3X,"NUM_INPUTS = ",I0)') this%num_inputs
     write(unit,'(3X,"NUM_OUTPUTS = ",I0)') this%num_outputs
@@ -505,20 +561,35 @@ contains
     use athena__initialiser, only: initialiser_setup
     implicit none
 
+    ! Arguments
     class(orthogonal_attention_layer_type), intent(inout) :: this
+    !! Layer instance to populate from file data
     integer, intent(in) :: unit
+    !! Input unit number
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
 
+    ! Local variables
     integer :: stat, verbose_ = 0
+    !! I/O status and effective verbosity level
     integer :: j, k, c, itmp1, iline
+    !! Loop counters and parser scratch integers
     integer :: num_inputs, num_outputs, num_basis, key_dim
+    !! Parsed layer dimensions
     logical :: use_bias = .true.
+    !! Parsed bias flag
     character(14) :: kernel_initialiser_name='', bias_initialiser_name=''
+    !! Parsed initialiser names
     class(base_actv_type), allocatable :: activation
+    !! Parsed activation object
     class(base_init_type), allocatable :: kernel_initialiser, bias_initialiser
+    !! Parsed initialiser objects
     character(256) :: buffer, tag, err_msg
+    !! Input buffer, parsed tag and formatted error message
     real(real32), allocatable, dimension(:) :: data_list
+    !! Temporary storage for flattened parameter blocks
     integer :: param_line, final_line, num_vals
+    !! Weights-section line markers and current block size
 
     if(present(verbose)) verbose_ = verbose
 
@@ -710,11 +781,20 @@ contains
 
 !###############################################################################
   function read_orthogonal_attention_layer(unit, verbose) result(layer)
+    !! Read an orthogonal attention layer from file and return it
     implicit none
+
+    ! Arguments
     integer, intent(in) :: unit
+    !! Input unit number
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
     class(base_layer_type), allocatable :: layer
+    !! Allocated base-layer instance containing the result
+
+    ! Local variables
     integer :: verbose_ = 0
+    !! Effective verbosity level
 
     if(present(verbose)) verbose_ = verbose
     allocate(layer, source=orthogonal_attention_layer_type( &
@@ -744,14 +824,22 @@ contains
     !!   v = sigma( attn_out + bypass + b )
     implicit none
 
+    ! Arguments
     class(orthogonal_attention_layer_type), intent(inout) :: this
+    !! Layer instance to execute
     class(array_type), dimension(:,:), intent(in) :: input
+    !! Input batch tensor collection
 
+    ! Local variables
     type(array_type), pointer :: ptr, ptr_attn, ptr_bypass
+    !! Combined output, attention-path output and bypass-path output
     type(array_type), pointer :: ptr_Q, ptr_K, ptr_coeff
+    !! Query, key and per-basis attention coefficient tensors
     type(array_type), pointer :: ptr_spec, ptr_mod, ptr_decoded
+    !! Spectral encoding, modulated spectrum and decoded tensors
 
     integer :: n, nb
+    !! Input size and basis count
 
 
     n = this%num_inputs
@@ -805,33 +893,40 @@ contains
 
 !###############################################################################
   function get_attributes_ono_attn(this) result(attributes)
+    !! Return list of orthogonal attention attributes for ONNX export
     implicit none
-    class(orthogonal_attention_layer_type), intent(in) :: this
-    type(onnx_attribute_type), allocatable, dimension(:) :: attributes
 
-    character(32) :: buf
+    ! Arguments
+    class(orthogonal_attention_layer_type), intent(in) :: this
+    !! Instance of the orthogonal attention layer
+    type(onnx_attribute_type), allocatable, dimension(:) :: attributes
+    !! List of attributes for ONNX export
+
+    ! Local variables
+    character(32) :: buffer
+    !! Buffer for integer-to-string conversion
 
     allocate(attributes(6))
 
-    write(buf, '(I0)') this%num_inputs
+    write(buffer, '(I0)') this%num_inputs
     attributes(1) = onnx_attribute_type( &
-         name='num_inputs', type='int', val=trim(buf))
-    write(buf, '(I0)') this%num_outputs
+         name='num_inputs', type='int', val=trim(buffer))
+    write(buffer, '(I0)') this%num_outputs
     attributes(2) = onnx_attribute_type( &
-         name='num_outputs', type='int', val=trim(buf))
-    write(buf, '(I0)') this%num_basis
+         name='num_outputs', type='int', val=trim(buffer))
+    write(buffer, '(I0)') this%num_basis
     attributes(3) = onnx_attribute_type( &
-         name='num_basis', type='int', val=trim(buf))
-    write(buf, '(I0)') this%key_dim
+         name='num_basis', type='int', val=trim(buffer))
+    write(buffer, '(I0)') this%key_dim
     attributes(4) = onnx_attribute_type( &
-         name='key_dim', type='int', val=trim(buf))
+         name='key_dim', type='int', val=trim(buffer))
     if(this%use_bias)then
-       buf = '1'
+       buffer = '1'
     else
-       buf = '0'
+       buffer = '0'
     end if
     attributes(5) = onnx_attribute_type( &
-         name='use_bias', type='int', val=trim(buf))
+         name='use_bias', type='int', val=trim(buffer))
     attributes(6) = onnx_attribute_type( &
          name='activation', type='string', val=trim(this%activation%name))
 

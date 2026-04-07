@@ -11,16 +11,25 @@ program onnx_gnn_example
   implicit none
 
   integer :: i
+  !! Loop index
   integer :: seed
+  !! Random seed for reproducible initialisation
   type(network_type) :: network, reloaded_network
+  !! Original network and reloaded ONNX network
   type(metric_dict_type), dimension(2) :: metric_dict
+  !! Metric configuration passed to compile
   class(clip_type), allocatable :: clip
+  !! Gradient clipping configuration
 
   type(graph_type), allocatable, dimension(:,:) :: graphs_in
+  !! Input graph batch
   type(array_type), dimension(1,1) :: output
+  !! Target output array expected by read_extxyz_db
 
   real(real32) :: orig_output, imported_output, rel_diff
+  !! Output values and relative difference for round-trip validation
   character(1024) :: train_file, onnx_file
+  !! Dataset path and ONNX JSON path
 
 
   !-----------------------------------------------------------------------------

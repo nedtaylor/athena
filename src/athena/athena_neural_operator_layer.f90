@@ -781,27 +781,34 @@ contains
 
 !###############################################################################
   function get_attributes_neural_operator(this) result(attributes)
+    !! Return list of neural operator attributes for ONNX export
     implicit none
-    class(neural_operator_layer_type), intent(in) :: this
-    type(onnx_attribute_type), allocatable, dimension(:) :: attributes
 
-    character(32) :: buf
+    ! Arguments
+    class(neural_operator_layer_type), intent(in) :: this
+    !! Instance of the neural operator layer
+    type(onnx_attribute_type), allocatable, dimension(:) :: attributes
+    !! List of attributes for ONNX export
+
+    ! Local variables
+    character(32) :: buffer
+    !! Buffer for integer-to-string conversion
 
     allocate(attributes(4))
 
-    write(buf, '(I0)') this%num_inputs
+    write(buffer, '(I0)') this%num_inputs
     attributes(1) = onnx_attribute_type( &
-         name='num_inputs', type='int', val=trim(buf))
-    write(buf, '(I0)') this%num_outputs
+         name='num_inputs', type='int', val=trim(buffer))
+    write(buffer, '(I0)') this%num_outputs
     attributes(2) = onnx_attribute_type( &
-         name='num_outputs', type='int', val=trim(buf))
+         name='num_outputs', type='int', val=trim(buffer))
     if(this%use_bias)then
-       buf = '1'
+       buffer = '1'
     else
-       buf = '0'
+       buffer = '0'
     end if
     attributes(3) = onnx_attribute_type( &
-         name='use_bias', type='int', val=trim(buf))
+         name='use_bias', type='int', val=trim(buffer))
     attributes(4) = onnx_attribute_type( &
          name='activation', type='string', val=trim(this%activation%name))
 

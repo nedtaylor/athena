@@ -95,8 +95,12 @@ contains
 
 !###############################################################################
   subroutine finalise_spectral_filter(this)
+    !! Finalise the spectral filter layer
     implicit none
+
+    ! Arguments
     type(spectral_filter_layer_type), intent(inout) :: this
+    !! Layer instance to release
 
     if(allocated(this%input_shape)) deallocate(this%input_shape)
     if(allocated(this%output)) deallocate(this%output)
@@ -110,9 +114,14 @@ contains
 
 !###############################################################################
   pure function get_num_params_spectral_filter(this) result(num_params)
+    !! Return the number of learnable parameters for the layer
     implicit none
+
+    ! Arguments
     class(spectral_filter_layer_type), intent(in) :: this
+    !! Layer instance
     integer :: num_params
+    !! Total number of learnable parameters
 
     ! w_s: num_modes, W: n_out * n_in, b: n_out (optional)
     num_params = this%num_modes + &
@@ -134,20 +143,34 @@ contains
     use athena__initialiser, only: initialiser_setup
     implicit none
 
+    ! Arguments
     integer, intent(in) :: num_outputs
+    !! Number of output features
     integer, intent(in) :: num_modes
+    !! Number of retained spectral modes
     integer, optional, intent(in) :: num_inputs
+    !! Number of input features when known at construction time
     logical, optional, intent(in) :: use_bias
+    !! Whether to allocate a bias term
     class(*), optional, intent(in) :: activation
+    !! Activation function specification
     class(*), optional, intent(in) :: kernel_initialiser, bias_initialiser
+    !! Kernel and bias initialiser specifications
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
 
     type(spectral_filter_layer_type) :: layer
+    !! Constructed spectral filter layer
 
+    ! Local variables
     integer :: verbose_ = 0
+    !! Effective verbosity level
     logical :: use_bias_ = .true.
+    !! Effective bias flag
     class(base_actv_type), allocatable :: activation_
+    !! Materialised activation object
     class(base_init_type), allocatable :: kernel_initialiser_, bias_initialiser_
+    !! Materialised kernel and bias initialisers
 
     if(present(verbose)) verbose_ = verbose
     if(present(use_bias)) use_bias_ = use_bias
@@ -193,16 +216,26 @@ contains
     use athena__initialiser, only: get_default_initialiser, initialiser_setup
     implicit none
 
+    ! Arguments
     class(spectral_filter_layer_type), intent(inout) :: this
+    !! Layer instance to configure
     integer, intent(in) :: num_outputs
+    !! Number of output features
     integer, intent(in) :: num_modes
+    !! Number of retained spectral modes
     logical, intent(in) :: use_bias
+    !! Whether to use a bias term
     class(base_actv_type), allocatable, intent(in) :: activation
+    !! Activation function object
     class(base_init_type), allocatable, intent(in) :: &
          kernel_initialiser, bias_initialiser
+    !! Kernel and bias initialiser objects
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
 
+    ! Local variables
     character(len=256) :: buffer
+    !! Buffer for default initialiser lookup
 
     this%name = "spectral_filter"
     this%type = "spfl"
@@ -250,14 +283,22 @@ contains
 
 !###############################################################################
   subroutine init_spectral_filter(this, input_shape, verbose)
+    !! Initialise parameter storage, fixed bases and output buffers
     implicit none
 
+    ! Arguments
     class(spectral_filter_layer_type), intent(inout) :: this
+    !! Layer instance to initialise
     integer, dimension(:), intent(in) :: input_shape
+    !! Input shape used to infer num_inputs
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
 
+    ! Local variables
     integer :: num_inputs, j, k, i, idx
+    !! Effective fan-in size and basis-construction indices
     integer :: verbose_ = 0
+    !! Effective verbosity level
 
     if(present(verbose)) verbose_ = verbose
 
@@ -393,11 +434,15 @@ contains
 
 !###############################################################################
   subroutine print_to_unit_spectral_filter(this, unit)
+    !! Print spectral filter settings and parameters to a unit
     use coreutils, only: to_upper
     implicit none
 
+    ! Arguments
     class(spectral_filter_layer_type), intent(in) :: this
+    !! Layer instance to print
     integer, intent(in) :: unit
+    !! Output unit number
 
     write(unit,'(3X,"NUM_INPUTS = ",I0)') this%num_inputs
     write(unit,'(3X,"NUM_OUTPUTS = ",I0)') this%num_outputs
@@ -427,20 +472,35 @@ contains
     use athena__initialiser, only: initialiser_setup
     implicit none
 
+    ! Arguments
     class(spectral_filter_layer_type), intent(inout) :: this
+    !! Layer instance to populate from file data
     integer, intent(in) :: unit
+    !! Input unit number
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
 
+    ! Local variables
     integer :: stat, verbose_ = 0
+    !! I/O status and effective verbosity level
     integer :: j, k, c, itmp1, iline
+    !! Loop counters and parser scratch integers
     integer :: num_inputs, num_outputs, num_modes
+    !! Parsed layer dimensions
     logical :: use_bias = .true.
+    !! Parsed bias flag
     character(14) :: kernel_initialiser_name='', bias_initialiser_name=''
+    !! Parsed initialiser names
     class(base_actv_type), allocatable :: activation
+    !! Parsed activation object
     class(base_init_type), allocatable :: kernel_initialiser, bias_initialiser
+    !! Parsed initialiser objects
     character(256) :: buffer, tag, err_msg
+    !! Input buffer, parsed tag and formatted error message
     real(real32), allocatable, dimension(:) :: data_list
+    !! Temporary storage for flattened parameter blocks
     integer :: param_line, final_line, num_vals
+    !! Weights-section line markers and current block size
 
     if(present(verbose)) verbose_ = verbose
 
@@ -586,11 +646,20 @@ contains
 
 !###############################################################################
   function read_spectral_filter_layer(unit, verbose) result(layer)
+    !! Read a spectral filter layer from file and return it
     implicit none
+
+    ! Arguments
     integer, intent(in) :: unit
+    !! Input unit number
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
     class(base_layer_type), allocatable :: layer
+    !! Allocated base-layer instance containing the result
+
+    ! Local variables
     integer :: verbose_ = 0
+    !! Effective verbosity level
 
     if(present(verbose)) verbose_ = verbose
     allocate(layer, source=spectral_filter_layer_type( &
@@ -613,10 +682,15 @@ contains
     !! coefficients (sample-dependent).
     implicit none
 
+    ! Arguments
     class(spectral_filter_layer_type), intent(inout) :: this
+    !! Layer instance to execute
     class(array_type), dimension(:,:), intent(in) :: input
+    !! Input batch tensor collection
 
+    ! Local variables
     type(array_type), pointer :: ptr, ptr_spec, ptr_local
+    !! Combined output, spectral-path output and local-path output
 
 
     ! Spectral pathway:  Phi_inv @ (w_s * (Phi @ u))

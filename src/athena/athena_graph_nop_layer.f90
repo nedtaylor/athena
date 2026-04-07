@@ -118,10 +118,16 @@ contains
     !!   params(2): W   - linear bypass weights  [F_out * F_in, 1]
     !!   params(3): b   - output bias            [F_out, 1]  (optional)
     implicit none
-    class(graph_nop_layer_type), intent(in) :: this
-    integer :: num_params
 
+    ! Arguments
+    class(graph_nop_layer_type), intent(in) :: this
+    !! Layer instance
+    integer :: num_params
+    !! Total number of learnable parameters
+
+    ! Local variables
     integer :: F_in, F_out, d, H, F
+    !! Input/output feature counts, coordinate size, hidden width and flattened kernel width
 
     F_in  = this%num_vertex_features(0)
     F_out = this%num_vertex_features(1)
@@ -150,22 +156,38 @@ contains
     use athena__initialiser, only: initialiser_setup
     implicit none
 
+    ! Arguments
     integer, intent(in) :: num_outputs
+    !! Number of output node features
     integer, intent(in) :: coord_dim
+    !! Dimension of edge coordinate features
     integer, optional, intent(in) :: kernel_hidden
+    !! Hidden width of the kernel MLP
     integer, optional, intent(in) :: num_inputs
+    !! Number of input node features when known at construction time
     logical, optional, intent(in) :: use_bias
+    !! Whether to allocate an output bias
     class(*), optional, intent(in) :: activation
+    !! Activation function specification
     class(*), optional, intent(in) :: kernel_initialiser, bias_initialiser
+    !! Kernel and bias initialiser specifications
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
 
     type(graph_nop_layer_type) :: layer
+    !! Constructed graph neural operator layer
 
+    ! Local variables
     integer :: verbose_ = 0
+    !! Effective verbosity level
     logical :: use_bias_ = .true.
+    !! Effective bias flag
     integer :: kernel_hidden_
+    !! Effective kernel hidden width
     class(base_actv_type), allocatable :: activation_
+    !! Materialised activation object
     class(base_init_type), allocatable :: kernel_initialiser_, bias_initialiser_
+    !! Materialised kernel and bias initialisers
 
     if(present(verbose)) verbose_ = verbose
     if(present(use_bias)) use_bias_ = use_bias
@@ -214,17 +236,28 @@ contains
     use athena__initialiser, only: get_default_initialiser, initialiser_setup
     implicit none
 
+    ! Arguments
     class(graph_nop_layer_type), intent(inout) :: this
+    !! Layer instance to configure
     integer, intent(in) :: num_outputs
+    !! Number of output node features
     integer, intent(in) :: coord_dim
+    !! Dimension of edge coordinate features
     integer, intent(in) :: kernel_hidden
+    !! Hidden width of the kernel MLP
     logical, intent(in) :: use_bias
+    !! Whether to use a bias term
     class(base_actv_type), allocatable, intent(in) :: activation
+    !! Activation function object
     class(base_init_type), allocatable, intent(in) :: &
          kernel_initialiser, bias_initialiser
+    !! Kernel and bias initialiser objects
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
 
+    ! Local variables
     character(len=256) :: buffer
+    !! Buffer for default initialiser lookup
 
     this%name = "graph_nop"
     this%type = "gnop"
@@ -281,13 +314,21 @@ contains
     !! input_shape(2) = num_vertices (set to 0 if variable)
     implicit none
 
+    ! Arguments
     class(graph_nop_layer_type), intent(inout) :: this
+    !! Layer instance to initialise
     integer, dimension(:), intent(in) :: input_shape
+    !! Input feature/vertex shape
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
 
+    ! Local variables
     integer :: num_inputs, H, F_out, F_in, d, F
+    !! Effective input count and kernel dimensions
     integer :: kernel_size, off_U, off_bu, off_V, off_bv
+    !! Packed-kernel size and section offsets
     integer :: verbose_ = 0
+    !! Effective verbosity level
 
     if(present(verbose)) verbose_ = verbose
 
@@ -428,13 +469,19 @@ contains
 
 !###############################################################################
   subroutine print_to_unit_gno(this, unit)
+    !! Print graph neural operator settings and parameters to a unit
     use coreutils, only: to_upper
     implicit none
 
+    ! Arguments
     class(graph_nop_layer_type), intent(in) :: this
+    !! Layer instance to print
     integer, intent(in) :: unit
+    !! Output unit number
 
+    ! Local variables
     integer :: p
+    !! Parameter block index
 
     write(unit,'(3X,"NUM_INPUTS = ",I0)') this%num_vertex_features(0)
     write(unit,'(3X,"NUM_OUTPUTS = ",I0)') this%num_outputs
@@ -463,20 +510,35 @@ contains
     use athena__initialiser, only: initialiser_setup
     implicit none
 
+    ! Arguments
     class(graph_nop_layer_type), intent(inout) :: this
+    !! Layer instance to populate from file data
     integer, intent(in) :: unit
+    !! Input unit number
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
 
+    ! Local variables
     integer :: stat, verbose_ = 0
+    !! I/O status and effective verbosity level
     integer :: j, k, c, itmp1, iline
+    !! Loop counters and parser scratch integers
     integer :: num_inputs, num_outputs, coord_dim, kernel_hidden
+    !! Parsed layer dimensions
     logical :: use_bias = .true.
+    !! Parsed bias flag
     character(14) :: kernel_initialiser_name='', bias_initialiser_name=''
+    !! Parsed initialiser names
     class(base_actv_type), allocatable :: activation
+    !! Parsed activation object
     class(base_init_type), allocatable :: kernel_initialiser, bias_initialiser
+    !! Parsed initialiser objects
     character(256) :: buffer, tag, err_msg
+    !! Input buffer, parsed tag and formatted error message
     real(real32), allocatable, dimension(:) :: data_list
+    !! Temporary storage for flattened parameter blocks
     integer :: param_line, final_line, num_vals, p
+    !! Weights-section line markers, current block size and parameter index
 
     if(present(verbose)) verbose_ = verbose
 
@@ -602,10 +664,18 @@ contains
   function read_graph_nop_layer(unit, verbose) result(layer)
     !! Read a graph NOP layer from file and return
     implicit none
+
+    ! Arguments
     integer, intent(in) :: unit
+    !! Input unit number
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
     class(base_layer_type), allocatable :: layer
+    !! Allocated base-layer instance containing the result
+
+    ! Local variables
     integer :: verbose_ = 0
+    !! Effective verbosity level
 
     if(present(verbose)) verbose_ = verbose
     allocate(layer, source=graph_nop_layer_type( &
@@ -635,11 +705,17 @@ contains
     !!   6. output       = activation(z)
     implicit none
 
+    ! Arguments
     class(graph_nop_layer_type), intent(inout), target :: this
+    !! Layer instance to execute
     class(array_type), dimension(:,:), intent(in), target :: input
+    !! Input node-feature and edge-feature tensors
 
+    ! Local variables
     integer :: s, F_in, F_out
+    !! Sample index and input/output feature counts
     type(array_type), pointer :: ptr1, ptr2, ptr3, ptr4
+    !! Intermediate kernel, aggregate, bypass and combined tensors
 
     F_in  = this%num_vertex_features(0)
     F_out = this%num_vertex_features(1)
@@ -717,7 +793,10 @@ contains
   subroutine update_readout_gno(this)
     !! No graph-level readout needed — GNO produces node-level output
     implicit none
+
+    ! Arguments
     class(graph_nop_layer_type), intent(inout), target :: this
+    !! Layer instance retained for interface compatibility
   end subroutine update_readout_gno
 !###############################################################################
 
