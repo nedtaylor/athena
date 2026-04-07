@@ -148,47 +148,49 @@ contains
 
     ! Local variables
     integer :: t
-    character(256) :: buf
+    !! Time-step index
+    character(256) :: buffer
+    !! Buffer for integer-to-string conversion
 
     allocate(attributes(7))
 
-    write(buf, '(I0)') this%num_time_steps
+    write(buffer, '(I0)') this%num_time_steps
     attributes(1) = onnx_attribute_type( &
-         name='num_time_steps', type='int', val=trim(buf))
+         name='num_time_steps', type='int', val=trim(buffer))
 
-    write(buf, '(I0)') this%min_vertex_degree
+    write(buffer, '(I0)') this%min_vertex_degree
     attributes(2) = onnx_attribute_type( &
-         name='min_vertex_degree', type='int', val=trim(buf))
+         name='min_vertex_degree', type='int', val=trim(buffer))
 
-    write(buf, '(I0)') this%max_vertex_degree
+    write(buffer, '(I0)') this%max_vertex_degree
     attributes(3) = onnx_attribute_type( &
-         name='max_vertex_degree', type='int', val=trim(buf))
+         name='max_vertex_degree', type='int', val=trim(buffer))
 
-    buf = ''
+    buffer = ''
     do t = 0, this%num_time_steps
        if(t .eq. 0)then
-          write(buf, '(I0)') this%num_vertex_features(t)
+          write(buffer, '(I0)') this%num_vertex_features(t)
        else
-          write(buf, '(A," ",I0)') trim(buf), this%num_vertex_features(t)
+          write(buffer, '(A," ",I0)') trim(buffer), this%num_vertex_features(t)
        end if
     end do
     attributes(4) = onnx_attribute_type( &
-         name='num_vertex_features', type='ints', val=trim(buf))
+         name='num_vertex_features', type='ints', val=trim(buffer))
 
-    buf = ''
+    buffer = ''
     do t = 0, this%num_time_steps
        if(t .eq. 0)then
-          write(buf, '(I0)') this%num_edge_features(t)
+          write(buffer, '(I0)') this%num_edge_features(t)
        else
-          write(buf, '(A," ",I0)') trim(buf), this%num_edge_features(t)
+          write(buffer, '(A," ",I0)') trim(buffer), this%num_edge_features(t)
        end if
     end do
     attributes(5) = onnx_attribute_type( &
-         name='num_edge_features', type='ints', val=trim(buf))
+         name='num_edge_features', type='ints', val=trim(buffer))
 
-    write(buf, '(I0)') this%num_outputs
+    write(buffer, '(I0)') this%num_outputs
     attributes(6) = onnx_attribute_type( &
-         name='num_outputs', type='int', val=trim(buf))
+         name='num_outputs', type='int', val=trim(buffer))
 
     attributes(7) = onnx_attribute_type( &
          name='message_activation', type='string', &
@@ -944,11 +946,16 @@ contains
     !! Adds: vertex features, edge features, edge_index [3, ncsr], degree
     use athena__onnx_msgpass_utils, only: emit_msgpass_graph_inputs
     implicit none
+
+    ! Arguments
     class(duvenaud_msgpass_layer_type), intent(in) :: this
+    !! Instance of the layer
     character(*), intent(in) :: prefix
     !! Input name prefix (e.g. "input_1")
     type(onnx_tensor_type), intent(inout), dimension(:) :: graph_inputs
+    !! Accumulator for graph input tensor declarations
     integer, intent(inout) :: num_inputs
+    !! Current number of graph input declarations
 
     call emit_msgpass_graph_inputs( &
          prefix, this%input_shape, graph_inputs, num_inputs)

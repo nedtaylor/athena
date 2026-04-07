@@ -403,7 +403,7 @@ contains
     !! Attribute list returned by the layer
     integer :: i, j, itmp1
     !! Attribute index, value index, and temporary integer count
-    character(256) :: buf
+    character(256) :: buffer
     !! Temporary string buffer for serialised scalar values
     integer, allocatable :: ivar_list(:)
     !! Parsed integer attribute payload for INTS-valued attributes
@@ -448,8 +448,8 @@ contains
           attr_json = trim(attr_json) // ', "ints": ['
           do j = 1, itmp1
              if(j .gt. 1) attr_json = trim(attr_json) // ', '
-             write(buf, '("""",I0,"""")') ivar_list(j)
-             attr_json = trim(attr_json) // trim(adjustl(buf))
+             write(buffer, '("""",I0,"""")') ivar_list(j)
+             attr_json = trim(attr_json) // trim(adjustl(buffer))
           end do
           attr_json = trim(attr_json) // '], "type": "INTS"}'
           deallocate(ivar_list)
@@ -459,9 +459,9 @@ contains
        case('string')
           ! Base64 encode the string value
           call encode_string_base64( &
-               trim(adjustl(attributes(i)%val)), buf)
+               trim(adjustl(attributes(i)%val)), buffer)
           attr_json = trim(attr_json) // ', "s": "' // &
-               trim(buf) // '", "type": "STRING"}'
+               trim(buffer) // '", "type": "STRING"}'
        case default
           attr_json = trim(attr_json) // '}'
        end select

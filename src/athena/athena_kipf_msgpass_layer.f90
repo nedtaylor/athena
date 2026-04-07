@@ -650,28 +650,35 @@ contains
   function get_attributes_kipf(this) result(attributes)
     !! Get the attributes of the Kipf GCN layer (for ONNX export)
     implicit none
-    class(kipf_msgpass_layer_type), intent(in) :: this
-    type(onnx_attribute_type), allocatable, dimension(:) :: attributes
 
+    ! Arguments
+    class(kipf_msgpass_layer_type), intent(in) :: this
+    !! Instance of the message passing layer
+    type(onnx_attribute_type), allocatable, dimension(:) :: attributes
+    !! Attributes for ONNX export
+
+    ! Local variables
     integer :: t
-    character(256) :: buf
+    !! Loop index
+    character(256) :: buffer
+    !! Buffer for converting attributes to strings
 
     allocate(attributes(3))
 
-    write(buf, '(I0)') this%num_time_steps
+    write(buffer, '(I0)') this%num_time_steps
     attributes(1) = onnx_attribute_type( &
-         name='num_time_steps', type='int', val=trim(buf))
+         name='num_time_steps', type='int', val=trim(buffer))
 
-    buf = ''
+    buffer = ''
     do t = 0, this%num_time_steps
        if(t .eq. 0)then
-          write(buf, '(I0)') this%num_vertex_features(t)
+          write(buffer, '(I0)') this%num_vertex_features(t)
        else
-          write(buf, '(A," ",I0)') trim(buf), this%num_vertex_features(t)
+          write(buffer, '(A," ",I0)') trim(buffer), this%num_vertex_features(t)
        end if
     end do
     attributes(2) = onnx_attribute_type( &
-         name='num_vertex_features', type='ints', val=trim(buf))
+         name='num_vertex_features', type='ints', val=trim(buffer))
 
     attributes(3) = onnx_attribute_type( &
          name='message_activation', type='string', &
@@ -704,17 +711,29 @@ contains
     use athena__onnx_msgpass_utils, only: emit_output_identity
     implicit none
 
+    ! Arguments
     class(kipf_msgpass_layer_type), intent(in) :: this
+    !! Instance of the layer
     character(*), intent(in) :: prefix
+    !! Node name prefix (e.g. "node_2")
     type(onnx_node_type), intent(inout), dimension(:) :: nodes
+    !! Accumulator for ONNX nodes
     integer, intent(inout) :: num_nodes
+    !! Current number of nodes
     integer, intent(in) :: max_nodes
+    !! Maximum capacity
     type(onnx_initialiser_type), intent(inout), dimension(:) :: inits
+    !! Accumulator for ONNX initialisers
     integer, intent(inout) :: num_inits
+    !! Current number of initialisers
     integer, intent(in) :: max_inits
+    !! Maximum capacity
 
+    ! Local variables
     integer :: t
+    !! Time-step index
     character(128) :: cur_vertex_name
+    !! Current timestep output tensor name
 
     do t = 1, this%num_time_steps
        call emit_kipf_timestep( &

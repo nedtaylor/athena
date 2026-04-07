@@ -41,6 +41,7 @@ contains
     !!   b_v : params(H*d+H+F*H+1 : end)
     implicit none
 
+    ! Arguments
     class(array_type), intent(in), target :: coords
     !! Edge features / relative coordinates [d, num_edges]
     class(array_type), intent(in), target :: kernel_params
@@ -52,12 +53,17 @@ contains
     integer, intent(in) :: coord_dim, kernel_hidden, F_in, F_out
     !! Metadata for unpacking kernel_params
     type(array_type), pointer :: c
+    !! Output per-edge kernel values
 
-    ! locals
+    ! Local variables
     integer :: num_e, d, H, F, e
+    !! Edge count, unpacked dimensions and edge loop index
     integer :: off_U, off_bu, off_V, off_bv
+    !! Flat offsets for packed kernel parameter blocks
     real(real32), allocatable :: U(:,:), b_u(:), V(:,:), b_v(:)
+    !! Unpacked kernel parameter tensors
     real(real32), allocatable :: dx(:), hidden(:)
+    !! Per-edge coordinate and hidden activation buffers
 
     d = coord_dim
     H = kernel_hidden
@@ -114,9 +120,14 @@ contains
     !! upstream_grad has shape [F, num_edges]
     !! output has shape [d, num_edges]
     implicit none
+
+    ! Arguments
     class(array_type), intent(inout) :: this
+    !! Forward result node containing saved operands
     type(array_type), intent(in) :: upstream_grad
+    !! Upstream gradient tensor
     type(array_type) :: output
+    !! Gradient tensor for coordinates
 
     call output%allocate(array_shape=shape(this%left_operand%val))
     call this%get_partial_left_val(upstream_grad%val, output%val)
@@ -133,16 +144,28 @@ contains
     !! Since the left operand already stores edge features directly,
     !! gradients accumulate independently for each edge column.
     implicit none
-    class(array_type), intent(in) :: this
-    real(real32), dimension(:,:), intent(in)  :: upstream_grad
-    real(real32), dimension(:,:), intent(out) :: output
 
+    ! Arguments
+    class(array_type), intent(in) :: this
+    !! Forward result node containing saved operands
+    real(real32), dimension(:,:), intent(in)  :: upstream_grad
+    !! Upstream gradient values
+    real(real32), dimension(:,:), intent(out) :: output
+    !! Output gradient values for coordinates
+
+    ! Local variables
     integer :: d, H, F, num_e, e, k
+    !! Unpacked dimensions and loop indices
     integer :: off_U, off_bu, off_V
+    !! Flat offsets for packed kernel parameter blocks
     real(real32), allocatable :: U(:,:), b_u(:), V(:,:)
+    !! Unpacked kernel parameter tensors
     real(real32), allocatable :: dx(:), pre_act(:), relu_mask(:)
+    !! Per-edge buffers for input, pre-activation and ReLU mask
     real(real32), allocatable :: dkappa_ddx(:,:)   ! [F, d]
+    !! Jacobian of edge kernel values with respect to coordinates
     real(real32), allocatable :: grad_dx(:)         ! [d]
+    !! Coordinate gradient for one edge
 
     d = this%indices(1)
     H = this%indices(2)
@@ -195,9 +218,14 @@ contains
   function get_partial_gno_kernel_params(this, upstream_grad) result(output)
     !! Gradient of gno_kernel_eval w.r.t. kernel_params (right operand)
     implicit none
+
+    ! Arguments
     class(array_type), intent(inout) :: this
+    !! Forward result node containing saved operands
     type(array_type), intent(in) :: upstream_grad
+    !! Upstream gradient tensor
     type(array_type) :: output
+    !! Gradient tensor for packed kernel parameters
 
     call output%allocate(array_shape=shape(this%right_operand%val))
     call this%get_partial_right_val(upstream_grad%val, output%val)
@@ -214,15 +242,26 @@ contains
     !!   d(kappa_e)/dV   = upstream outer relu(U dx + b_u)
     !!   d(kappa_e)/db_v = upstream directly
     implicit none
-    class(array_type), intent(in) :: this
-    real(real32), dimension(:,:), intent(in)  :: upstream_grad
-    real(real32), dimension(:,:), intent(out) :: output
 
+    ! Arguments
+    class(array_type), intent(in) :: this
+    !! Forward result node containing saved operands
+    real(real32), dimension(:,:), intent(in)  :: upstream_grad
+    !! Upstream gradient values
+    real(real32), dimension(:,:), intent(out) :: output
+    !! Output gradient values for packed kernel parameters
+
+    ! Local variables
     integer :: d, H, F, num_e, e, k, f_idx
+    !! Unpacked dimensions and loop indices
     integer :: off_U, off_bu, off_V, off_bv
+    !! Flat offsets for packed kernel parameter blocks
     real(real32), allocatable :: U(:,:), b_u(:), V(:,:)
+    !! Unpacked kernel parameter tensors
     real(real32), allocatable :: dx(:), pre_act(:), hidden(:)
+    !! Per-edge buffers for input and activations
     real(real32), allocatable :: grad_hidden(:)  ! [H]
+    !! Hidden-layer gradient buffer
 
     d = this%indices(1)
     H = this%indices(2)
@@ -303,6 +342,7 @@ contains
     !! output        → [F_out, num_vertices]
     implicit none
 
+    ! Arguments
     class(array_type), intent(in), target :: features
     !! Node features [F_in, num_vertices]
     class(array_type), intent(in), target :: edge_kernels
@@ -314,8 +354,11 @@ contains
     integer, intent(in) :: F_in, F_out
     !! Feature dimensions
     type(array_type), pointer :: c
+    !! Aggregated node output tensor
 
+    ! Local variables
     integer :: num_v, i, j, jj, edge_idx
+    !! Node/edge traversal indices
 
     num_v = size(features%val, 2)
     c => features%create_result(array_shape=[F_out, num_v])
@@ -359,9 +402,14 @@ contains
     !! d(m_i)/d(h_j) = kappa_{ij}^T  (the [F_in, F_out] transpose)
     !! So: grad_h(j) += kappa_{ij}^T @ upstream(:,i)
     implicit none
+
+    ! Arguments
     class(array_type), intent(inout) :: this
+    !! Forward result node containing saved operands
     type(array_type), intent(in) :: upstream_grad
+    !! Upstream gradient tensor
     type(array_type) :: output
+    !! Gradient tensor for node features
 
     call output%allocate(array_shape=shape(this%left_operand%val))
     call this%get_partial_left_val(upstream_grad%val, output%val)
@@ -372,11 +420,18 @@ contains
        this, upstream_grad, output)
     !! In-place gradient w.r.t. features
     implicit none
-    class(array_type), intent(in) :: this
-    real(real32), dimension(:,:), intent(in)  :: upstream_grad
-    real(real32), dimension(:,:), intent(out) :: output
 
+    ! Arguments
+    class(array_type), intent(in) :: this
+    !! Forward result node containing saved operands
+    real(real32), dimension(:,:), intent(in)  :: upstream_grad
+    !! Upstream gradient values
+    real(real32), dimension(:,:), intent(out) :: output
+    !! Output gradient values for node features
+
+    ! Local variables
     integer :: F_in, F_out, num_v, i, j, jj, edge_idx
+    !! Inferred dimensions and traversal indices
 
     ! Infer dimensions from operands
     F_in  = size(this%left_operand%val, 1)
@@ -408,9 +463,14 @@ contains
     !! d(m_i)/d(kappa_e) = h_j (Kronecker-product structure)
     !! For vectorised kappa: grad_kappa(e) = upstream(:,i) ⊗ h_j
     implicit none
+
+    ! Arguments
     class(array_type), intent(inout) :: this
+    !! Forward result node containing saved operands
     type(array_type), intent(in) :: upstream_grad
+    !! Upstream gradient tensor
     type(array_type) :: output
+    !! Gradient tensor for edge kernels
 
     call output%allocate(array_shape=shape(this%right_operand%val))
     call this%get_partial_right_val(upstream_grad%val, output%val)
@@ -425,12 +485,20 @@ contains
     !! So d(m_i)/d(kappa_e) viewed as reshape:
     !!   grad_kappa_e = vec( upstream(:,i) @ h_j^T )
     implicit none
-    class(array_type), intent(in) :: this
-    real(real32), dimension(:,:), intent(in)  :: upstream_grad
-    real(real32), dimension(:,:), intent(out) :: output
 
+    ! Arguments
+    class(array_type), intent(in) :: this
+    !! Forward result node containing saved operands
+    real(real32), dimension(:,:), intent(in)  :: upstream_grad
+    !! Upstream gradient values
+    real(real32), dimension(:,:), intent(out) :: output
+    !! Output gradient values for edge kernels
+
+    ! Local variables
     integer :: F_in, F_out, num_v, i, j, jj, edge_idx
+    !! Inferred dimensions and traversal indices
     integer :: fo, fi
+    !! Feature indices for flattened kernel layout
 
     ! Infer dimensions from operands
     F_in  = size(this%left_operand%val, 1)
@@ -477,14 +545,23 @@ contains
     !! output        → encoded  [M, batch]
     implicit none
 
+    ! Arguments
     class(array_type), intent(in), target :: input
+    !! Input signal tensor [n_in, batch]
     class(array_type), intent(in), target :: poles
+    !! Learnable poles [M, 1]
     integer, intent(in) :: num_inputs, num_modes
+    !! Input dimension and number of modes
     type(array_type), pointer :: c
+    !! Encoded output tensor
 
+    ! Local variables
     integer :: num_samples, m, j
+    !! Batch and loop indices
     real(real32) :: t, s
+    !! Normalised coordinate and current pole value
     real(real32), allocatable :: E(:,:)  ! [M, n_in]
+    !! Encoder basis matrix
 
     num_samples = size(input%val, 2)
 
@@ -529,10 +606,16 @@ contains
   end function lno_encode
 !-------------------------------------------------------------------------------
   function get_partial_lno_encode_input(this, upstream_grad) result(output)
+    !! Gradient of lno_encode with respect to input.
     implicit none
+
+    ! Arguments
     class(array_type), intent(inout) :: this
+    !! Forward result node containing saved operands
     type(array_type), intent(in) :: upstream_grad
+    !! Upstream gradient tensor
     type(array_type) :: output
+    !! Gradient tensor for input
 
     call output%allocate(array_shape=shape(this%left_operand%val))
     call this%get_partial_left_val(upstream_grad%val, output%val)
@@ -575,10 +658,16 @@ contains
   end subroutine get_partial_lno_encode_input_val
 !-------------------------------------------------------------------------------
   function get_partial_lno_encode_poles(this, upstream_grad) result(output)
+    !! Gradient of lno_encode with respect to poles.
     implicit none
+
+    ! Arguments
     class(array_type), intent(inout) :: this
+    !! Forward result node containing saved operands
     type(array_type), intent(in) :: upstream_grad
+    !! Upstream gradient tensor
     type(array_type) :: output
+    !! Gradient tensor for poles
 
     call output%allocate(array_shape=shape(this%right_operand%val))
     call this%get_partial_right_val(upstream_grad%val, output%val)
@@ -637,14 +726,23 @@ contains
     !! output        → decoded     [n_out, batch]
     implicit none
 
+    ! Arguments
     class(array_type), intent(in), target :: spectral
+    !! Spectral tensor [M, batch]
     class(array_type), intent(in), target :: poles
+    !! Learnable poles [M, 1]
     integer, intent(in) :: num_outputs, num_modes
+    !! Output dimension and number of modes
     type(array_type), pointer :: c
+    !! Decoded output tensor
 
+    ! Local variables
     integer :: num_samples, m, i
+    !! Batch and loop indices
     real(real32) :: t, s
+    !! Normalised coordinate and current pole value
     real(real32), allocatable :: D(:,:)  ! [n_out, M]
+    !! Decoder basis matrix
 
     num_samples = size(spectral%val, 2)
 
@@ -689,10 +787,16 @@ contains
   end function lno_decode
 !-------------------------------------------------------------------------------
   function get_partial_lno_decode_spectral(this, upstream_grad) result(output)
+    !! Gradient of lno_decode with respect to spectral input.
     implicit none
+
+    ! Arguments
     class(array_type), intent(inout) :: this
+    !! Forward result node containing saved operands
     type(array_type), intent(in) :: upstream_grad
+    !! Upstream gradient tensor
     type(array_type) :: output
+    !! Gradient tensor for spectral input
 
     call output%allocate(array_shape=shape(this%left_operand%val))
     call this%get_partial_left_val(upstream_grad%val, output%val)
@@ -735,10 +839,16 @@ contains
   end subroutine get_partial_lno_decode_spectral_val
 !-------------------------------------------------------------------------------
   function get_partial_lno_decode_poles(this, upstream_grad) result(output)
+    !! Gradient of lno_decode with respect to poles.
     implicit none
+
+    ! Arguments
     class(array_type), intent(inout) :: this
+    !! Forward result node containing saved operands
     type(array_type), intent(in) :: upstream_grad
+    !! Upstream gradient tensor
     type(array_type) :: output
+    !! Gradient tensor for poles
 
     call output%allocate(array_shape=shape(this%right_operand%val))
     call this%get_partial_right_val(upstream_grad%val, output%val)
@@ -789,13 +899,20 @@ contains
 
 !###############################################################################
   module function elem_scale(input, scale) result(c)
+    !! Element-wise scaling with explicit support for sample-independent scale.
     implicit none
 
+    ! Arguments
     class(array_type), intent(in), target :: input
+    !! Input tensor [n, batch]
     class(array_type), intent(in), target :: scale
+    !! Scale tensor [n, 1]
     type(array_type), pointer :: c
+    !! Scaled output tensor
 
+    ! Local variables
     integer :: i, s, n, ns
+    !! Feature/sample indices and dimensions
 
     n  = size(input%val, 1)
     ns = size(input%val, 2)
@@ -827,10 +944,18 @@ contains
   pure subroutine get_partial_elem_scale_input_val(this, upstream_grad, output)
     !! d(out)/d(input): upstream * scale (broadcast scale along samples)
     implicit none
+
+    ! Arguments
     class(array_type), intent(in) :: this
+    !! Forward result node containing saved operands
     real(real32), dimension(:,:), intent(in)  :: upstream_grad
+    !! Upstream gradient values
     real(real32), dimension(:,:), intent(out) :: output
+    !! Output gradient values for input
+
+    ! Local variables
     integer :: i, s
+    !! Feature and sample indices
 
     do concurrent(s = 1:size(output,2), i = 1:size(output,1))
        output(i, s) = upstream_grad(i, s) * this%right_operand%val(i, 1)
@@ -844,10 +969,18 @@ contains
   pure subroutine get_partial_elem_scale_scale_val(this, upstream_grad, output)
     !! d(out)/d(scale): upstream * input (element-wise, per sample)
     implicit none
+
+    ! Arguments
     class(array_type), intent(in) :: this
+    !! Forward result node containing saved operands
     real(real32), dimension(:,:), intent(in)  :: upstream_grad
+    !! Upstream gradient values
     real(real32), dimension(:,:), intent(out) :: output
+    !! Output gradient values for scale tensor
+
+    ! Local variables
     integer :: i, s
+    !! Feature and sample indices
 
     do concurrent(s = 1:size(output,2), i = 1:size(output,1))
        output(i, s) = upstream_grad(i, s) * this%left_operand%val(i, s)
@@ -875,14 +1008,23 @@ contains
     !! output        → encoded          [k, batch]
     implicit none
 
+    ! Arguments
     class(array_type), intent(in), target :: input
+    !! Input tensor [n, batch]
     class(array_type), intent(in), target :: basis_weights
+    !! Flattened basis matrix parameters [n*k, 1]
     integer, intent(in) :: num_inputs, num_basis
+    !! Input dimension and basis size
     type(array_type), pointer :: c
+    !! Encoded output tensor
 
+    ! Local variables
     integer :: num_samples, n, k, i, j, s
+    !! Batch/dimension values and loop indices
     real(real32), allocatable :: B(:,:), Q(:,:), QT(:,:)
+    !! Basis matrix, orthonormal basis and transpose buffer
     real(real32) :: norm_val, proj
+    !! Gram-Schmidt norm and projection scalars
 
     n = num_inputs
     k = num_basis
@@ -939,10 +1081,16 @@ contains
   end function ono_encode
 !-------------------------------------------------------------------------------
   function get_partial_ono_encode_input(this, upstream_grad) result(output)
+    !! Gradient of ono_encode with respect to input.
     implicit none
+
+    ! Arguments
     class(array_type), intent(inout) :: this
+    !! Forward result node containing saved operands
     type(array_type), intent(in) :: upstream_grad
+    !! Upstream gradient tensor
     type(array_type) :: output
+    !! Gradient tensor for input
 
     call output%allocate(array_shape=shape(this%left_operand%val))
     call this%get_partial_left_val(upstream_grad%val, output%val)
@@ -989,10 +1137,16 @@ contains
   end subroutine get_partial_ono_encode_input_val
 !-------------------------------------------------------------------------------
   function get_partial_ono_encode_basis(this, upstream_grad) result(output)
+    !! Gradient of ono_encode with respect to basis weights.
     implicit none
+
+    ! Arguments
     class(array_type), intent(inout) :: this
+    !! Forward result node containing saved operands
     type(array_type), intent(in) :: upstream_grad
+    !! Upstream gradient tensor
     type(array_type) :: output
+    !! Gradient tensor for basis weights
 
     call output%allocate(array_shape=shape(this%right_operand%val))
     call this%get_partial_right_val(upstream_grad%val, output%val)
@@ -1106,14 +1260,23 @@ contains
     !! output        → decoded           [n, batch]
     implicit none
 
+    ! Arguments
     class(array_type), intent(in), target :: mixed
+    !! Mixed spectral tensor [k, batch]
     class(array_type), intent(in), target :: basis_weights
+    !! Flattened basis matrix parameters [n*k, 1]
     integer, intent(in) :: num_inputs, num_basis
+    !! Output dimension and basis size
     type(array_type), pointer :: c
+    !! Decoded output tensor
 
+    ! Local variables
     integer :: num_samples, n, k, i, j
+    !! Batch/dimension values and loop indices
     real(real32), allocatable :: B(:,:), Q(:,:)
+    !! Basis matrix and orthonormal basis
     real(real32) :: norm_val, proj
+    !! Gram-Schmidt norm and projection scalars
 
     n = num_inputs
     k = num_basis
@@ -1163,10 +1326,16 @@ contains
   end function ono_decode
 !-------------------------------------------------------------------------------
   function get_partial_ono_decode_mixed(this, upstream_grad) result(output)
+    !! Gradient of ono_decode with respect to mixed input.
     implicit none
+
+    ! Arguments
     class(array_type), intent(inout) :: this
+    !! Forward result node containing saved operands
     type(array_type), intent(in) :: upstream_grad
+    !! Upstream gradient tensor
     type(array_type) :: output
+    !! Gradient tensor for mixed input
 
     call output%allocate(array_shape=shape(this%left_operand%val))
     call this%get_partial_left_val(upstream_grad%val, output%val)
@@ -1219,10 +1388,16 @@ contains
   end subroutine get_partial_ono_decode_mixed_val
 !-------------------------------------------------------------------------------
   function get_partial_ono_decode_basis(this, upstream_grad) result(output)
+    !! Gradient of ono_decode with respect to basis weights.
     implicit none
+
+    ! Arguments
     class(array_type), intent(inout) :: this
+    !! Forward result node containing saved operands
     type(array_type), intent(in) :: upstream_grad
+    !! Upstream gradient tensor
     type(array_type) :: output
+    !! Gradient tensor for basis weights
 
     call output%allocate(array_shape=shape(this%right_operand%val))
     call this%get_partial_right_val(upstream_grad%val, output%val)
