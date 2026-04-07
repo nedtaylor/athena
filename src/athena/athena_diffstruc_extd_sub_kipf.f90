@@ -6,13 +6,23 @@ contains
 !###############################################################################
   module function kipf_propagate(vertex_features, adj_ia, adj_ja) result(c)
     !! Propagate values from one autodiff array to another
-    class(array_type), intent(in), target :: vertex_features
-    integer, dimension(:), intent(in) :: adj_ia
-    integer, dimension(:,:), intent(in) :: adj_ja
-    type(array_type), pointer :: c
+    implicit none
 
+    ! Arguments
+    class(array_type), intent(in), target :: vertex_features
+    !! Vertex feature tensor
+    integer, dimension(:), intent(in) :: adj_ia
+    !! CSR row pointers
+    integer, dimension(:,:), intent(in) :: adj_ja
+    !! CSR neighbour and edge lookup indices
+    type(array_type), pointer :: c
+    !! Propagated node feature tensor
+
+    ! Local variables
     integer :: v, w
+    !! Vertex and adjacency traversal indices
     real(real32) :: coeff
+    !! Symmetric normalisation coefficient per edge
 
     c => vertex_features%create_result()
     ! propagate 1D array by using shape to swap dimensions
@@ -49,9 +59,16 @@ contains
   end function kipf_propagate
 !-------------------------------------------------------------------------------
   function get_partial_kipf_propagate_left(this, upstream_grad) result(output)
+    !! Gradient of kipf_propagate with respect to vertex features.
+    implicit none
+
+    ! Arguments
     class(array_type), intent(inout) :: this
+    !! Forward result node containing saved operands
     type(array_type), intent(in) :: upstream_grad
+    !! Upstream gradient tensor
     type(array_type) :: output
+    !! Gradient tensor for left operand
 
     output = reverse_kipf_propagate( upstream_grad, &
          this%indices, this%adj_ja, &
@@ -66,11 +83,20 @@ contains
   end function get_partial_kipf_propagate_left
 !-------------------------------------------------------------------------------
   pure subroutine get_partial_kipf_propagate_left_val(this, upstream_grad, output)
-    class(array_type), intent(in) :: this
-    real(real32), dimension(:,:), intent(in) :: upstream_grad
-    real(real32), dimension(:,:), intent(out) :: output
+    !! In-place value gradient for kipf_propagate left operand.
+    implicit none
 
+    ! Arguments
+    class(array_type), intent(in) :: this
+    !! Forward result node containing saved operands
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    !! Upstream gradient values
+    real(real32), dimension(:,:), intent(out) :: output
+    !! Output gradient values for left operand
+
+    ! Local variables
     integer :: v, w, i
+    !! Loop indices
 
     output = 0._real32
     do concurrent(v=1:size(upstream_grad,2))
@@ -91,13 +117,23 @@ contains
        a, adj_ia, adj_ja, num_features, num_elements &
   ) result(c)
     !! Reverse propagate values from one autodiff array to another
-    class(array_type), intent(in), target :: a
-    integer, dimension(:), intent(in) :: adj_ia
-    integer, dimension(:,:), intent(in) :: adj_ja
-    integer, dimension(2), intent(in) :: num_features, num_elements
-    type(array_type), pointer :: c
+    implicit none
 
+    ! Arguments
+    class(array_type), intent(in), target :: a
+    !! Upstream tensor to reverse-propagate
+    integer, dimension(:), intent(in) :: adj_ia
+    !! CSR row pointers
+    integer, dimension(:,:), intent(in) :: adj_ja
+    !! CSR neighbour and edge lookup indices
+    integer, dimension(2), intent(in) :: num_features, num_elements
+    !! Output feature and element counts
+    type(array_type), pointer :: c
+    !! Reverse-propagated tensor
+
+    ! Local variables
     integer :: v, w
+    !! Loop indices
 
     c => a%create_result(array_shape=[ &
          num_features(1), num_elements(1) &
@@ -127,9 +163,13 @@ contains
        this, upstream_grad &
   ) result(output)
     implicit none
+    ! Arguments
     class(array_type), intent(inout) :: this
+    !! Forward result node containing saved operands
     type(array_type), intent(in) :: upstream_grad
+    !! Upstream gradient tensor
     type(array_type) :: output
+    !! Gradient tensor for left operand
 
     output = kipf_propagate( upstream_grad, &
          this%indices, this%adj_ja &
@@ -141,11 +181,18 @@ contains
        this, upstream_grad, output &
   )
     implicit none
-    class(array_type), intent(in) :: this
-    real(real32), dimension(:,:), intent(in) :: upstream_grad
-    real(real32), dimension(:,:), intent(out) :: output
 
+    ! Arguments
+    class(array_type), intent(in) :: this
+    !! Forward result node containing saved operands
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    !! Upstream gradient values
+    real(real32), dimension(:,:), intent(out) :: output
+    !! Output gradient values for left operand
+
+    ! Local variables
     integer :: v, w, i
+    !! Loop indices
     output = 0._real32
     do concurrent(v=1:size(upstream_grad,2))
        do w = this%indices(v), this%indices(v+1)-1

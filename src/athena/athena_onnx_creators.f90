@@ -534,18 +534,25 @@ contains
     use athena__initialiser_data, only: data_init_type
     implicit none
 
+    ! Arguments
     character(*), intent(in) :: meta_key, meta_value
+    !! NOP metadata key/value pair
     type(onnx_initialiser_type), dimension(:), intent(in) :: inits
+    !! ONNX initialisers containing parameter tensors
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
     class(base_layer_type), allocatable :: layer
+    !! Constructed dynamic LNO layer
 
+    ! Local variables
     integer :: num_inputs, num_outputs, num_modes, verbose_
+    !! Parsed layer dimensions and effective verbosity level
     logical :: use_bias
+    !! Whether the imported layer uses bias
     character(64) :: activation_name, nop_prefix
-    character(128) :: init_prefix
     integer :: k, pos, pos2, stat
+    !! Parsing indices and status code
     character(256) :: token, key, val
-    real(real32), allocatable :: col_data(:)
 
     verbose_ = 0
     if(present(verbose)) verbose_ = verbose
@@ -637,16 +644,22 @@ contains
     use athena__fixed_lno_layer, only: fixed_lno_layer_type
     implicit none
 
+    ! Arguments
     character(*), intent(in) :: meta_key, meta_value
+    !! NOP metadata key/value pair
     type(onnx_initialiser_type), dimension(:), intent(in) :: inits
+    !! ONNX initialisers containing parameter tensors
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
     class(base_layer_type), allocatable :: layer
+    !! Constructed fixed LNO layer
 
+    ! Local variables
     integer :: num_inputs, num_outputs, num_modes, verbose_
+    !! Parsed layer dimensions and effective verbosity level
     logical :: use_bias
+    !! Whether the imported layer uses bias
     character(64) :: activation_name, nop_prefix
-    integer :: k, pos, pos2
-    character(256) :: token, key, val
 
     verbose_ = 0
     if(present(verbose)) verbose_ = verbose
@@ -698,13 +711,21 @@ contains
     use athena__neural_operator_layer, only: neural_operator_layer_type
     implicit none
 
+    ! Arguments
     character(*), intent(in) :: meta_key, meta_value
+    !! NOP metadata key/value pair
     type(onnx_initialiser_type), dimension(:), intent(in) :: inits
+    !! ONNX initialisers containing parameter tensors
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
     class(base_layer_type), allocatable :: layer
+    !! Constructed neural operator layer
 
+    ! Local variables
     integer :: num_inputs, num_outputs, num_modes, verbose_
+    !! Parsed layer dimensions and effective verbosity level
     logical :: use_bias
+    !! Whether the imported layer uses bias
     character(64) :: activation_name, nop_prefix
 
     verbose_ = 0
@@ -756,13 +777,21 @@ contains
     use athena__orthogonal_nop_block, only: orthogonal_nop_block_type
     implicit none
 
+    ! Arguments
     character(*), intent(in) :: meta_key, meta_value
+    !! NOP metadata key/value pair
     type(onnx_initialiser_type), dimension(:), intent(in) :: inits
+    !! ONNX initialisers containing parameter tensors
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
     class(base_layer_type), allocatable :: layer
+    !! Constructed orthogonal NOP layer
 
+    ! Local variables
     integer :: num_inputs, num_outputs, num_modes, verbose_
+    !! Parsed layer dimensions and effective verbosity level
     logical :: use_bias
+    !! Whether the imported layer uses bias
     character(64) :: activation_name, nop_prefix
 
     verbose_ = 0
@@ -820,15 +849,24 @@ contains
          orthogonal_attention_layer_type
     implicit none
 
+    ! Arguments
     character(*), intent(in) :: meta_key, meta_value
+    !! NOP metadata key/value pair
     type(onnx_initialiser_type), dimension(:), intent(in) :: inits
+    !! ONNX initialisers containing parameter tensors
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
     class(base_layer_type), allocatable :: layer
+    !! Constructed orthogonal attention layer
 
+    ! Local variables
     integer :: num_inputs, num_outputs, num_modes, key_dim, verbose_
+    !! Parsed layer dimensions, key dimension and effective verbosity level
     logical :: use_bias
+    !! Whether the imported layer uses bias
     character(64) :: activation_name, nop_prefix
     integer :: k, pos, pos2
+    !! Parsing indices
     character(256) :: token, key, val
 
     verbose_ = 0
@@ -912,12 +950,19 @@ contains
     !! Parse common NOP hyperparameters from metadata value string.
     implicit none
 
+    ! Arguments
     character(*), intent(in) :: meta_value
+    !! Metadata payload string to parse
     integer, intent(inout) :: num_inputs, num_outputs, num_modes
+    !! Parsed dimensions (updated in-place)
     logical, intent(inout) :: use_bias
+    !! Parsed bias flag (updated in-place)
     character(64), intent(inout) :: activation_name
+    !! Parsed activation name (updated in-place)
 
+    ! Local variables
     integer :: k, pos, pos2, stat
+    !! Parsing indices and logical conversion status
     character(256) :: token, key, val
 
     pos = 1
@@ -945,7 +990,7 @@ contains
           use_bias = read_logical_from_string(val, stat)
           if(stat .ne. 0)then
              call stop_program("parse_nop_metadata: " // &
-                   "invalid logical value for use_bias")
+                  "invalid logical value for use_bias")
           end if
        case('activation')
           activation_name = trim(val)
@@ -961,10 +1006,15 @@ contains
     !! Extract the node prefix from an athena_nop_node_X metadata key.
     implicit none
 
+    ! Arguments
     character(*), intent(in) :: meta_key
+    !! NOP metadata key
     character(64) :: prefix
+    !! Layer prefix used for ONNX parameter names
 
+    ! Local variables
     integer :: pos
+    !! Position of the athena_nop_ prefix marker
 
     prefix = trim(meta_key)
     pos = index(prefix, 'athena_nop_')
@@ -981,15 +1031,25 @@ contains
     use diffstruc, only: array_type
     implicit none
 
+    ! Arguments
     type(array_type), intent(inout) :: param
+    !! Destination parameter tensor
     character(*), intent(in) :: prefix, suffix
+    !! Name fragments used to match the ONNX initialiser
     type(onnx_initialiser_type), dimension(:), intent(in) :: inits
+    !! ONNX initialisers containing candidate parameter tensors
     integer, intent(in) :: num_inits
+    !! Number of valid entries in inits
     integer, dimension(2), intent(in) :: dims
+    !! Expected 2D shape [rows, cols] for the parameter
 
+    ! Local variables
     integer :: k
+    !! Initialiser loop index
     character(128) :: target_name
+    !! Fully qualified ONNX initialiser name to match
     real(real32), allocatable :: col_data(:)
+    !! Temporary buffer for row-major to column-major conversion
 
     write(target_name, '(A,A)') trim(prefix), suffix
 
@@ -1016,34 +1076,40 @@ contains
 
 
 !###############################################################################
-   function read_logical_from_string(val, stat) result(logical_val)
-      !! Convert a string to a logical value
-      !!
-      !! Acceptable true values: "true", "1" (case-insensitive)
-      !! Acceptable false values: "false", "0" (case-insensitive)
-      use coreutils, only: to_lower
-      implicit none
+  function read_logical_from_string(val, stat) result(logical_val)
+    !! Convert a string to a logical value
+    !!
+    !! Acceptable true values: "true", "1" (case-insensitive)
+    !! Acceptable false values: "false", "0" (case-insensitive)
+    use coreutils, only: to_lower
+    implicit none
 
-      ! Arguments
-      character(*), intent(in) :: val
-      !! Input string to convert
-      integer, intent(out) :: stat
-      !! Status code: 0 for success, non-zero for invalid input
+    ! Arguments
+    character(*), intent(in) :: val
+    !! Input string to convert
+    integer, intent(out) :: stat
+    !! Status code: 0 for success, non-zero for invalid input
 
-      logical :: logical_val
-      !! Local variable for the resulting logical value
+    logical :: logical_val
+    !! Local variable for the resulting logical value
 
-      stat = 0
-      if(to_lower(trim(adjustl(val))) .eq. 'true' .or. trim(adjustl(val)) .eq. '1') then
-          logical_val = .true.
-      else if(to_lower(trim(adjustl(val))) .eq. 'false' .or. trim(adjustl(val)) .eq. '0') then
-          logical_val = .false.
-      else
-          stat = 1
-          logical_val = .false.  ! Default value in case of error
-      end if
+    stat = 0
+    if( &
+         to_lower(trim(adjustl(val))) .eq. 'true' .or. &
+         trim(adjustl(val)) .eq. '1' &
+    ) then
+       logical_val = .true.
+    elseif( &
+         to_lower(trim(adjustl(val))) .eq. 'false' .or. &
+         trim(adjustl(val)) .eq. '0' &
+    ) then
+       logical_val = .false.
+    else
+       stat = 1
+       logical_val = .false.  ! Default value in case of error
+    end if
 
-   end function read_logical_from_string
+  end function read_logical_from_string
 !###############################################################################
 
 end module athena__onnx_creators

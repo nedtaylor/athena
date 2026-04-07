@@ -42,7 +42,9 @@ program onnx_example
   implicit none
 
   type(network_type) :: network_write, network_read
+  !! Source network and network reconstructed from ONNX
   character(256) :: onnx_file
+  !! ONNX JSON path used for export/import
 
   ! Create a simple network
   write(*,*) "Creating a simple test network..."

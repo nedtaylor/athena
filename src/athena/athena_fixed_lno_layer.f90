@@ -95,8 +95,12 @@ contains
 
 !###############################################################################
   subroutine finalise_fixed_lno(this)
+    !! Finalise the fixed-basis Laplace neural operator layer
     implicit none
+
+    ! Arguments
     type(fixed_lno_layer_type), intent(inout) :: this
+    !! Layer instance to release
 
     if(allocated(this%input_shape)) deallocate(this%input_shape)
     if(allocated(this%output)) deallocate(this%output)
@@ -110,9 +114,14 @@ contains
 
 !###############################################################################
   pure function get_num_params_fixed_lno(this) result(num_params)
+    !! Return the number of learnable parameters for the layer
     implicit none
+
+    ! Arguments
     class(fixed_lno_layer_type), intent(in) :: this
+    !! Layer instance
     integer :: num_params
+    !! Total number of learnable parameters
 
     ! R: num_modes^2, W: n_out * n_in, b: n_out (optional)
     num_params = this%num_modes * this%num_modes + &
@@ -134,20 +143,34 @@ contains
     use athena__initialiser, only: initialiser_setup
     implicit none
 
+    ! Arguments
     integer, intent(in) :: num_outputs
+    !! Number of output features
     integer, intent(in) :: num_modes
+    !! Number of Laplace spectral modes
     integer, optional, intent(in) :: num_inputs
+    !! Number of input features when known at construction time
     logical, optional, intent(in) :: use_bias
+    !! Whether to allocate a bias term
     class(*), optional, intent(in) :: activation
+    !! Activation function specification
     class(*), optional, intent(in) :: kernel_initialiser, bias_initialiser
+    !! Kernel and bias initialiser specifications
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
 
     type(fixed_lno_layer_type) :: layer
+    !! Constructed fixed LNO layer
 
+    ! Local variables
     integer :: verbose_ = 0
+    !! Effective verbosity level
     logical :: use_bias_ = .true.
+    !! Effective bias flag
     class(base_actv_type), allocatable :: activation_
+    !! Materialised activation object
     class(base_init_type), allocatable :: kernel_initialiser_, bias_initialiser_
+    !! Materialised kernel and bias initialisers
 
     if(present(verbose)) verbose_ = verbose
     if(present(use_bias)) use_bias_ = use_bias
@@ -193,16 +216,26 @@ contains
     use athena__initialiser, only: get_default_initialiser, initialiser_setup
     implicit none
 
+    ! Arguments
     class(fixed_lno_layer_type), intent(inout) :: this
+    !! Layer instance to configure
     integer, intent(in) :: num_outputs
+    !! Number of output features
     integer, intent(in) :: num_modes
+    !! Number of Laplace spectral modes
     logical, intent(in) :: use_bias
+    !! Whether to use a bias term
     class(base_actv_type), allocatable, intent(in) :: activation
+    !! Activation function object
     class(base_init_type), allocatable, intent(in) :: &
          kernel_initialiser, bias_initialiser
+    !! Kernel and bias initialiser objects
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
 
+    ! Local variables
     character(len=256) :: buffer
+    !! Buffer for default initialiser lookup
 
     this%name = "fixed_lno"
     this%type = "nop"
@@ -250,15 +283,24 @@ contains
 
 !###############################################################################
   subroutine init_fixed_lno(this, input_shape, verbose)
+    !! Initialise parameter storage, fixed bases and output buffers
     implicit none
 
+    ! Arguments
     class(fixed_lno_layer_type), intent(inout) :: this
+    !! Layer instance to initialise
     integer, dimension(:), intent(in) :: input_shape
+    !! Input shape used to infer num_inputs
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
 
+    ! Local variables
     integer :: num_inputs, j, k, i, idx
+    !! Effective fan-in size and basis-construction indices
     integer :: verbose_ = 0
+    !! Effective verbosity level
     real(real32) :: s, t
+    !! Spectral pole value and normalised coordinate
 
     if(present(verbose)) verbose_ = verbose
 
@@ -402,11 +444,15 @@ contains
 
 !###############################################################################
   subroutine print_to_unit_fixed_lno(this, unit)
+    !! Print fixed LNO settings and parameters to a unit
     use coreutils, only: to_upper
     implicit none
 
+    ! Arguments
     class(fixed_lno_layer_type), intent(in) :: this
+    !! Layer instance to print
     integer, intent(in) :: unit
+    !! Output unit number
 
     write(unit,'(3X,"NUM_INPUTS = ",I0)') this%num_inputs
     write(unit,'(3X,"NUM_OUTPUTS = ",I0)') this%num_outputs
@@ -436,20 +482,35 @@ contains
     use athena__initialiser, only: initialiser_setup
     implicit none
 
+    ! Arguments
     class(fixed_lno_layer_type), intent(inout) :: this
+    !! Layer instance to populate from file data
     integer, intent(in) :: unit
+    !! Input unit number
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
 
+    ! Local variables
     integer :: stat, verbose_ = 0
+    !! I/O status and effective verbosity level
     integer :: j, k, c, itmp1, iline
+    !! Loop counters and parser scratch integers
     integer :: num_inputs, num_outputs, num_modes
+    !! Parsed layer dimensions
     logical :: use_bias = .true.
+    !! Parsed bias flag
     character(14) :: kernel_initialiser_name='', bias_initialiser_name=''
+    !! Parsed initialiser names
     class(base_actv_type), allocatable :: activation
+    !! Parsed activation object
     class(base_init_type), allocatable :: kernel_initialiser, bias_initialiser
+    !! Parsed initialiser objects
     character(256) :: buffer, tag, err_msg
+    !! Input buffer, parsed tag and formatted error message
     real(real32), allocatable, dimension(:) :: data_list
+    !! Temporary storage for flattened parameter blocks
     integer :: param_line, final_line, num_vals
+    !! Weights-section line markers and current block size
 
     if(present(verbose)) verbose_ = verbose
 
@@ -596,11 +657,20 @@ contains
 
 !###############################################################################
   function read_fixed_lno_layer(unit, verbose) result(layer)
+    !! Read a fixed LNO layer from file and return it
     implicit none
+
+    ! Arguments
     integer, intent(in) :: unit
+    !! Input unit number
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
     class(base_layer_type), allocatable :: layer
+    !! Allocated base-layer instance containing the result
+
+    ! Local variables
     integer :: verbose_ = 0
+    !! Effective verbosity level
 
     if(present(verbose)) verbose_ = verbose
     allocate(layer, source=fixed_lno_layer_type( &
@@ -619,10 +689,15 @@ contains
     !!   v = sigma( D @ R @ E @ u  +  W @ u  +  b )
     implicit none
 
+    ! Arguments
     class(fixed_lno_layer_type), intent(inout) :: this
+    !! Layer instance to execute
     class(array_type), dimension(:,:), intent(in) :: input
+    !! Input batch tensor collection
 
+    ! Local variables
     type(array_type), pointer :: ptr, ptr_spec, ptr_local
+    !! Combined output, spectral-path output and local-path output
 
 
     ! Spectral pathway:  D @ R @ E @ u
@@ -665,30 +740,37 @@ contains
 
 !###############################################################################
   function get_attributes_fixed_lno(this) result(attributes)
+    !! Return list of fixed LNO attributes for ONNX export
     implicit none
-    class(fixed_lno_layer_type), intent(in) :: this
-    type(onnx_attribute_type), allocatable, dimension(:) :: attributes
 
-    character(32) :: buf
+    ! Arguments
+    class(fixed_lno_layer_type), intent(in) :: this
+    !! Instance of the fixed LNO layer
+    type(onnx_attribute_type), allocatable, dimension(:) :: attributes
+    !! List of attributes for ONNX export
+
+    ! Local variables
+    character(32) :: buffer
+    !! Buffer for integer-to-string conversion
 
     allocate(attributes(5))
 
-    write(buf, '(I0)') this%num_inputs
+    write(buffer, '(I0)') this%num_inputs
     attributes(1) = onnx_attribute_type( &
-         name='num_inputs', type='int', val=trim(buf))
-    write(buf, '(I0)') this%num_outputs
+         name='num_inputs', type='int', val=trim(buffer))
+    write(buffer, '(I0)') this%num_outputs
     attributes(2) = onnx_attribute_type( &
-         name='num_outputs', type='int', val=trim(buf))
-    write(buf, '(I0)') this%num_modes
+         name='num_outputs', type='int', val=trim(buffer))
+    write(buffer, '(I0)') this%num_modes
     attributes(3) = onnx_attribute_type( &
-         name='num_modes', type='int', val=trim(buf))
+         name='num_modes', type='int', val=trim(buffer))
     if(this%use_bias)then
-       buf = '1'
+       buffer = '1'
     else
-       buf = '0'
+       buffer = '0'
     end if
     attributes(4) = onnx_attribute_type( &
-         name='use_bias', type='int', val=trim(buf))
+         name='use_bias', type='int', val=trim(buffer))
     attributes(5) = onnx_attribute_type( &
          name='activation', type='string', val=trim(this%activation%name))
 

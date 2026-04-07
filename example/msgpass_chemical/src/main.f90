@@ -46,33 +46,54 @@ program msgpass_chemical_example
   implicit none
 
   integer :: seed = 42
+  !! Random seed for reproducibility
   type(network_type) :: network
+  !! Main training/inference network
   class(base_layer_type), allocatable :: layer
+  !! Temporary polymorphic layer handle
   type(metric_dict_type), dimension(2) :: metric_dict
+  !! Metrics passed to compile
   class(clip_type), allocatable :: clip
+  !! Gradient clipping configuration
 
   logical :: restart = .false.
+  !! Whether to restart from a saved network card
   logical :: do_training = .true.
+  !! Whether to execute the training loop
 
   ! data loading and preprocessing
   type(graph_type), allocatable, dimension(:,:) :: graphs_in
+  !! Loaded graph dataset
   real(real32), allocatable, dimension(:,:) :: labels
+  !! Optional label buffer for dataset loader variants
   character(1024) :: file, train_file, onnx_file
+  !! Generic path buffer, dataset path and ONNX path
   integer :: unit
+  !! File unit for auxiliary exports
 
   ! training loop variables
   integer :: num_tests = 10, num_epochs = 20, batch_size = 8
+  !! Test split size, epoch count and batch size
   integer :: num_time_steps = 4
+  !! Number of message-passing timesteps
   integer :: i, j, s
+  !! Loop indices
 
   integer :: num_dense_inputs = 10, num_outputs = 1
+  !! Dense head input size and final output size
   integer :: num_params
+  !! Number of trainable parameters in the compiled network
   integer, dimension(:), allocatable :: sample_list
+  !! Shuffled sample index list
   real(real32), dimension(:), allocatable :: feature_in_norm
+  !! Feature normalisation factors
   type(array_type), dimension(1,1) :: output
+  !! Network target tensor
   real(real32) :: output_min, output_max
+  !! Target normalisation bounds
 
   class(*), allocatable, dimension(:,:) :: data_poly
+  !! Polymorphic prediction return buffer
 
 
   !-----------------------------------------------------------------------------

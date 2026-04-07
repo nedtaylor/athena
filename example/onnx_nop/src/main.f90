@@ -8,13 +8,21 @@ program onnx_nop_example
   implicit none
 
   integer, parameter :: num_in = 48, num_out = 32, num_modes = 16
+  !! Input size, output size and spectral mode count
   integer, parameter :: batch = 4
+  !! Batch size for the round-trip comparison
   real, dimension(num_in, batch) :: x
+  !! Random input batch used for both forward passes
   real, dimension(num_out, batch) :: y_orig, y_read
+  !! Original and reloaded network outputs
   type(network_type) :: net_orig, net_read
+  !! Original network and network reloaded from ONNX
   character(256) :: onnx_file
+  !! ONNX JSON path for export/import
   real :: max_diff
+  !! Maximum absolute difference between outputs
   integer :: i
+  !! Loop index for debug printout
 
 
   !---------------------------------------------------------------------------

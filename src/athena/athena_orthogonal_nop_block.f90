@@ -94,8 +94,12 @@ contains
 
 !###############################################################################
   subroutine finalise_ono(this)
+    !! Finalise the orthogonal neural operator block
     implicit none
+
+    ! Arguments
     type(orthogonal_nop_block_type), intent(inout) :: this
+    !! Layer instance to release
 
     if(allocated(this%input_shape)) deallocate(this%input_shape)
     if(allocated(this%output)) deallocate(this%output)
@@ -107,9 +111,14 @@ contains
 
 !###############################################################################
   pure function get_num_params_ono(this) result(num_params)
+    !! Return the number of learnable parameters for the block
     implicit none
+
+    ! Arguments
     class(orthogonal_nop_block_type), intent(in) :: this
+    !! Layer instance
     integer :: num_params
+    !! Total number of learnable parameters
 
     ! R:     num_basis^2         (spectral mixing)
     ! B:     num_inputs * num_basis (basis weights)
@@ -135,20 +144,34 @@ contains
     use athena__initialiser, only: initialiser_setup
     implicit none
 
+    ! Arguments
     integer, intent(in) :: num_outputs
+    !! Number of output features
     integer, intent(in) :: num_basis
+    !! Number of orthogonal basis vectors
     integer, optional, intent(in) :: num_inputs
+    !! Number of input features when known at construction time
     logical, optional, intent(in) :: use_bias
+    !! Whether to allocate a bias term
     class(*), optional, intent(in) :: activation
+    !! Activation function specification
     class(*), optional, intent(in) :: kernel_initialiser, bias_initialiser
+    !! Kernel and bias initialiser specifications
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
 
     type(orthogonal_nop_block_type) :: layer
+    !! Constructed orthogonal neural operator block
 
+    ! Local variables
     integer :: verbose_ = 0
+    !! Effective verbosity level
     logical :: use_bias_ = .true.
+    !! Effective bias flag
     class(base_actv_type), allocatable :: activation_
+    !! Materialised activation object
     class(base_init_type), allocatable :: kernel_initialiser_, bias_initialiser_
+    !! Materialised kernel and bias initialisers
 
     if(present(verbose)) verbose_ = verbose
     if(present(use_bias)) use_bias_ = use_bias
@@ -194,16 +217,26 @@ contains
     use athena__initialiser, only: get_default_initialiser, initialiser_setup
     implicit none
 
+    ! Arguments
     class(orthogonal_nop_block_type), intent(inout) :: this
+    !! Layer instance to configure
     integer, intent(in) :: num_outputs
+    !! Number of output features
     integer, intent(in) :: num_basis
+    !! Number of orthogonal basis vectors
     logical, intent(in) :: use_bias
+    !! Whether to use a bias term
     class(base_actv_type), allocatable, intent(in) :: activation
+    !! Activation function object
     class(base_init_type), allocatable, intent(in) :: &
          kernel_initialiser, bias_initialiser
+    !! Kernel and bias initialiser objects
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
 
+    ! Local variables
     character(len=256) :: buffer
+    !! Buffer for default initialiser lookup
 
     this%name = "orthogonal_nop"
     this%type = "nop"
@@ -250,14 +283,22 @@ contains
 
 !###############################################################################
   subroutine init_ono(this, input_shape, verbose)
+    !! Initialise parameter storage and output buffers for the block
     implicit none
 
+    ! Arguments
     class(orthogonal_nop_block_type), intent(inout) :: this
+    !! Layer instance to initialise
     integer, dimension(:), intent(in) :: input_shape
+    !! Input shape used to infer num_inputs
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
 
+    ! Local variables
     integer :: num_inputs
+    !! Effective fan-in size used for initialisation
     integer :: verbose_ = 0
+    !! Effective verbosity level
 
     if(present(verbose)) verbose_ = verbose
 
@@ -365,12 +406,20 @@ contains
   function get_bases_ono(this) result(phi)
     !! Orthogonalise the basis matrix B using modified Gram-Schmidt
     implicit none
-    class(orthogonal_nop_block_type), intent(in) :: this
-    type(array_type) :: phi
 
+    ! Arguments
+    class(orthogonal_nop_block_type), intent(in) :: this
+    !! Layer instance providing basis parameters
+    type(array_type) :: phi
+    !! Orthogonalised basis matrix packed in an array_type
+
+    ! Local variables
     integer :: n, k, i, j
+    !! Basis dimensions and Gram-Schmidt loop indices
     real(real32), allocatable :: B(:,:), Q(:,:)
+    !! Raw basis matrix and orthogonalised copy
     real(real32) :: norm_val, proj
+    !! Gram-Schmidt norm and projection scalars
 
     n = this%num_inputs
     k = this%num_basis
@@ -413,13 +462,22 @@ contains
   function get_orthogonality_metric(this) result(metric)
     !! Compute max(|Phi^T @ Phi - I|) as a measure of basis orthogonality
     implicit none
-    class(orthogonal_nop_block_type), intent(in) :: this
-    real(real32) :: metric
 
+    ! Arguments
+    class(orthogonal_nop_block_type), intent(in) :: this
+    !! Layer instance providing basis parameters
+    real(real32) :: metric
+    !! Maximum absolute deviation from orthogonality
+
+    ! Local variables
     integer :: n, k, i, j, idx_ij
+    !! Matrix dimensions and traversal indices
     real(real32), allocatable :: Q(:,:), QtQ(:,:)
+    !! Orthogonal basis matrix and Gram matrix
     real(real32) :: val
+    !! Current absolute deviation entry
     type(array_type) :: phi
+    !! Basis matrix returned by get_bases
 
     n = this%num_inputs
     k = this%num_basis
@@ -452,11 +510,15 @@ contains
 
 !###############################################################################
   subroutine print_to_unit_ono(this, unit)
+    !! Print orthogonal neural operator settings and parameters to a unit
     use coreutils, only: to_upper
     implicit none
 
+    ! Arguments
     class(orthogonal_nop_block_type), intent(in) :: this
+    !! Layer instance to print
     integer, intent(in) :: unit
+    !! Output unit number
 
     write(unit,'(3X,"NUM_INPUTS = ",I0)') this%num_inputs
     write(unit,'(3X,"NUM_OUTPUTS = ",I0)') this%num_outputs
@@ -487,20 +549,35 @@ contains
     use athena__initialiser, only: initialiser_setup
     implicit none
 
+    ! Arguments
     class(orthogonal_nop_block_type), intent(inout) :: this
+    !! Layer instance to populate from file data
     integer, intent(in) :: unit
+    !! Input unit number
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
 
+    ! Local variables
     integer :: stat, verbose_ = 0
+    !! I/O status and effective verbosity level
     integer :: j, k, c, itmp1, iline
+    !! Loop counters and parser scratch integers
     integer :: num_inputs, num_outputs, num_basis
+    !! Parsed layer dimensions
     logical :: use_bias = .true.
+    !! Parsed bias flag
     character(14) :: kernel_initialiser_name='', bias_initialiser_name=''
+    !! Parsed initialiser names
     class(base_actv_type), allocatable :: activation
+    !! Parsed activation object
     class(base_init_type), allocatable :: kernel_initialiser, bias_initialiser
+    !! Parsed initialiser objects
     character(256) :: buffer, tag, err_msg
+    !! Input buffer, parsed tag and formatted error message
     real(real32), allocatable, dimension(:) :: data_list
+    !! Temporary storage for flattened parameter blocks
     integer :: param_line, final_line, num_vals
+    !! Weights-section line markers and current block size
 
     if(present(verbose)) verbose_ = verbose
 
@@ -658,11 +735,20 @@ contains
 
 !###############################################################################
   function read_orthogonal_nop_block(unit, verbose) result(layer)
+    !! Read an orthogonal neural operator block from file and return it
     implicit none
+
+    ! Arguments
     integer, intent(in) :: unit
+    !! Input unit number
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
     class(base_layer_type), allocatable :: layer
+    !! Allocated base-layer instance containing the result
+
+    ! Local variables
     integer :: verbose_ = 0
+    !! Effective verbosity level
 
     if(present(verbose)) verbose_ = verbose
     allocate(layer, source=orthogonal_nop_block_type( &
@@ -702,11 +788,17 @@ contains
     !!           = sigma( W @ ((Phi @ R @ Phi^T + I) @ u) + b )
     implicit none
 
+    ! Arguments
     class(orthogonal_nop_block_type), intent(inout) :: this
+    !! Layer instance to execute
     class(array_type), dimension(:,:), intent(in) :: input
+    !! Input batch tensor collection
 
+    ! Local variables
     type(array_type), pointer :: ptr, ptr_spec, ptr_bypass
+    !! Combined output, spectral-path output and bypass-path output
     type(array_type), pointer :: ptr_encoded, ptr_mixed, ptr_decoded
+    !! Encoded spectrum, mixed spectrum and decoded tensor
 
 
     ! Spectral pathway: Phi @ R @ Phi^T @ u
@@ -757,30 +849,37 @@ contains
 
 !###############################################################################
   function get_attributes_ono(this) result(attributes)
+    !! Return list of ONO attributes for ONNX export
     implicit none
-    class(orthogonal_nop_block_type), intent(in) :: this
-    type(onnx_attribute_type), allocatable, dimension(:) :: attributes
 
-    character(32) :: buf
+    ! Arguments
+    class(orthogonal_nop_block_type), intent(in) :: this
+    !! Instance of the ONO block
+    type(onnx_attribute_type), allocatable, dimension(:) :: attributes
+    !! List of attributes for ONNX export
+
+    ! Local variables
+    character(32) :: buffer
+    !! Buffer for formatting
 
     allocate(attributes(5))
 
-    write(buf, '(I0)') this%num_inputs
+    write(buffer, '(I0)') this%num_inputs
     attributes(1) = onnx_attribute_type( &
-         name='num_inputs', type='int', val=trim(buf))
-    write(buf, '(I0)') this%num_outputs
+         name='num_inputs', type='int', val=trim(buffer))
+    write(buffer, '(I0)') this%num_outputs
     attributes(2) = onnx_attribute_type( &
-         name='num_outputs', type='int', val=trim(buf))
-    write(buf, '(I0)') this%num_basis
+         name='num_outputs', type='int', val=trim(buffer))
+    write(buffer, '(I0)') this%num_basis
     attributes(3) = onnx_attribute_type( &
-         name='num_basis', type='int', val=trim(buf))
+         name='num_basis', type='int', val=trim(buffer))
     if(this%use_bias)then
-       buf = '1'
+       buffer = '1'
     else
-       buf = '0'
+       buffer = '0'
     end if
     attributes(4) = onnx_attribute_type( &
-         name='use_bias', type='int', val=trim(buf))
+         name='use_bias', type='int', val=trim(buffer))
     attributes(5) = onnx_attribute_type( &
          name='activation', type='string', val=trim(this%activation%name))
 

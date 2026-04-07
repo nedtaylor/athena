@@ -181,14 +181,24 @@ contains
   )
     !! Default implementation: no-op (standard layers are handled by write_onnx)
     implicit none
+
+    ! Arguments
     class(base_layer_type), intent(in) :: this
+    !! Instance of the layer
     character(*), intent(in) :: prefix
+    !! Prefix for node names
     type(onnx_node_type), intent(inout), dimension(:) :: nodes
+    !! ONNX nodes
     integer, intent(inout) :: num_nodes
+    !! Number of ONNX nodes
     integer, intent(in) :: max_nodes
+    !! Maximum number of ONNX nodes
     type(onnx_initialiser_type), intent(inout), dimension(:) :: inits
+    !! ONNX initialisers
     integer, intent(inout) :: num_inits
+    !! Number of ONNX initialisers
     integer, intent(in) :: max_inits
+    !! Maximum number of ONNX initialisers
 
     ! Default: do nothing. Standard layers are handled directly by write_onnx.
   end subroutine emit_onnx_nodes_base
@@ -202,10 +212,16 @@ contains
   )
     !! Default implementation: no-op (standard layers don't add graph inputs)
     implicit none
+
+    ! Arguments
     class(base_layer_type), intent(in) :: this
+    !! Instance of the layer
     character(*), intent(in) :: prefix
+    !! Prefix for input names
     type(onnx_tensor_type), intent(inout), dimension(:) :: graph_inputs
+    !! ONNX graph inputs
     integer, intent(inout) :: num_inputs
+    !! Number of ONNX graph inputs
 
     ! Default: do nothing. Standard input layers are handled directly.
   end subroutine emit_onnx_graph_inputs_base

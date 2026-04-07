@@ -9,12 +9,20 @@ contains
   ) result(c)
     !! Propagate values from one autodiff array to another
     implicit none
-    class(array_type), intent(in), target :: vertex_features, edge_features
-    integer, dimension(:), intent(in) :: adj_ia
-    integer, dimension(:,:), intent(in) :: adj_ja
-    type(array_type), pointer :: c
 
+    ! Arguments
+    class(array_type), intent(in), target :: vertex_features, edge_features
+    !! Vertex and edge feature tensors
+    integer, dimension(:), intent(in) :: adj_ia
+    !! CSR row pointers
+    integer, dimension(:,:), intent(in) :: adj_ja
+    !! CSR neighbour and edge lookup indices
+    type(array_type), pointer :: c
+    !! Propagated concatenated feature tensor
+
+    ! Local variables
     integer :: v, w
+    !! Vertex and adjacency traversal indices
 
     c => vertex_features%create_result( &
          array_shape = [ &
@@ -51,13 +59,22 @@ contains
   end function duvenaud_propagate
 !-------------------------------------------------------------------------------
   function get_partial_duvenaud_propagate_left(this, upstream_grad) result(output)
+    !! Gradient of duvenaud_propagate with respect to vertex_features.
     implicit none
-    class(array_type), intent(inout) :: this
-    type(array_type), intent(in) :: upstream_grad
-    type(array_type) :: output
 
+    ! Arguments
+    class(array_type), intent(inout) :: this
+    !! Forward result node containing saved operands
+    type(array_type), intent(in) :: upstream_grad
+    !! Upstream gradient tensor
+    type(array_type) :: output
+    !! Gradient tensor for left operand
+
+    ! Local variables
     logical :: right_is_temporary_local
+    !! Saved temporary-ownership flag for right operand
     type(array_type), pointer :: ptr
+    !! Intermediate gradient tensor pointer
 
     right_is_temporary_local = this%right_operand%is_temporary
     this%right_operand%is_temporary = .false.
@@ -69,13 +86,22 @@ contains
   end function get_partial_duvenaud_propagate_left
 !-------------------------------------------------------------------------------
   function get_partial_duvenaud_propagate_right(this, upstream_grad) result(output)
+    !! Gradient of duvenaud_propagate with respect to edge_features.
     implicit none
-    class(array_type), intent(inout) :: this
-    type(array_type), intent(in) :: upstream_grad
-    type(array_type) :: output
 
+    ! Arguments
+    class(array_type), intent(inout) :: this
+    !! Forward result node containing saved operands
+    type(array_type), intent(in) :: upstream_grad
+    !! Upstream gradient tensor
+    type(array_type) :: output
+    !! Gradient tensor for right operand
+
+    ! Local variables
     logical :: left_is_temporary_local
+    !! Saved temporary-ownership flag for left operand
     type(array_type), pointer :: ptr
+    !! Intermediate gradient tensor pointer
 
     left_is_temporary_local = this%left_operand%is_temporary
     this%left_operand%is_temporary = .false.
@@ -89,12 +115,20 @@ contains
   pure subroutine get_partial_duvenaud_propagate_left_val( &
        this, upstream_grad, output &
   )
+    !! In-place value gradient for duvenaud_propagate left operand.
     implicit none
-    class(array_type), intent(in) :: this
-    real(real32), dimension(:,:), intent(in) :: upstream_grad
-    real(real32), dimension(:,:), intent(out) :: output
 
+    ! Arguments
+    class(array_type), intent(in) :: this
+    !! Forward result node containing saved operands
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    !! Upstream gradient values
+    real(real32), dimension(:,:), intent(out) :: output
+    !! Output gradient values for left operand
+
+    ! Local variables
     integer :: v, w, num_features, num_elements
+    !! Loop indices and operand shape values
 
     num_features = size(this%left_operand%val,1)
     num_elements = size(this%left_operand%val,2)
@@ -110,12 +144,20 @@ contains
   pure subroutine get_partial_duvenaud_propagate_right_val( &
        this, upstream_grad, output &
   )
+    !! In-place value gradient for duvenaud_propagate right operand.
     implicit none
-    class(array_type), intent(in) :: this
-    real(real32), dimension(:,:), intent(in) :: upstream_grad
-    real(real32), dimension(:,:), intent(out) :: output
 
+    ! Arguments
+    class(array_type), intent(in) :: this
+    !! Forward result node containing saved operands
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    !! Upstream gradient values
+    real(real32), dimension(:,:), intent(out) :: output
+    !! Output gradient values for right operand
+
+    ! Local variables
     integer :: v, w, num_features, num_elements
+    !! Loop indices and operand shape values
 
     num_features = size(this%left_operand%val,1)
     num_elements = size(this%left_operand%val,2)
@@ -134,17 +176,29 @@ contains
   module function duvenaud_update(a, weight, adj_ia, min_degree, max_degree) result(c)
     !! Update the message passing layer
     implicit none
+
+    ! Arguments
     class(array_type), intent(in), target :: a
+    !! Aggregated neighbour features
     class(array_type), intent(in), target :: weight
+    !! Packed degree-conditioned weight tensor
     ! real(real32), dimension(:,:,:), intent(in) :: weight
     integer, dimension(:), intent(in) :: adj_ia
+    !! CSR row pointers
     integer, intent(in) :: min_degree, max_degree
+    !! Minimum and maximum degree buckets
     type(array_type), pointer :: c
+    !! Degree-conditioned updated feature tensor
     type(array_type), pointer :: weight_array
+    !! Reserved pointer for weight reshaping operations
 
+    ! Local variables
     integer :: v, i, d
+    !! Loop indices and degree bucket index
     integer :: interval
+    !! Flat parameter interval for one degree bucket
     real(real32), pointer :: w_ptr(:,:)
+    !! 2D view over selected degree-specific weight matrix
 
     c => a%create_result(array_shape=[weight%shape(1), size(a%val,2)])
     interval = weight%shape(1) * weight%shape(2)
@@ -174,11 +228,22 @@ contains
   end function duvenaud_update
 !-------------------------------------------------------------------------------
   function get_partial_duvenaud_update(this, upstream_grad) result(output)
+    !! Gradient of duvenaud_update with respect to input features.
+    implicit none
+
+    ! Arguments
     class(array_type), intent(inout) :: this
+    !! Forward result node containing saved operands
     type(array_type), intent(in) :: upstream_grad
+    !! Upstream gradient tensor
     type(array_type) :: output
+    !! Gradient tensor for right operand (input features)
+
+    ! Local variables
     logical :: left_is_temporary_local
+    !! Saved temporary-ownership flag for left operand
     type(array_type), pointer :: ptr
+    !! Intermediate gradient tensor pointer
 
     left_is_temporary_local = this%left_operand%is_temporary
     this%left_operand%is_temporary = .false.
@@ -190,11 +255,22 @@ contains
   end function get_partial_duvenaud_update
 !-------------------------------------------------------------------------------
   function get_partial_duvenaud_update_weight(this, upstream_grad) result(output)
+    !! Gradient of duvenaud_update with respect to packed weights.
+    implicit none
+
+    ! Arguments
     class(array_type), intent(inout) :: this
+    !! Forward result node containing saved operands
     type(array_type), intent(in) :: upstream_grad
+    !! Upstream gradient tensor
     type(array_type) :: output
+    !! Gradient tensor for left operand (weights)
+
+    ! Local variables
     logical :: right_is_temporary_local
+    !! Saved temporary-ownership flag for right operand
     type(array_type), pointer :: ptr
+    !! Intermediate gradient tensor pointer
 
     right_is_temporary_local = this%right_operand%is_temporary
     this%right_operand%is_temporary = .false.
@@ -208,15 +284,26 @@ contains
   pure subroutine get_partial_duvenaud_update_val( &
        this, upstream_grad, output &
   )
+    !! In-place value gradient for duvenaud_update input features.
     implicit none
-    class(array_type), intent(in) :: this
-    real(real32), dimension(:,:), intent(in) :: upstream_grad
-    real(real32), dimension(:,:), intent(out) :: output
 
+    ! Arguments
+    class(array_type), intent(in) :: this
+    !! Forward result node containing saved operands
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    !! Upstream gradient values
+    real(real32), dimension(:,:), intent(out) :: output
+    !! Output gradient values for input features
+
+    ! Local variables
     integer :: v, d
+    !! Loop index and degree bucket index
     integer :: interval, num_output_features, num_input_features
+    !! Flattening interval and matrix dimensions
     integer :: min_degree, max_degree
+    !! Degree bucket limits
     real(real32), dimension(size(upstream_grad,1), this%right_operand%shape(1)) :: tmp
+    !! Temporary reshaped weight matrix for one degree bucket
 
     output = 0._real32
     num_output_features = size(upstream_grad,1)
@@ -239,14 +326,24 @@ contains
   pure subroutine get_partial_duvenaud_update_weight_val( &
        this, upstream_grad, output &
   )
+    !! In-place value gradient for duvenaud_update packed weights.
     implicit none
-    class(array_type), intent(in) :: this
-    real(real32), dimension(:,:), intent(in) :: upstream_grad
-    real(real32), dimension(:,:), intent(out) :: output
 
+    ! Arguments
+    class(array_type), intent(in) :: this
+    !! Forward result node containing saved operands
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    !! Upstream gradient values
+    real(real32), dimension(:,:), intent(out) :: output
+    !! Output gradient values for packed weights
+
+    ! Local variables
     integer :: v, i, j, d_offset, d_val
+    !! Loop indices, degree offset and degree bucket index
     integer :: interval, num_output_features, num_input_features
+    !! Flattening interval and matrix dimensions
     integer :: min_degree, max_degree
+    !! Degree bucket limits
 
     output = 0._real32
     num_output_features = size(upstream_grad,1)
