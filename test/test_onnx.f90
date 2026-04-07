@@ -54,8 +54,8 @@ program test_onnx
   ! write(*,*) network%get_params()
 
   ! Export to ONNX
-  call write_onnx('test_model.onnx', network)
-  print *, 'Network exported to test_model.onnx'
+  call write_onnx('test_model.json', network)
+  print *, 'Network exported to test_model.json'
 
   write(*,*) 'ONNX test completed successfully!'
 
