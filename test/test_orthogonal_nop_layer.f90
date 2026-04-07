@@ -63,14 +63,14 @@ program test_orthogonal_nop_block
              layer1%num_params
      end if
      ! Check basis is allocated
-     if(.not.layer1%phi%allocated)then
-        success = .false.
-        write(0,*) 'orthogonal_nop phi not allocated'
-     end if
-     if(.not.layer1%phi_T%allocated)then
-        success = .false.
-        write(0,*) 'orthogonal_nop phi_T not allocated'
-     end if
+     block
+       type(array_type) :: phi
+       phi = layer1%get_bases()
+       if(.not.phi%allocated)then
+          success = .false.
+          write(0,*) 'orthogonal_nop phi not allocated'
+       end if
+     end block
   class default
      success = .false.
      write(0,*) 'layer1 has wrong type'

@@ -20,55 +20,47 @@ program test_dynamic_lno_layer
   write(*,*) "Test 1: layer construction..."
   layer1 = dynamic_lno_layer_type(num_inputs=4, num_outputs=8, num_modes=3)
 
-  if(layer1%name .ne. 'nop_laplace')then
+  if(layer1%name .ne. 'dynamic_lno')then
      success = .false.
-     write(0,*) 'nop_laplace layer has wrong name: '//trim(layer1%name)
+     write(0,*) 'dynamic_lno layer has wrong name: '//trim(layer1%name)
   end if
 
   if(any(layer1%input_shape .ne. [4]))then
      success = .false.
-     write(0,*) 'nop_laplace layer has wrong input_shape'
+     write(0,*) 'dynamic_lno layer has wrong input_shape'
   end if
 
   if(any(layer1%output_shape .ne. [8]))then
      success = .false.
-     write(0,*) 'nop_laplace layer has wrong output_shape'
+     write(0,*) 'dynamic_lno layer has wrong output_shape'
   end if
 
   select type(layer1)
   type is(dynamic_lno_layer_type)
      if(layer1%num_inputs .ne. 4)then
         success = .false.
-        write(0,*) 'nop_laplace layer has wrong num_inputs'
+        write(0,*) 'dynamic_lno layer has wrong num_inputs'
      end if
      if(layer1%num_outputs .ne. 8)then
         success = .false.
-        write(0,*) 'nop_laplace layer has wrong num_outputs'
+        write(0,*) 'dynamic_lno layer has wrong num_outputs'
      end if
      if(layer1%num_modes .ne. 3)then
         success = .false.
-        write(0,*) 'nop_laplace layer has wrong num_modes'
+        write(0,*) 'dynamic_lno layer has wrong num_modes'
      end if
      if(layer1%activation%name .ne. 'none')then
         success = .false.
-        write(0,*) 'nop_laplace layer has wrong default activation: '// &
+        write(0,*) 'dynamic_lno layer has wrong default activation: '// &
              layer1%activation%name
      end if
      ! num_params = 2*M + n_out * n_in + n_out (bias)
      !            = 6 + 32 + 8 = 46
+     write(*,*) "tet1"
      if(layer1%num_params .ne. 46)then
         success = .false.
-        write(0,'("nop_laplace layer has wrong num_params: ",I0)') &
+        write(0,'("dynamic_lno layer has wrong num_params: ",I0)') &
              layer1%num_params
-     end if
-     ! Check basis matrices are allocated
-     if(.not.layer1%encoder_basis%allocated)then
-        success = .false.
-        write(0,*) 'nop_laplace encoder_basis not allocated'
-     end if
-     if(.not.layer1%decoder_basis%allocated)then
-        success = .false.
-        write(0,*) 'nop_laplace decoder_basis not allocated'
      end if
   class default
      success = .false.
@@ -85,11 +77,11 @@ program test_dynamic_lno_layer
 
   if(any(layer2%input_shape .ne. [8]))then
      success = .false.
-     write(0,*) 'deferred nop_laplace layer has wrong input_shape'
+     write(0,*) 'deferred dynamic_lno layer has wrong input_shape'
   end if
   if(any(layer2%output_shape .ne. [6]))then
      success = .false.
-     write(0,*) 'deferred nop_laplace layer has wrong output_shape'
+     write(0,*) 'deferred dynamic_lno layer has wrong output_shape'
   end if
 
 
@@ -104,7 +96,7 @@ program test_dynamic_lno_layer
   type is(dynamic_lno_layer_type)
      if(layer3%use_bias)then
         success = .false.
-        write(0,*) 'no-bias nop_laplace layer has use_bias = T'
+        write(0,*) 'no-bias dynamic_lno layer has use_bias = T'
      end if
      ! num_params = 4 + 16 = 20 (no bias)
      if(layer3%num_params .ne. 20)then
@@ -128,7 +120,7 @@ program test_dynamic_lno_layer
   type is(dynamic_lno_layer_type)
      if(layer1%activation%name .ne. 'relu')then
         success = .false.
-        write(0,*) 'nop_laplace layer has wrong activation: '// &
+        write(0,*) 'dynamic_lno layer has wrong activation: '// &
              layer1%activation%name
      end if
   class default
@@ -203,20 +195,18 @@ program test_dynamic_lno_layer
 
   open(newunit=unit, file='test_dynamic_lno_layer.tmp', &
        status='replace', action='write')
-  write(unit,'("NOP_LAPLACE")')
-  call layer1%print_to_unit(unit)
-  write(unit,'("END NOP_LAPLACE")')
+  call layer1%print(unit=unit)
   close(unit)
 
   open(newunit=unit, file='test_dynamic_lno_layer.tmp', &
        status='old', action='read')
-  read(unit,*)   ! skip NOP_LAPLACE header line
+  read(unit,*)   ! skip dynamic_lno header line
   read_layer = read_dynamic_lno_layer(unit)
   close(unit)
 
   select type(read_layer)
   type is(dynamic_lno_layer_type)
-     if(read_layer%name .ne. 'nop_laplace')then
+     if(read_layer%name .ne. 'dynamic_lno')then
         success = .false.
         write(0,*) 'read layer has wrong name'
      end if
@@ -291,11 +281,11 @@ contains
 
     if(layer1%num_inputs .ne. layer2%num_inputs)then
        success = .false.
-       write(0,*) 'nop_laplace layer comparison: wrong num_inputs'
+       write(0,*) 'dynamic_lno layer comparison: wrong num_inputs'
     end if
     if(layer1%activation%name .ne. 'sigmoid')then
        success = .false.
-       write(0,*) 'nop_laplace layer comparison: wrong activation: '// &
+       write(0,*) 'dynamic_lno layer comparison: wrong activation: '// &
             layer1%activation%name
     end if
     if(present(layer3))then
@@ -310,7 +300,7 @@ contains
                layer3%params(1)%grad%val &
           ).gt.1.0e-6_real32))then
              success = .false.
-             write(0,*) 'nop_laplace layer: poles gradient sum mismatch'
+             write(0,*) 'dynamic_lno layer: poles gradient sum mismatch'
           end if
        end if
        if( &
@@ -324,7 +314,7 @@ contains
                layer3%params(2)%grad%val &
           ).gt.1.0e-6_real32))then
              success = .false.
-             write(0,*) 'nop_laplace layer: residues gradient sum mismatch'
+             write(0,*) 'dynamic_lno layer: residues gradient sum mismatch'
           end if
        end if
     end if
