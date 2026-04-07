@@ -17,6 +17,9 @@ doc/html/
 *.txt
 *.onnx
 *.pyc
+*.png
+*.csv
+*.json
 __pycache__/
 wandb/
 *.err

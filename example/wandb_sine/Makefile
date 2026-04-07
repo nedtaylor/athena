@@ -1,5 +1,4 @@
-NAME := wandb_pinn_burgers
-LIBS := mod_constants.f90
+NAME := wandb_sine
 REQUIRED_MODS := athena_wandb
 CPP_MACROS := _WANDB
 SETUP_ENV_SCRIPT := ../../tools/setup_wf_env.sh
