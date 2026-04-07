@@ -32,6 +32,13 @@ _wf_save_original_env() {
     fi
 }
 
+_wf_python_has_wandb() {
+    local candidate="$1"
+    [[ -n "$candidate" ]] || return 1
+    command -v "$candidate" &>/dev/null || return 1
+    "$candidate" -c "import wandb, wandb.errors" >/dev/null 2>&1
+}
+
 # --------------------------------------------------------------------------- #
 #  Resolve Python interpreter                                                  #
 # --------------------------------------------------------------------------- #
@@ -49,6 +56,23 @@ fi
 
 if ! command -v "$_WF_PY" &>/dev/null; then
     _wf_err "Python interpreter '$_WF_PY' not found."
+fi
+
+if [[ -z "${PYTHON:-}" ]] && ! _wf_python_has_wandb "$_WF_PY"; then
+    if _wf_python_has_wandb python3; then
+        _WF_PY="python3"
+    elif command -v conda &>/dev/null; then
+        _WF_CONDA_BASE=$(conda info --base 2>/dev/null)
+        if [[ -n "$_WF_CONDA_BASE" && -d "$_WF_CONDA_BASE/envs" ]]; then
+            for _WF_CONDA_PY in "$_WF_CONDA_BASE"/envs/*/bin/python; do
+                [[ -x "$_WF_CONDA_PY" ]] || continue
+                if _wf_python_has_wandb "$_WF_CONDA_PY"; then
+                    _WF_PY="$_WF_CONDA_PY"
+                    break
+                fi
+            done
+        fi
+    fi
 fi
 
 _WF_PY_ABS=$(command -v "$_WF_PY")
@@ -119,4 +143,6 @@ echo "You can now run:  fpm build"
 unset _WF_PY _WF_PY_ABS _WF_PY_VER _WF_PY_DIR
 unset _WF_PY_CFG _WF_PY_PREFIX _WF_PY_PURELIB _WF_PY_PLATLIB _WF_PY_PATH
 unset _WF_INCLUDES _WF_LDFLAGS _WF_LIBDIR
+unset _WF_CONDA_BASE _WF_CONDA_PY
 unset -f _wf_save_original_env
+unset -f _wf_python_has_wandb
