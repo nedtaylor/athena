@@ -246,6 +246,7 @@ contains
     !! Set the hyperparameters for fully connected layer
     use athena__activation, only: activation_setup
     use athena__initialiser, only: get_default_initialiser, initialiser_setup
+    use athena__initialiser_data, only: data_init_type
     implicit none
 
     ! Arguments
@@ -284,7 +285,18 @@ contains
        buffer = get_default_initialiser(this%activation%name)
        this%kernel_init = initialiser_setup(buffer)
     else
-       allocate(this%kernel_init, source=kernel_initialiser)
+       select type(kernel_init_in => kernel_initialiser)
+       class is(data_init_type)
+          allocate(data_init_type :: this%kernel_init)
+          select type(kernel_init_out => this%kernel_init)
+          type is(data_init_type)
+             kernel_init_out%name = kernel_init_in%name
+             allocate(kernel_init_out%data(size(kernel_init_in%data)))
+             kernel_init_out%data = kernel_init_in%data
+          end select
+       class default
+          allocate(this%kernel_init, source=kernel_initialiser)
+       end select
     end if
     if(allocated(this%bias_init)) deallocate(this%bias_init)
     if(.not.allocated(bias_initialiser))then
@@ -295,7 +307,18 @@ contains
        this%bias_init = initialiser_setup(buffer)
     else
        if(allocated(this%bias_init)) deallocate(this%bias_init)
-       allocate(this%bias_init, source=bias_initialiser)
+       select type(bias_init_in => bias_initialiser)
+       class is(data_init_type)
+          allocate(data_init_type :: this%bias_init)
+          select type(bias_init_out => this%bias_init)
+          type is(data_init_type)
+             bias_init_out%name = bias_init_in%name
+             allocate(bias_init_out%data(size(bias_init_in%data)))
+             bias_init_out%data = bias_init_in%data
+          end select
+       class default
+          allocate(this%bias_init, source=bias_initialiser)
+       end select
     end if
     if(present(verbose))then
        if(abs(verbose).gt.0)then
@@ -670,6 +693,7 @@ contains
   subroutine build_from_onnx_full(this, node, initialisers, value_info, verbose )
     !! Read ONNX attributes for fully connected layer
     use athena__activation, only: activation_setup
+    use athena__initialiser_data, only: data_init_type
     implicit none
 
     ! Arguments
@@ -689,8 +713,10 @@ contains
     !! Loop index
     logical :: use_bias = .true.
     !! Whether to use bias
-    integer, dimension(:), allocatable :: dims
-    !! Initialiser dimensions
+    integer, dimension(:), allocatable :: dim_products, init_indices
+    !! Initialiser flattened sizes and their source indices
+    integer :: num_init_products
+    !! Number of initialisers with dimension metadata
     integer :: weight_idx, bias_idx
     !! Indices for weight and bias initialisers
     integer :: num_outputs
@@ -702,7 +728,9 @@ contains
 
     weight_idx = -1
     bias_idx = -1
-    allocate(dims(0))
+    allocate(dim_products(size(initialisers)))
+    allocate(init_indices(size(initialisers)))
+    num_init_products = 0
     if(size(initialisers).lt.1)then
        call stop_program("ONNX FULL layer requires at least 1 initialiser")
        return
@@ -711,24 +739,26 @@ contains
        ! look for dimensions
        do i = 1, size(initialisers)
           if(allocated(initialisers(i)%dims))then
-             dims = [ dims, product(initialisers(i)%dims) ]
+             num_init_products = num_init_products + 1
+             dim_products(num_init_products) = product(initialisers(i)%dims)
+             init_indices(num_init_products) = i
           end if
        end do
     end if
     ! if both weight and bias have dimension 1, check which is larger and that
     ! the division of it by the kernel size is equal to the length of the other
-    select case(size(dims))
+    select case(num_init_products)
     case(1)
-       weight_idx = 1
+       weight_idx = init_indices(1)
        use_bias = .false.
     case(2)
        ! check which is weight and which is bias
-       if(mod(dims(1), dims(2)).eq.0)then
-          weight_idx = 1
-          bias_idx = 2
-       elseif(mod(dims(2), dims(1)).eq.0)then
-          weight_idx = 2
-          bias_idx = 1
+       if(mod(dim_products(1), dim_products(2)).eq.0)then
+          weight_idx = init_indices(1)
+          bias_idx = init_indices(2)
+       elseif(mod(dim_products(2), dim_products(1)).eq.0)then
+          weight_idx = init_indices(2)
+          bias_idx = init_indices(1)
        else
           call stop_program("ONNX FULL layer initialiser dimensions not compatible")
           return
@@ -739,9 +769,21 @@ contains
     end select
     num_outputs = value_info(1)%dims(2)
 
-    kernel_initialiser = data_init_type( data = initialisers(weight_idx)%data )
+    allocate(data_init_type :: kernel_initialiser)
+    select type(kernel_init_data => kernel_initialiser)
+    type is(data_init_type)
+       kernel_init_data%name = 'data'
+       allocate(kernel_init_data%data(size(initialisers(weight_idx)%data)))
+       kernel_init_data%data = initialisers(weight_idx)%data
+    end select
     if(use_bias)then
-       bias_initialiser = data_init_type( data = initialisers(bias_idx)%data )
+       allocate(data_init_type :: bias_initialiser)
+       select type(bias_init_data => bias_initialiser)
+       type is(data_init_type)
+          bias_init_data%name = 'data'
+          allocate(bias_init_data%data(size(initialisers(bias_idx)%data)))
+          bias_init_data%data = initialisers(bias_idx)%data
+       end select
     end if
 
     activation = activation_setup("none")

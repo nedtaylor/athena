@@ -670,8 +670,7 @@ contains
     end if
 
     do i = 1, size(inputs)
-       write(*,*) "Processing ONNX input: ", trim(inputs(i)%name)
-       input_shape = inputs(i)%dims(size(inputs(i)%dims):2:-1)
+       input_shape = inputs(i)%dims(2:size(inputs(i)%dims))
 
        call this%add( &
             input_layer_type(input_shape, index=i) &
