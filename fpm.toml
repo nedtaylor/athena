@@ -121,6 +121,11 @@ source-dir = "example/pinn_burgers/src"
 example_library = { path = "example/example_library"}
 
 [[example]]
+name = "benchmark_adam"
+source-dir = "example/benchmark_adam/src"
+main = "main.f90"
+
+[[example]]
 name = "custom_forward"
 source-dir = "example/custom_forward/src"
 [example.dependencies]
