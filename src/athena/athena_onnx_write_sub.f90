@@ -597,11 +597,7 @@ contains
     write(unit, '(A)') '  },'
     write(unit, '(A)') '  "opsetImport": ['
     write(unit, '(A)') '    {'
-    if(ifmt .eq. 2)then
-       write(unit, '(A)') '      "version": "14"'
-    else
-       write(unit, '(A)') '      "version": "17"'
-    end if
+    write(unit, '(A)') '      "version": "17"'
     write(unit, '(A)') '    }'
     write(unit, '(A)') '  ]'
     write(unit, '(A)') '}'

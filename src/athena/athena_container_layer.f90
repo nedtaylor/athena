@@ -28,6 +28,9 @@ module athena__container_layer
   public :: onnx_expanded_nop_create_layer_container
   public :: list_of_onnx_expanded_nop_layer_creators
   public :: allocate_list_of_onnx_expanded_nop_layer_creators
+  public :: onnx_expanded_gnn_create_layer_container
+  public :: list_of_onnx_expanded_gnn_layer_creators
+  public :: allocate_list_of_onnx_expanded_gnn_layer_creators
 #if defined(GFORTRAN)
   public :: container_reduction
 #endif
@@ -174,6 +177,62 @@ module athena__container_layer
   !! List of expanded-ONNX NOP creators registered for pattern-matched ONNX
   !! import
 
+  abstract interface
+     logical function classify_onnx_expanded_gnn_layer( &
+          prefix, nodes, num_nodes)
+       !! Return true when this creator handles the given
+       !! expanded-ONNX GNN prefix.
+       import :: onnx_node_type
+       character(*), intent(in) :: prefix
+       !! Expanded-ONNX layer prefix (e.g. "node_2")
+       type(onnx_node_type), intent(in) :: nodes(:)
+       !! Parsed ONNX nodes
+       integer, intent(in) :: num_nodes
+       !! Number of valid node entries
+     end function classify_onnx_expanded_gnn_layer
+
+     function build_onnx_expanded_gnn_layer( &
+          prefix, nodes, num_nodes, inits, &
+          num_inits, inputs, num_inputs) &
+     result(layer)
+       !! Build one expanded-ONNX GNN layer from a node cluster.
+       import :: base_layer_type, onnx_node_type, &
+            onnx_initialiser_type, onnx_tensor_type
+       character(*), intent(in) :: prefix
+       !! Expanded-ONNX layer prefix (e.g. "node_2")
+       type(onnx_node_type), intent(in) :: nodes(:)
+       !! Parsed ONNX nodes
+       integer, intent(in) :: num_nodes
+       !! Number of valid node entries
+       type(onnx_initialiser_type), intent(in) :: inits(:)
+       !! Parsed ONNX initialisers
+       integer, intent(in) :: num_inits
+       !! Number of valid initialiser entries
+       type(onnx_tensor_type), intent(in) :: inputs(:)
+       !! Parsed ONNX graph input tensors
+       integer, intent(in) :: num_inputs
+       !! Number of valid graph input entries
+       class(base_layer_type), allocatable :: layer
+       !! Constructed layer
+     end function build_onnx_expanded_gnn_layer
+  end interface
+
+  type :: onnx_expanded_gnn_create_layer_container
+     !! Registration entry for one expanded-ONNX GNN layer type
+     character(30) :: gnn_subtype
+     !! Subtype name (e.g. "kipf", "duvenaud")
+     procedure(classify_onnx_expanded_gnn_layer), &
+          nopass, pointer :: classify_ptr => null()
+     !! Pointer to the classifier
+     procedure(build_onnx_expanded_gnn_layer), &
+          nopass, pointer :: build_ptr => null()
+     !! Pointer to the builder
+  end type onnx_expanded_gnn_create_layer_container
+  type(onnx_expanded_gnn_create_layer_container), &
+       dimension(:), allocatable :: &
+       list_of_onnx_expanded_gnn_layer_creators
+  !! List of expanded-ONNX GNN creators
+
   interface
      module function read_layer(unit, verbose) result(layer)
        !! Read a layer from a file
@@ -238,6 +297,14 @@ module athena__container_layer
             dimension(:), intent(in), optional :: addit_list
        !! Additional list of expanded-ONNX NOP layer creation procedures
      end subroutine allocate_list_of_onnx_expanded_nop_layer_creators
+
+     module subroutine allocate_list_of_onnx_expanded_gnn_layer_creators( &
+          addit_list)
+       !! Allocate the list of expanded-ONNX GNN layer creation procedures
+       type(onnx_expanded_gnn_create_layer_container), &
+            dimension(:), intent(in), optional :: addit_list
+       !! Additional list of expanded-ONNX GNN layer creation procedures
+     end subroutine allocate_list_of_onnx_expanded_gnn_layer_creators
   end interface
 
   interface
