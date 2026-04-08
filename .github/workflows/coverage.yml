@@ -27,9 +27,6 @@ concurrency:
 
 jobs:
   run-code-coverage:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -40,17 +37,46 @@ jobs:
       - name: checkout repo
         uses: actions/checkout@v4
 
+      - name: Install BLAS/LAPACK system libraries
+        if: github.actor != 'nektos/act'
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y libblas-dev liblapack-dev
+
       - name: actions-setup-cmake
+        if: github.actor != 'nektos/act'
         uses: jwlawson/actions-setup-cmake@v2
         with:
           cmake-version: '3.24.x'
 
+      - name: Install compiler + tools (apt)
+        if: github.actor == 'nektos/act'
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y software-properties-common
+          sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y cmake gcc-15 gfortran-15 python3-pip libblas-dev liblapack-dev
+          sudo update-alternatives --install /usr/bin/gfortran gfortran /usr/bin/gfortran-15 150
+          python3 -m pip install --user beautifulsoup4 gcovr
+
+          echo "FC=$(command -v gfortran-15)" >> $GITHUB_ENV
+          echo "GCOV=$(command -v gcov-15 || command -v gcov)" >> $GITHUB_ENV
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
       - name: Setup conda
+        if: github.actor != 'nektos/act'
         uses: conda-incubator/setup-miniconda@v3
         with:
           python-version: 3.11
+          installation-dir: ${{ runner.temp }}/miniconda3
+          pkgs-dirs: ${{ runner.temp }}/conda-pkgs
+          run-post: ${{ github.actor == 'nektos/act' && 'false' || 'true' }}
 
       - name: Install compiler + tools (conda)
+        if: github.actor != 'nektos/act'
         shell: bash -l {0}
         run: |
           conda install -y -c conda-forge \
@@ -64,55 +90,66 @@ jobs:
       - name: Build project
         shell: bash -l {0}
         run: |
+          build_dir="$GITHUB_WORKSPACE/build/coverage-ci"
+
           which gfortran
           gfortran --version
           cmake --version
-          mkdir -p build
-          cd build
-          export GCOV_PATH=$(which gcov)
+          rm -rf "$build_dir"
+          mkdir -p "$build_dir"
+          cd "$build_dir"
+          export GCOV_PATH=${GCOV:-$(which gcov)}
           cmake \
             -DCMAKE_BUILD_TYPE=Debug \
             -DCMAKE_Fortran_COMPILER=${FC:-gfortran} \
             -DGCOV_PATH=${GCOV_PATH} \
-            ..
+            "$GITHUB_WORKSPACE"
           make
 
       - name: Run coverage tests
         shell: bash -l {0}
         run: |
-          cd build
+          cd "$GITHUB_WORKSPACE/build/coverage-ci"
           env CTEST_OUTPUT_ON_FAILURE=1 make coverage
 
       - name: Get coverage percentage
+        id: coverage_percentage
         shell: bash -l {0}
         run: |
-          pip install bs4
-          echo "COVERAGE_PERCENTAGE="$(python ./tools/coverage_badge.py) >> $GITHUB_ENV
+          if [ "${{ github.actor }}" != 'nektos/act' ]; then
+            pip install bs4
+          fi
+
+          coverage_percentage=$(python3 ./tools/coverage_badge.py)
+          echo "COVERAGE_PERCENTAGE=$coverage_percentage" >> $GITHUB_ENV
+          echo "value=$coverage_percentage" >> $GITHUB_OUTPUT
 
       - name: Create coverage badge
+        if: github.actor != 'nektos/act'
         uses: schneegans/dynamic-badges-action@v1.7.0
         with:
           auth: ${{ secrets.GIST_SECRET }}
           gistID: fd7c07c046ecc92d92eaf7bdcb78c4b5
           filename: athena_coverage_${{ github.head_ref || github.ref_name }}.json  # Use branch-specific file
           label: Coverage
-          message: ${{ env.COVERAGE_PERCENTAGE }}%
-          valColorRange: ${{ env.COVERAGE_PERCENTAGE }}
+          message: ${{ steps.coverage_percentage.outputs.value }}%
+          valColorRange: ${{ steps.coverage_percentage.outputs.value }}
           maxColorRange: 100
           minColorRange: 0
 
       - name: upload artifact
+        if: github.actor != 'nektos/act'
         uses: actions/upload-pages-artifact@v4
         with:
-          path: './build/coverage/'
+          path: './build/coverage-ci/coverage/'
 
   deploy:
+    if: github.actor != 'nektos/act' && github.ref == 'refs/heads/main'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     needs: run-code-coverage
-    if: ${{ github.ref == 'refs/heads/main' }}
     steps:
       - name: deploy to Github Pages (main branch)
         id: deployment

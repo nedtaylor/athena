@@ -40,22 +40,50 @@ jobs:
       - name: checkout repo
         uses: actions/checkout@v4
 
+      - name: Install BLAS/LAPACK system libraries
+        if: github.actor != 'nektos/act' && matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y libblas-dev liblapack-dev
+
       - name: Setup CMake
+        if: github.actor != 'nektos/act'
         uses: jwlawson/actions-setup-cmake@v2.0.1
         with:
           cmake-version: '3.24.x'
 
       # ----------------------------------------------------
+      # Local act path (Linux Docker runner)
+      # ----------------------------------------------------
+      - name: Install compiler + tools (apt)
+        if: github.actor == 'nektos/act' && matrix.os == 'ubuntu-latest' && matrix.compiler == 'gcc' && matrix.version == '15'
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y software-properties-common
+          sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y cmake gcc-15 gfortran-15 gcovr libblas-dev liblapack-dev
+          sudo update-alternatives --install /usr/bin/gfortran gfortran /usr/bin/gfortran-15 150
+
+          echo "FC=$(command -v gfortran-15)" >> $GITHUB_ENV
+          echo "GCOV=$(command -v gcov-15 || command -v gcov)" >> $GITHUB_ENV
+
+      # ----------------------------------------------------
       # Conda path (Linux + GCC 15)
       # ----------------------------------------------------
       - name: Setup conda
-        if: matrix.os == 'ubuntu-latest' && matrix.compiler == 'gcc' && matrix.version == '15'
+        if: github.actor != 'nektos/act' && matrix.os == 'ubuntu-latest' && matrix.compiler == 'gcc' && matrix.version == '15'
         uses: conda-incubator/setup-miniconda@v3
         with:
           python-version: 3.11
+          installation-dir: ${{ runner.temp }}/miniconda3
+          pkgs-dirs: ${{ runner.temp }}/conda-pkgs
+          run-post: ${{ github.actor == 'nektos/act' && 'false' || 'true' }}
 
       - name: Install compiler + tools (conda)
-        if: matrix.os == 'ubuntu-latest' && matrix.compiler == 'gcc' && matrix.version == '15'
+        if: github.actor != 'nektos/act' && matrix.os == 'ubuntu-latest' && matrix.compiler == 'gcc' && matrix.version == '15'
         shell: bash -l {0}
         run: |
           conda install -y -c conda-forge \
@@ -70,7 +98,7 @@ jobs:
       # Non-conda compilers (future-proof)
       # ----------------------------------------------------
       - name: Setup Fortran compiler
-        if: ${{ !(matrix.os == 'ubuntu-latest' && matrix.compiler == 'gcc' && matrix.version == '15') }}
+        if: ${{ github.actor != 'nektos/act' && !(matrix.os == 'ubuntu-latest' && matrix.compiler == 'gcc' && matrix.version == '15') }}
         uses: fortran-lang/setup-fortran@v1
         with:
           compiler: ${{ matrix.compiler }}
@@ -82,20 +110,23 @@ jobs:
       - name: Build and test
         shell: bash -l {0}
         run: |
+          build_dir="$GITHUB_WORKSPACE/build/cmake-${{ matrix.build_type }}"
+
           echo "Build type: ${{ matrix.build_type }}"
           which gfortran
           gfortran --version
           cmake --version
 
-          mkdir -p build
-          cd build
-          export GCOV_PATH=$(which gcov)
+          rm -rf "$build_dir"
+          mkdir -p "$build_dir"
+          cd "$build_dir"
+          export GCOV_PATH=${GCOV:-$(which gcov)}
 
           cmake \
             -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
             -DCMAKE_Fortran_COMPILER=${FC:-gfortran} \
             -DGCOV_PATH=${GCOV_PATH} \
-            ..
+            "$GITHUB_WORKSPACE"
 
           make -j$(nproc)
           make install

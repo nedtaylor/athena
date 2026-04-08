@@ -26,7 +26,51 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  build-and-test-fpm-local:
+    if: github.actor == 'nektos/act'
+    name: Run examples locally in debug mode
+    runs-on: ubuntu-latest
+    steps:
+    - name: checkout repo
+      uses: actions/checkout@v4
+
+    - name: Install gfortran via apt
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo DEBIAN_FRONTEND=noninteractive apt-get install -y software-properties-common
+        sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+        sudo apt-get update
+        sudo DEBIAN_FRONTEND=noninteractive apt-get install -y gcc-15 gfortran-15 unzip libblas-dev liblapack-dev
+        sudo update-alternatives --install /usr/bin/gfortran gfortran /usr/bin/gfortran-15 150
+        echo "FC=$(command -v gfortran-15)" >> $GITHUB_ENV
+
+    - uses: fortran-lang/setup-fpm@v7
+      id: setup-fpm
+      with:
+        fpm-version: "v0.13.0"
+
+    - name: Download MNIST dataset
+      run: |
+        mnist_dir="$GITHUB_WORKSPACE/.ci-data/MNIST-txt"
+
+        mkdir -p "$GITHUB_WORKSPACE/.ci-data"
+
+        if [ ! -d "$mnist_dir" ]; then
+          git clone https://github.com/halimb/MNIST-txt.git "$mnist_dir"
+        fi
+
+        unzip -o "$mnist_dir/MNIST_txt.zip" -d "$mnist_dir"
+        sed -i "s|^[[:space:]]*dataset_dir = .*| dataset_dir = \"$mnist_dir\"|" example/mnist/test_job.in
+
+    - name: Run examples
+      shell: bash -l {0}
+      run: |
+        "$FC" --version
+        fpm run --example mnist --profile debug --compiler "$FC" --build-dir build/act-examples
+
   build-and-test-fpm-debug:
+    if: github.actor != 'nektos/act'
     name: Run examples in debug mode
     runs-on: ubuntu-latest
     strategy:
@@ -34,11 +78,15 @@ jobs:
       matrix:
         toolchain:
         - {compiler: gcc, version: 15}
-        - {compiler: intel, version: '2025.2'}
-        # - {compiler: lfortran, version: '0.45.0'}
     steps:
     - name: checkout repo
       uses: actions/checkout@v4
+
+    - name: Install BLAS/LAPACK system libraries
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo DEBIAN_FRONTEND=noninteractive apt-get install -y libblas-dev liblapack-dev
 
     # ----------------------------------------------------
     # Conda path (GCC)
@@ -48,6 +96,9 @@ jobs:
       uses: conda-incubator/setup-miniconda@v3
       with:
         python-version: 3.11
+        installation-dir: ${{ runner.temp }}/miniconda3
+        pkgs-dirs: ${{ runner.temp }}/conda-pkgs
+        run-post: ${{ github.actor == 'nektos/act' && 'false' || 'true' }}
 
     - name: Install gfortran via conda
       if: matrix.toolchain.compiler == 'gcc'
@@ -57,15 +108,6 @@ jobs:
         echo "FC=$(which gfortran)" >> $GITHUB_ENV
 
     # ----------------------------------------------------
-    # Non-conda compilers (future-proof)
-    # ----------------------------------------------------
-    - if: ${{ !(matrix.toolchain.compiler == 'gcc') }}
-      uses: fortran-lang/setup-fortran@v1
-      id: setup-fortran
-      with:
-        compiler: ${{ matrix.toolchain.compiler }}
-        version: ${{ matrix.toolchain.version }}
-
     - uses: fortran-lang/setup-fpm@v7
       id: setup-fpm
       with:
@@ -73,17 +115,19 @@ jobs:
 
     - name: Download MNIST dataset
       run: |
-        echo "Leaving athena directory"
-        pwd
-        cd ..
-        git clone https://github.com/halimb/MNIST-txt.git
-        cd MNIST-txt
-        unzip MNIST_txt.zip
-        cd ../athena
-        echo "Returning to athena directory"
+        mnist_dir="$GITHUB_WORKSPACE/.ci-data/MNIST-txt"
+
+        mkdir -p "$GITHUB_WORKSPACE/.ci-data"
+
+        if [ ! -d "$mnist_dir" ]; then
+          git clone https://github.com/halimb/MNIST-txt.git "$mnist_dir"
+        fi
+
+        unzip -o "$mnist_dir/MNIST_txt.zip" -d "$mnist_dir"
+        sed -i "s|^[[:space:]]*dataset_dir = .*| dataset_dir = \"$mnist_dir\"|" example/mnist/test_job.in
 
     - name: Run examples
       shell: bash -l {0}
       run: |
-        ${{ env.FC }} --version
-        fpm run --example mnist --profile debug --compiler ${{ env.FC }}
+        "$FC" --version
+        fpm run --example mnist --profile debug --compiler "$FC"

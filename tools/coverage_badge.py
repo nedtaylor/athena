@@ -1,24 +1,62 @@
+import os
+from pathlib import Path
+
 from bs4 import BeautifulSoup
 
-html_file = "./build/coverage/index.html"
 
-colour_dict = {'coverage-low':"red", 'coverage-medium':"yellow", 'coverage-high':"brightgreen"}
+def resolve_coverage_html() -> Path:
+    candidates = []
+    override = os.environ.get("COVERAGE_HTML_FILE")
+    if override:
+        candidates.append(Path(override))
 
-with open(html_file, 'r') as file:
+    candidates.extend(
+        [
+            Path("./build/coverage-ci/coverage/index.html"),
+            Path("./build/coverage/index.html"),
+        ]
+    )
+
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+
+    raise FileNotFoundError("Could not locate a coverage HTML report.")
+
+
+html_file = resolve_coverage_html()
+
+with html_file.open("r", encoding="utf-8") as file:
     soup = BeautifulSoup(file, 'html.parser')
 
     # Find the "coverage" table
     coverage_table = soup.find('table', {'class': 'coverage'})
 
-    # Find the second row of the "coverage" table
-    second_row = coverage_table.find_all('tr')[1]
+    if coverage_table is None:
+        raise ValueError("Coverage table was not found in the HTML report.")
 
-    # Find the third column of the second row
-    third_column = second_row.find_all('td')[2]
+    percentage = None
+    fallback_percentage = None
+    for row in coverage_table.find_all('tr'):
+        cells = [cell.get_text(strip=True) for cell in row.find_all(['td', 'th'])]
+        if not cells:
+            continue
 
-    percentage = third_column.get_text()
+        percent_cells = [cell for cell in cells if cell.endswith('%')]
+        if not percent_cells:
+            continue
+
+        if fallback_percentage is None:
+            fallback_percentage = percent_cells[0]
+
+        if cells[0].lower().rstrip(':') == 'total':
+            percentage = percent_cells[0]
+            break
+
+    if percentage is None:
+        percentage = fallback_percentage
+
+    if percentage is None:
+        raise ValueError("Could not extract a percentage value from the coverage report.")
     
-    # Get the class of the <td> element
-    td_class = third_column.get('class')[0]
-
 print(int(float(percentage.replace("%", ""))))
