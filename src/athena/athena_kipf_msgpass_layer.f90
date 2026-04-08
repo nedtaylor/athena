@@ -692,7 +692,8 @@ contains
   subroutine emit_onnx_nodes_kipf( &
        this, prefix, &
        nodes, num_nodes, max_nodes, &
-       inits, num_inits, max_inits &
+       inits, num_inits, max_inits, &
+       input_name, is_last_layer, format &
   )
     !! Emit ONNX JSON nodes for Kipf GCN layer
     !!
@@ -728,6 +729,12 @@ contains
     !! Current number of initialisers
     integer, intent(in) :: max_inits
     !! Maximum capacity
+    character(*), optional, intent(in) :: input_name
+    !! Unused sequential input name
+    logical, optional, intent(in) :: is_last_layer
+    !! Unused last-layer flag
+    integer, optional, intent(in) :: format
+    !! Unused export format selector
 
     ! Local variables
     integer :: t

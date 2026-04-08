@@ -520,7 +520,13 @@ def main() -> None:
         print(f'Model: RolloutMLP (params={sum(p.numel() for p in model.parameters())})')
 
     if args.export_model:
-        # export the model to an onnx json-format file for inspection (not used for inference in this script)
+        # export the model to an onnx json-format file for inspection
+        # (export after shared init so values match Fortran for cross-language comparison)
+        pass  # defer export until after shared init
+
+    apply_shared_initialization(model, config['seed'])
+
+    if args.export_model:
         dummy_input = torch.randn(1, config['grid_size'])
         torch.onnx.export(model, dummy_input, SHARED_DIR / 'model.onnx', verbose=False, input_names=['input'], output_names=['output'], opset_version=14)
         import onnx
@@ -531,7 +537,6 @@ def main() -> None:
         with open(SHARED_DIR / 'model.json', "w") as f:
             f.write(MessageToJson(onnx_model))
 
-    apply_shared_initialization(model, config['seed'])
     train_rollout(model, train_traj, val_traj, config)
     benchmark(model, benchmark_traj, config)
 

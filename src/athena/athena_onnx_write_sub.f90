@@ -5,15 +5,16 @@ submodule(athena__onnx) athena__onnx_write_submodule
   !! to the JSON representation used for ONNX interchange.
   use athena__io_utils, only: athena__version__
   use athena__base_layer, only: base_layer_type, learnable_layer_type
+  use athena__onnx_nop_utils, only: emit_nop_metadata
   use athena__misc_types, only: &
        onnx_attribute_type, onnx_node_type, onnx_initialiser_type, &
        onnx_tensor_type
-  use coreutils, only: to_camel_case
+  use coreutils, only: to_lower, to_camel_case, stop_program
 
 contains
 
 !###############################################################################
-  module subroutine write_onnx(file, network)
+  module subroutine write_onnx(file, network, format)
     !! Export a network to ONNX JSON format.
     !!
     !! GNN layers are exported as standard ONNX operators plus metadata
@@ -27,6 +28,8 @@ contains
     !! Instance of the network
     character(*), intent(in) :: file
     !! Output file name
+    class(*), optional, intent(in) :: format
+    !! Export format: 'athena_abstract' (default) or 'onnx_expanded'
 
     ! Local variables
     type(onnx_node_type), allocatable :: nodes(:)
@@ -43,6 +46,15 @@ contains
     !! Numbers of populated export records
     integer :: max_nodes, max_inits
     !! Pre-allocation sizes for node and initialiser storage
+    integer :: ifmt
+    !! Integer selector for export format
+
+
+    !---------------------------------------------------------------------------
+    ! Validate the export format and convert to integer selector
+    !---------------------------------------------------------------------------
+    ifmt = resolve_onnx_export_format(format)
+    if(ifmt .eq. 0) return
 
 
     !--------------------------------------------------------------------------
@@ -63,22 +75,82 @@ contains
     ! Collect graph content
     !--------------------------------------------------------------------------
     call collect_export_nodes( &
-         network, nodes, num_nodes, max_nodes, &
+         network, ifmt, nodes, num_nodes, max_nodes, &
          inits, num_inits, max_inits, &
          gnn_metadata, num_gnn_meta)
-    call build_graph_inputs(network, graph_inputs, num_inputs)
-    call build_graph_outputs(network, graph_outputs, num_outputs)
+    call build_graph_inputs( &
+         network, ifmt, graph_inputs, num_inputs)
+    call build_graph_outputs( &
+         network, ifmt, graph_outputs, num_outputs)
 
 
     !--------------------------------------------------------------------------
     ! Write the JSON model
     !--------------------------------------------------------------------------
     call write_onnx_json_file( &
-         file, nodes, num_nodes, inits, num_inits, &
+         file, ifmt, nodes, num_nodes, inits, num_inits, &
          graph_inputs, num_inputs, graph_outputs, num_outputs, &
          gnn_metadata, num_gnn_meta)
 
   end subroutine write_onnx
+!###############################################################################
+
+
+!###############################################################################
+  function resolve_onnx_export_format(format) result(ifmt)
+    !! Resolve the ONNX export format into the internal integer selector.
+    implicit none
+
+    ! Arguments
+    class(*), optional, intent(in) :: format
+    !! Export format as a string name or integer selector
+
+    integer :: ifmt
+    !! Integer selector for the export format (1=athena_abstract, 2=onnx_expanded)
+
+    ! Local variables
+    character(32) :: format_name
+    !! Normalised string representation of the requested export format
+    character(128) :: err_msg
+    !! Error buffer used for unsupported integer selectors
+
+    ifmt = 1
+
+    if(present(format))then
+       select type(format)
+       type is(character(*))
+          format_name = to_lower(trim(adjustl(format)))
+          select case(trim(format_name))
+          case('athena_abstract')
+             ifmt = 1
+          case('onnx_expanded')
+             ifmt = 2
+          case default
+             call stop_program('write_onnx: unrecognised export format: ' // &
+                  trim(format_name))
+             ifmt = 0
+             return
+          end select
+       type is(integer)
+          ifmt = format
+       class default
+          call stop_program('write_onnx: unrecognised export format type')
+          ifmt = 0
+          return
+       end select
+    end if
+
+    select case(ifmt)
+    case(1, 2)
+       continue
+    case default
+       write(err_msg, '("write_onnx: unrecognised export format selector: ",I0)') ifmt
+       call stop_program(err_msg)
+       ifmt = 0
+       return
+    end select
+
+  end function resolve_onnx_export_format
 !###############################################################################
 
 
@@ -120,7 +192,7 @@ contains
 
 !###############################################################################
   subroutine collect_export_nodes( &
-       network, nodes, num_nodes, max_nodes, &
+       network, ifmt, nodes, num_nodes, max_nodes, &
        inits, num_inits, max_inits, &
        gnn_metadata, num_gnn_meta)
     !! Build the ONNX nodes, initialisers and GNN metadata.
@@ -129,6 +201,8 @@ contains
     ! Arguments
     class(network_type), intent(in) :: network
     !! Instance of the network
+    integer, intent(in) :: ifmt
+    !! Export format selector
     type(onnx_node_type), intent(inout) :: nodes(:)
     !! Exported ONNX nodes
     integer, intent(inout) :: num_nodes, max_nodes
@@ -143,10 +217,51 @@ contains
     !! Number of metadata entries
 
     ! Local variables
-    integer :: i, layer_id
+    integer :: i, ii, layer_id, layer_num, lid
     !! Loop index and layer identifier
-    character(128) :: node_name
-    !! Node name prefix
+    character(128) :: node_name, input_name
+    !! Node name prefix and sequential input name
+    logical :: is_last_layer
+    !! Whether the current NOP is the last non-input layer
+
+    if(ifmt .eq. 2)then
+       layer_num = 0
+       input_name = 'input'
+
+       do i = 1, network%auto_graph%num_vertices
+          layer_id = network%auto_graph%vertex(network%vertex_order(i))%id
+          if(trim(network%model(layer_id)%layer%type) .eq. 'inpt') cycle
+
+          if(trim(network%model(layer_id)%layer%type) .ne. 'nop')then
+             call stop_program( &
+                  'write_onnx: pytorch format supports NOP layers only')
+             return
+          end if
+
+          layer_num = layer_num + 1
+          write(node_name, '("layer",I0)') layer_num
+
+          is_last_layer = .true.
+          do ii = i + 1, network%auto_graph%num_vertices
+             lid = network%auto_graph%vertex(network%vertex_order(ii))%id
+             if(trim(network%model(lid)%layer%type) .ne. 'inpt')then
+                is_last_layer = .false.
+                exit
+             end if
+          end do
+
+          call network%model(layer_id)%layer%emit_onnx_nodes( &
+               trim(node_name), nodes, num_nodes, max_nodes, &
+               inits, num_inits, max_inits, input_name=trim(input_name), &
+               is_last_layer=is_last_layer, format=ifmt)
+
+          call update_pytorch_prev_output( &
+               network%model(layer_id)%layer, trim(node_name), &
+               is_last_layer, input_name)
+       end do
+
+       return
+    end if
 
     do i = 1, network%auto_graph%num_vertices
        layer_id = network%auto_graph%vertex(network%vertex_order(i))%id
@@ -168,7 +283,7 @@ contains
           call emit_standard_node_json( &
                network, layer_id, i, nodes, num_nodes, max_nodes, &
                inits, num_inits, max_inits)
-          call build_nop_metadata( &
+          call emit_nop_metadata( &
                network%model(layer_id)%layer, trim(node_name), &
                gnn_metadata, num_gnn_meta)
        case default
@@ -183,13 +298,45 @@ contains
 
 
 !###############################################################################
-  subroutine build_graph_inputs(network, graph_inputs, num_inputs)
+  subroutine update_pytorch_prev_output(layer, prefix, is_last_layer, output)
+    !! Resolve the downstream tensor name after emitting one PyTorch-format NOP.
+    implicit none
+
+    class(base_layer_type), intent(in) :: layer
+    character(*), intent(in) :: prefix
+    logical, intent(in) :: is_last_layer
+    character(128), intent(inout) :: output
+
+    if(is_last_layer)then
+       output = 'output'
+       return
+    end if
+
+    select type(layer)
+    class is(learnable_layer_type)
+       if(trim(layer%activation%name) .ne. 'none')then
+          write(output, '("/",A,"/Relu_output_0")') trim(prefix)
+       else
+          write(output, '("/",A,"/Transpose_1_output_0")') trim(prefix)
+       end if
+    class default
+       write(output, '("/",A,"/Transpose_1_output_0")') trim(prefix)
+    end select
+
+  end subroutine update_pytorch_prev_output
+!###############################################################################
+
+
+!###############################################################################
+  subroutine build_graph_inputs(network, ifmt, graph_inputs, num_inputs)
     !! Build the ONNX graph input tensor specifications.
     implicit none
 
     ! Arguments
     class(network_type), intent(in) :: network
     !! Instance of the network
+    integer, intent(in) :: ifmt
+    !! Export format selector
     type(onnx_tensor_type), intent(inout) :: graph_inputs(:)
     !! Graph input tensor specifications
     integer, intent(inout) :: num_inputs
@@ -198,6 +345,21 @@ contains
     ! Local variables
     integer :: i, j, layer_id
     !! Loop indices and current layer identifier
+
+    if(ifmt .eq. 2)then
+       do i = 1, network%auto_graph%num_vertices
+          layer_id = network%auto_graph%vertex(network%vertex_order(i))%id
+          if(trim(network%model(layer_id)%layer%type) .ne. 'inpt') cycle
+          num_inputs = 1
+          graph_inputs(1)%name = 'input'
+          graph_inputs(1)%elem_type = 1
+          allocate(graph_inputs(1)%dims(2))
+          graph_inputs(1)%dims = [ &
+               1, network%model(layer_id)%layer%input_shape(1)]
+          return
+       end do
+       return
+    end if
 
     do i = 1, size(network%root_vertices, dim=1)
        layer_id = network%auto_graph%vertex(network%root_vertices(i))%id
@@ -274,13 +436,15 @@ contains
 
 
 !###############################################################################
-  subroutine build_graph_outputs(network, graph_outputs, num_outputs)
+  subroutine build_graph_outputs(network, ifmt, graph_outputs, num_outputs)
     !! Build the ONNX graph output tensor specifications.
     implicit none
 
     ! Arguments
     class(network_type), intent(in) :: network
     !! Instance of the network
+    integer, intent(in) :: ifmt
+    !! Export format selector
     type(onnx_tensor_type), intent(inout) :: graph_outputs(:)
     !! Graph output tensor specifications
     integer, intent(inout) :: num_outputs
@@ -291,6 +455,33 @@ contains
     !! Loop indices and current layer identifier
     character(:), allocatable :: suffix
     !! Optional activation suffix for output names
+
+    if(ifmt .eq. 2)then
+       layer_id = 0
+       do i = 1, network%auto_graph%num_vertices
+          j = network%vertex_order(i)
+          if(all(network%leaf_vertices(:) .ne. j)) cycle
+          layer_id = network%auto_graph%vertex(j)%id
+          exit
+       end do
+
+       if(layer_id .eq. 0) return
+
+       num_outputs = 1
+       graph_outputs(1)%name = 'output'
+       graph_outputs(1)%elem_type = 1
+       if(allocated(graph_outputs(1)%dims)) deallocate(graph_outputs(1)%dims)
+       if(allocated(graph_outputs(1)%dim_params)) then
+          deallocate(graph_outputs(1)%dim_params)
+       end if
+       allocate(graph_outputs(1)%dims(2))
+       allocate(graph_outputs(1)%dim_params(2))
+       graph_outputs(1)%dim_params(1) = 'batch_size'
+       graph_outputs(1)%dims(1) = -1
+       graph_outputs(1)%dim_params(2) = ''
+       graph_outputs(1)%dims(2) = network%model(layer_id)%layer%output_shape(1)
+       return
+    end if
 
     do i = 1, size(network%leaf_vertices, dim=1)
        layer_id = network%auto_graph%vertex(network%leaf_vertices(i))%id
@@ -327,7 +518,7 @@ contains
 
 !###############################################################################
   subroutine write_onnx_json_file( &
-       file, nodes, num_nodes, inits, num_inits, &
+       file, ifmt, nodes, num_nodes, inits, num_inits, &
        graph_inputs, num_inputs, graph_outputs, num_outputs, &
        gnn_metadata, num_gnn_meta)
     !! Write the collected export data to disk.
@@ -338,6 +529,8 @@ contains
     ! Arguments
     character(*), intent(in) :: file
     !! Output file name
+    integer, intent(in) :: ifmt
+    !! Export format selector
     type(onnx_node_type), intent(in) :: nodes(:)
     !! Exported ONNX nodes
     integer, intent(in) :: num_nodes
@@ -365,22 +558,32 @@ contains
 
     open(newunit=unit, file=file, status='replace')
     write(unit, '(A)') '{'
-    write(unit, '(A)') '  "irVersion": "8",'
-    write(unit, '(A)') '  "producerName": "Athena",'
-    write(unit, '(A,A,A)') '  "producerVersion": "', &
-         trim(athena__version__), '",'
+    if(ifmt .eq. 2)then
+       write(unit, '(A)') '  "irVersion": "7",'
+       write(unit, '(A)') '  "producerName": "pytorch",'
+       write(unit, '(A)') '  "producerVersion": "2.7.1",'
+    else
+       write(unit, '(A)') '  "irVersion": "8",'
+       write(unit, '(A)') '  "producerName": "Athena",'
+       write(unit, '(A,A,A)') '  "producerVersion": "', &
+            trim(athena__version__), '",'
+    end if
     write(unit, '(A)') '  "graph": {'
 
     call write_json_nodes(unit, nodes, num_nodes)
     write(unit, '(A)') ','
-    write(unit, '(A)') '    "name": "athena_network",'
+    if(ifmt .eq. 2)then
+       write(unit, '(A)') '    "name": "main_graph",'
+    else
+       write(unit, '(A)') '    "name": "athena_network",'
+    end if
     call write_json_initialisers(unit, inits, num_inits)
     write(unit, '(A)') ','
     call write_json_tensors(unit, 'input', graph_inputs, num_inputs)
     write(unit, '(A)') ','
     call write_json_tensors(unit, 'output', graph_outputs, num_outputs)
 
-    if(num_gnn_meta .gt. 0)then
+    if(ifmt .ne. 2 .and. num_gnn_meta .gt. 0)then
        write(unit, '(A)') ','
        write(unit, '(A)') '    "metadataProps": ['
        do i = 1, num_gnn_meta
@@ -394,7 +597,11 @@ contains
     write(unit, '(A)') '  },'
     write(unit, '(A)') '  "opsetImport": ['
     write(unit, '(A)') '    {'
-    write(unit, '(A)') '      "version": "17"'
+    if(ifmt .eq. 2)then
+       write(unit, '(A)') '      "version": "14"'
+    else
+       write(unit, '(A)') '      "version": "17"'
+    end if
     write(unit, '(A)') '    }'
     write(unit, '(A)') '  ]'
     write(unit, '(A)') '}'
@@ -666,43 +873,6 @@ contains
 
 
 !###############################################################################
-  subroutine build_nop_metadata(layer, prefix, metadata, num_meta)
-    !! Build the metadata entry required to reconstruct a NOP layer.
-    implicit none
 
-    ! Arguments
-    class(base_layer_type), intent(in) :: layer
-    !! NOP layer instance
-    character(*), intent(in) :: prefix
-    !! Node prefix used for this exported layer
-    character(4096), intent(inout) :: metadata(:)
-    !! Metadata strings to append to
-    integer, intent(inout) :: num_meta
-    !! Number of metadata entries
-
-    ! Local variables
-    type(onnx_attribute_type), allocatable :: attrs(:)
-    !! Layer attributes returned by polymorphic dispatch
-    integer :: i
-    !! Loop index
-    character(2048) :: value_str
-    !! Semicolon-separated metadata payload
-
-    attrs = layer%get_attributes()
-    if(.not.allocated(attrs) .or. size(attrs) .eq. 0) return
-
-    value_str = 'subtype=' // trim(adjustl(layer%name))
-    do i = 1, size(attrs)
-       value_str = trim(value_str) // ';' // trim(attrs(i)%name) // '=' // &
-            trim(adjustl(attrs(i)%val))
-    end do
-
-    num_meta = num_meta + 1
-    write(metadata(num_meta), '(A)') &
-         '      {"key": "athena_nop_' // trim(prefix) // &
-         '", "value": "' // trim(value_str) // '"}'
-
-  end subroutine build_nop_metadata
-!###############################################################################
 
 end submodule athena__onnx_write_submodule
