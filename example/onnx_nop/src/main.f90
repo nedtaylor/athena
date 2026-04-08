@@ -65,7 +65,7 @@ program onnx_nop_example
   !---------------------------------------------------------------------------
   onnx_file = 'example/onnx_nop/model.json'
   write(*,'(A,A)') 'Exporting to ONNX: ', trim(onnx_file)
-  call write_onnx(onnx_file, net_orig)
+  call write_onnx(onnx_file, net_orig, format=1)
 
 
   !---------------------------------------------------------------------------

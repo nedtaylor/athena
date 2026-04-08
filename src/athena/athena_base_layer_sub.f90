@@ -177,7 +177,8 @@ contains
   module subroutine emit_onnx_nodes_base( &
        this, prefix, &
        nodes, num_nodes, max_nodes, &
-       inits, num_inits, max_inits &
+       inits, num_inits, max_inits, &
+       input_name, is_last_layer, format &
   )
     !! Default implementation: no-op (standard layers are handled by write_onnx)
     implicit none
@@ -199,6 +200,12 @@ contains
     !! Number of ONNX initialisers
     integer, intent(in) :: max_inits
     !! Maximum number of ONNX initialisers
+    character(*), optional, intent(in) :: input_name
+    !! Name of the input tensor from the previous layer
+    logical, optional, intent(in) :: is_last_layer
+    !! Whether this is the last non-input layer
+    integer, optional, intent(in) :: format
+    !! Export format selector
 
     ! Default: do nothing. Standard layers are handled directly by write_onnx.
   end subroutine emit_onnx_nodes_base

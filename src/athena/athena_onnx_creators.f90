@@ -20,6 +20,8 @@ module athena__onnx_creators
 
   use athena__misc_types, only: &
        onnx_node_type, onnx_initialiser_type, onnx_tensor_type
+  use athena__onnx_nop_utils, only: parse_nop_metadata, extract_nop_prefix, &
+       load_nop_param_from_inits
   use athena__onnx_utils, only: row_to_col_major_2d, &
        parse_space_separated_ints
   implicit none
@@ -531,7 +533,6 @@ contains
   ) result(layer)
     !! Build dynamic LNO layer from ONNX metadata and return layer
     use athena__dynamic_lno_layer, only: dynamic_lno_layer_type
-    use athena__initialiser_data, only: data_init_type
     implicit none
 
     ! Arguments
@@ -550,57 +551,20 @@ contains
     logical :: use_bias
     !! Whether the imported layer uses bias
     character(64) :: activation_name, nop_prefix
-    integer :: k, pos, pos2, stat
-    !! Parsing indices and status code
-    character(256) :: token, key, val
 
     verbose_ = 0
     if(present(verbose)) verbose_ = verbose
 
-    ! Defaults
     num_inputs = 0
     num_outputs = 0
     num_modes = 0
     use_bias = .true.
     activation_name = 'none'
 
-    ! Parse hyperparameters from metadata value
-    pos = 1
-    do while(pos .le. len_trim(meta_value))
-       pos2 = index(meta_value(pos:), ';')
-       if(pos2 .eq. 0)then
-          token = meta_value(pos:len_trim(meta_value))
-          pos = len_trim(meta_value) + 1
-       else
-          token = meta_value(pos:pos+pos2-2)
-          pos = pos + pos2
-       end if
-       k = index(token, '=')
-       if(k .eq. 0) cycle
-       key = trim(adjustl(token(1:k-1)))
-       val = trim(adjustl(token(k+1:)))
-       select case(trim(key))
-       case('num_inputs')
-          read(val, *) num_inputs
-       case('num_outputs')
-          read(val, *) num_outputs
-       case('num_modes')
-          read(val, *) num_modes
-       case('use_bias')
-          use_bias = read_logical_from_string(val, stat)
-          if(stat .ne. 0)then
-             call stop_program("create_from_onnx_dynamic_lno_layer: " // &
-                  "invalid logical value for use_bias")
-          end if
-       case('activation')
-          activation_name = trim(val)
-       end select
-    end do
+    call parse_nop_metadata(meta_value, &
+         num_inputs, num_outputs, num_modes, use_bias, activation_name)
 
-    ! Derive initialiser name prefix from metadata key
-    nop_prefix = trim(meta_key)
-    pos = index(nop_prefix, 'athena_nop_')
-    if(pos .gt. 0) nop_prefix = nop_prefix(pos+11:)
+    nop_prefix = extract_nop_prefix(meta_key)
 
     block
       type(dynamic_lno_layer_type) :: lno_layer
@@ -938,178 +902,5 @@ contains
   end function create_from_onnx_orthogonal_attention_layer
 !###############################################################################
 
-
-! =============================================================================
-! NOP shared helper routines
-! =============================================================================
-
-
-!###############################################################################
-  subroutine parse_nop_metadata(meta_value, &
-       num_inputs, num_outputs, num_modes, use_bias, activation_name)
-    !! Parse common NOP hyperparameters from metadata value string.
-    implicit none
-
-    ! Arguments
-    character(*), intent(in) :: meta_value
-    !! Metadata payload string to parse
-    integer, intent(inout) :: num_inputs, num_outputs, num_modes
-    !! Parsed dimensions (updated in-place)
-    logical, intent(inout) :: use_bias
-    !! Parsed bias flag (updated in-place)
-    character(64), intent(inout) :: activation_name
-    !! Parsed activation name (updated in-place)
-
-    ! Local variables
-    integer :: k, pos, pos2, stat
-    !! Parsing indices and logical conversion status
-    character(256) :: token, key, val
-
-    pos = 1
-    do while(pos .le. len_trim(meta_value))
-       pos2 = index(meta_value(pos:), ';')
-       if(pos2 .eq. 0)then
-          token = meta_value(pos:len_trim(meta_value))
-          pos = len_trim(meta_value) + 1
-       else
-          token = meta_value(pos:pos+pos2-2)
-          pos = pos + pos2
-       end if
-       k = index(token, '=')
-       if(k .eq. 0) cycle
-       key = trim(adjustl(token(1:k-1)))
-       val = trim(adjustl(token(k+1:)))
-       select case(trim(key))
-       case('num_inputs')
-          read(val, *) num_inputs
-       case('num_outputs')
-          read(val, *) num_outputs
-       case('num_modes', 'num_basis')
-          read(val, *) num_modes
-       case('use_bias')
-          use_bias = read_logical_from_string(val, stat)
-          if(stat .ne. 0)then
-             call stop_program("parse_nop_metadata: " // &
-                  "invalid logical value for use_bias")
-          end if
-       case('activation')
-          activation_name = trim(val)
-       end select
-    end do
-
-  end subroutine parse_nop_metadata
-!###############################################################################
-
-
-!###############################################################################
-  function extract_nop_prefix(meta_key) result(prefix)
-    !! Extract the node prefix from an athena_nop_node_X metadata key.
-    implicit none
-
-    ! Arguments
-    character(*), intent(in) :: meta_key
-    !! NOP metadata key
-    character(64) :: prefix
-    !! Layer prefix used for ONNX parameter names
-
-    ! Local variables
-    integer :: pos
-    !! Position of the athena_nop_ prefix marker
-
-    prefix = trim(meta_key)
-    pos = index(prefix, 'athena_nop_')
-    if(pos .gt. 0) prefix = prefix(pos+11:)
-
-  end function extract_nop_prefix
-!###############################################################################
-
-
-!###############################################################################
-  subroutine load_nop_param_from_inits( &
-       param, prefix, suffix, inits, num_inits, dims)
-    !! Load a parameter from ONNX initialisers into a diffstruc array.
-    use diffstruc, only: array_type
-    implicit none
-
-    ! Arguments
-    type(array_type), intent(inout) :: param
-    !! Destination parameter tensor
-    character(*), intent(in) :: prefix, suffix
-    !! Name fragments used to match the ONNX initialiser
-    type(onnx_initialiser_type), dimension(:), intent(in) :: inits
-    !! ONNX initialisers containing candidate parameter tensors
-    integer, intent(in) :: num_inits
-    !! Number of valid entries in inits
-    integer, dimension(2), intent(in) :: dims
-    !! Expected 2D shape [rows, cols] for the parameter
-
-    ! Local variables
-    integer :: k
-    !! Initialiser loop index
-    character(128) :: target_name
-    !! Fully qualified ONNX initialiser name to match
-    real(real32), allocatable :: col_data(:)
-    !! Temporary buffer for row-major to column-major conversion
-
-    write(target_name, '(A,A)') trim(prefix), suffix
-
-    do k = 1, num_inits
-       if(trim(inits(k)%name) .ne. trim(target_name)) cycle
-       if(.not.allocated(inits(k)%data)) cycle
-
-       if(dims(2) .gt. 1)then
-          ! 2D parameter — convert row-major to column-major
-          allocate(col_data(size(inits(k)%data)))
-          call row_to_col_major_2d( &
-               inits(k)%data, col_data, dims(1), dims(2))
-          param%val(:,1) = col_data
-          deallocate(col_data)
-       else
-          ! 1D parameter
-          param%val(:,1) = inits(k)%data
-       end if
-       return
-    end do
-
-  end subroutine load_nop_param_from_inits
-!###############################################################################
-
-
-!###############################################################################
-  function read_logical_from_string(val, stat) result(logical_val)
-    !! Convert a string to a logical value
-    !!
-    !! Acceptable true values: "true", "1" (case-insensitive)
-    !! Acceptable false values: "false", "0" (case-insensitive)
-    use coreutils, only: to_lower
-    implicit none
-
-    ! Arguments
-    character(*), intent(in) :: val
-    !! Input string to convert
-    integer, intent(out) :: stat
-    !! Status code: 0 for success, non-zero for invalid input
-
-    logical :: logical_val
-    !! Local variable for the resulting logical value
-
-    stat = 0
-    if( &
-         to_lower(trim(adjustl(val))) .eq. 'true' .or. &
-         trim(adjustl(val)) .eq. '1' &
-    ) then
-       logical_val = .true.
-    elseif( &
-         to_lower(trim(adjustl(val))) .eq. 'false' .or. &
-         trim(adjustl(val)) .eq. '0' &
-    ) then
-       logical_val = .false.
-    else
-       stat = 1
-       logical_val = .false.  ! Default value in case of error
-    end if
-
-  end function read_logical_from_string
-!###############################################################################
 
 end module athena__onnx_creators

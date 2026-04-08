@@ -11,14 +11,16 @@ module athena__onnx
 
 
   interface
-     module subroutine write_onnx(file, network)
+     module subroutine write_onnx(file, network, format)
        class(network_type), intent(in) :: network
        !! Instance of network
        character(*), intent(in) :: file
        !! File to export the network to
+       class(*), optional, intent(in) :: format
+       !! Export format: 'athena_abstract' (default) or 'onnx_expanded'
      end subroutine write_onnx
 
-    module function read_onnx(file, verbose) result(network)
+     module function read_onnx(file, verbose) result(network)
        character(*), intent(in) :: file
        !! File to import the network from
        integer, optional, intent(in) :: verbose

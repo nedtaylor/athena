@@ -16,7 +16,8 @@ module athena__base_layer
   use coreutils, only: real32
   use athena__clipper, only: clip_type
   use athena__misc_types, only: base_actv_type, base_init_type, facets_type, &
-       onnx_attribute_type, onnx_node_type, onnx_initialiser_type, onnx_tensor_type
+       onnx_attribute_type, onnx_node_type, onnx_initialiser_type, &
+       onnx_tensor_type
   use diffstruc, only: array_type
   use athena__diffstruc_extd, only: array_ptr_type
   use graphstruc, only: graph_type
@@ -98,7 +99,7 @@ module athena__base_layer
      procedure, pass(this) :: set_graph => set_graph_base
      !! Set the graph structure of the input data !! this is adjacency and edge weighting
      procedure, pass(this) :: emit_onnx_nodes => emit_onnx_nodes_base
-     !! Emit ONNX JSON nodes for this layer (polymorphic for extensibility)
+     !! Emit ONNX JSON nodes for this layer (format-aware and polymorphic)
      procedure, pass(this) :: emit_onnx_graph_inputs => &
           emit_onnx_graph_inputs_base
      !! Emit graph input tensor declarations for this layer
@@ -252,10 +253,11 @@ module athena__base_layer
      module subroutine emit_onnx_nodes_base( &
           this, prefix, &
           nodes, num_nodes, max_nodes, &
-          inits, num_inits, max_inits &
+          inits, num_inits, max_inits, &
+          input_name, is_last_layer, format &
      )
        !! Emit ONNX JSON nodes for this layer
-       !! Default implementation does nothing; override for GNN layers
+       !! Default implementation does nothing; override for GNN/NOP layers
        class(base_layer_type), intent(in) :: this
        !! Instance of the layer
        character(*), intent(in) :: prefix
@@ -272,6 +274,14 @@ module athena__base_layer
        !! Current number of initialisers
        integer, intent(in) :: max_inits
        !! Maximum capacity
+       character(*), optional, intent(in) :: input_name
+       !! Upstream tensor name used by sequential expanded ONNX format
+       logical, optional, intent(in) :: is_last_layer
+       !! Whether this is the last non-input layer in the network
+       integer, optional, intent(in) :: format
+       !! Export format selector
+       !! 1 = ONNX athena abstract format (default)
+       !! 2 = ONNX expanded format
      end subroutine emit_onnx_nodes_base
 
      module subroutine emit_onnx_graph_inputs_base( &

@@ -36,6 +36,8 @@ module athena__spectral_filter_layer
   use athena__base_layer, only: learnable_layer_type, base_layer_type
   use athena__misc_types, only: base_actv_type, base_init_type, &
        onnx_node_type, onnx_initialiser_type, onnx_tensor_type
+  use athena__onnx_nop_utils, only: emit_nop_input_transpose, &
+       emit_nop_output_tail, emit_float_initialiser, emit_matrix_initialiser
   use diffstruc, only: array_type, matmul, operator(+), operator(*)
   implicit none
 
@@ -68,6 +70,8 @@ module athena__spectral_filter_layer
      procedure, pass(this) :: read => read_spectral_filter
 
      procedure, pass(this) :: forward => forward_spectral_filter
+     procedure, pass(this) :: emit_onnx_nodes => &
+          emit_onnx_nodes_spectral_filter
 
      final :: finalise_spectral_filter
   end type spectral_filter_layer_type
@@ -728,6 +732,140 @@ contains
     this%output(1,1)%is_temporary = .false.
 
   end subroutine forward_spectral_filter
+!###############################################################################
+
+
+!###############################################################################
+  subroutine emit_onnx_nodes_spectral_filter( &
+       this, prefix, nodes, num_nodes, max_nodes, inits, num_inits, &
+       max_inits, input_name, is_last_layer, format)
+    !! Emit decomposed standard ONNX nodes for a Spectral Filter layer.
+    !!
+    !! Forward: v = sigma(w_s * u + W * u + b)
+    implicit none
+
+    ! Arguments
+    class(spectral_filter_layer_type), intent(in) :: this
+    !! Spectral filter layer instance
+    character(*), intent(in) :: prefix
+    !! Layer name prefix
+    type(onnx_node_type), intent(inout), dimension(:) :: nodes
+    !! Node accumulator
+    integer, intent(inout) :: num_nodes
+    !! Node counter
+    integer, intent(in) :: max_nodes
+    !! Node limit
+    type(onnx_initialiser_type), intent(inout), dimension(:) :: inits
+    !! Initialiser accumulator
+    integer, intent(inout) :: num_inits
+    !! Initialiser counter
+    integer, intent(in) :: max_inits
+    !! Initialiser limit
+    character(*), optional, intent(in) :: input_name
+    !! Name of the input tensor
+    logical, optional, intent(in) :: is_last_layer
+    !! Whether this is the last layer
+    integer, optional, intent(in) :: format
+    !! Export format selector
+
+    ! Local variables
+    integer :: n
+    character(128) :: ws_name, w_name, b_name
+    character(128) :: trans_in_out, mm_w_out, mul_out
+    character(128) :: add_out, add_b_out, final_output, output_source
+    integer :: format_
+
+    format_ = 1
+    if(present(format)) format_ = format
+    if(format_ .ne. 2) return
+    if(.not.present(input_name)) return
+    if(.not.present(is_last_layer)) return
+
+    write(ws_name, '(A,".w_s")') trim(prefix)
+    write(w_name, '(A,".W")') trim(prefix)
+    write(b_name, '(A,".b")') trim(prefix)
+
+    write(trans_in_out, '("/",A,"/Transpose_output_0")') trim(prefix)
+    write(mm_w_out, '("/",A,"/MatMul_output_0")') trim(prefix)
+    write(mul_out, '("/",A,"/Mul_output_0")') trim(prefix)
+    write(add_out, '("/",A,"/Add_output_0")') trim(prefix)
+    write(add_b_out, '("/",A,"/Add_1_output_0")') trim(prefix)
+
+    ! Transpose(input)
+    call emit_nop_input_transpose(trim(prefix), trim(input_name), nodes, &
+         num_nodes, trim(trans_in_out))
+
+    ! Mul(w_s, x_t)
+    num_nodes = num_nodes + 1
+    write(nodes(num_nodes)%name, '("/",A,"/Mul")') trim(prefix)
+    nodes(num_nodes)%op_type = 'Mul'
+    allocate(nodes(num_nodes)%inputs(2))
+    nodes(num_nodes)%inputs(1) = trim(ws_name)
+    nodes(num_nodes)%inputs(2) = trim(trans_in_out)
+    allocate(nodes(num_nodes)%outputs(1))
+    nodes(num_nodes)%outputs(1) = trim(mul_out)
+    nodes(num_nodes)%attributes_json = ''
+
+    ! MatMul(W, x_t)
+    num_nodes = num_nodes + 1
+    write(nodes(num_nodes)%name, '("/",A,"/MatMul")') trim(prefix)
+    nodes(num_nodes)%op_type = 'MatMul'
+    allocate(nodes(num_nodes)%inputs(2))
+    nodes(num_nodes)%inputs(1) = trim(w_name)
+    nodes(num_nodes)%inputs(2) = trim(trans_in_out)
+    allocate(nodes(num_nodes)%outputs(1))
+    nodes(num_nodes)%outputs(1) = trim(mm_w_out)
+    nodes(num_nodes)%attributes_json = ''
+
+    ! Add(filtered, local)
+    num_nodes = num_nodes + 1
+    write(nodes(num_nodes)%name, '("/",A,"/Add")') trim(prefix)
+    nodes(num_nodes)%op_type = 'Add'
+    allocate(nodes(num_nodes)%inputs(2))
+    nodes(num_nodes)%inputs(1) = trim(mul_out)
+    nodes(num_nodes)%inputs(2) = trim(mm_w_out)
+    allocate(nodes(num_nodes)%outputs(1))
+    nodes(num_nodes)%outputs(1) = trim(add_out)
+    nodes(num_nodes)%attributes_json = ''
+
+    ! Add(combined, bias)
+    if(this%use_bias)then
+       num_nodes = num_nodes + 1
+       write(nodes(num_nodes)%name, '("/",A,"/Add_1")') trim(prefix)
+       nodes(num_nodes)%op_type = 'Add'
+       allocate(nodes(num_nodes)%inputs(2))
+       nodes(num_nodes)%inputs(1) = trim(add_out)
+       nodes(num_nodes)%inputs(2) = trim(b_name)
+       allocate(nodes(num_nodes)%outputs(1))
+       nodes(num_nodes)%outputs(1) = trim(add_b_out)
+       nodes(num_nodes)%attributes_json = ''
+    end if
+
+    if(this%use_bias)then
+       output_source = add_b_out
+    else
+       output_source = add_out
+    end if
+    call emit_nop_output_tail(trim(prefix), trim(this%activation%name), &
+         is_last_layer, trim(output_source), nodes, num_nodes, final_output)
+
+    ! Initialisers
+    ! w_s: spectral weights [M, 1]
+    call emit_float_initialiser(trim(ws_name), this%params(1)%val(:,1), &
+         [this%num_modes, 1], inits, num_inits)
+
+    ! W: bypass weights [n_out, n_in] in row-major
+    n = this%num_outputs * this%num_inputs
+    call emit_matrix_initialiser(trim(w_name), this%params(2)%val(:,1), &
+         this%num_outputs, this%num_inputs, inits, num_inits)
+
+    ! b: bias [n_out, 1]
+    if(this%use_bias)then
+       call emit_float_initialiser(trim(b_name), this%params(3)%val(:,1), &
+            [this%num_outputs, 1], inits, num_inits)
+    end if
+
+  end subroutine emit_onnx_nodes_spectral_filter
 !###############################################################################
 
 end module athena__spectral_filter_layer
