@@ -125,7 +125,8 @@ jobs:
           echo "value=$coverage_percentage" >> $GITHUB_OUTPUT
 
       - name: Create coverage badge
-        if: github.actor != 'nektos/act'
+        if: github.actor != 'nektos/act' && github.event_name == 'push'
+        continue-on-error: true
         uses: schneegans/dynamic-badges-action@v1.7.0
         with:
           auth: ${{ secrets.GIST_SECRET }}
