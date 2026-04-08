@@ -66,62 +66,66 @@ jobs:
         "$FC" --version
         fpm test --profile ${{ matrix.build_type }} --compiler "$FC" --build-dir "build/act-${{ matrix.build_type }}"
 
-  build-and-test-fpm-debug:
+
+  build-and-test-fpm-hosted:
     if: github.actor != 'nektos/act'
-    name: Build and test in debug mode
+    name: Build and test (${{ matrix.os }}, ${{ matrix.build_type }}, ${{ matrix.toolchain.compiler }}, ${{ matrix.toolchain.version }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest]
+        os: [ubuntu-latest, macos-latest]
         build_type: [release, debug]
         toolchain:
         - {compiler: gcc, version: 14}
         - {compiler: gcc, version: 15}
+        - {compiler: intel, version: '2025.2'}
+        exclude:
+        - os: macos-latest
+          toolchain: {compiler: intel, version: '2025.2'}
     steps:
     - name: checkout repo
       uses: actions/checkout@v4
 
-    - name: Install BLAS/LAPACK system libraries
+    - name: Install BLAS/LAPACK system libraries (Ubuntu)
       if: matrix.os == 'ubuntu-latest'
       shell: bash
       run: |
         sudo apt-get update
         sudo DEBIAN_FRONTEND=noninteractive apt-get install -y libblas-dev liblapack-dev
 
-    # ----------------------------------------------------
-    # Conda path (Linux + GCC)
-    # ----------------------------------------------------
-    - name: Setup conda (for gfortran on Linux)
-      if: matrix.os == 'ubuntu-latest' && matrix.toolchain.compiler == 'gcc'
-      uses: conda-incubator/setup-miniconda@v3
-      with:
-        python-version: 3.11
-        installation-dir: ${{ runner.temp }}/miniconda3
-        pkgs-dirs: ${{ runner.temp }}/conda-pkgs
-        run-post: ${{ github.actor == 'nektos/act' && 'false' || 'true' }}
-
-    - name: Install gfortran via conda
-      if: matrix.os == 'ubuntu-latest' && matrix.toolchain.compiler == 'gcc'
-      shell: bash -l {0}
+    - name: Install BLAS/LAPACK system libraries (macOS)
+      if: matrix.os == 'macos-latest'
+      shell: bash
       run: |
-        conda install -y -c conda-forge "gfortran=${{ matrix.toolchain.version }}"
-        echo "FC=$(which gfortran)" >> $GITHUB_ENV
+        brew update
+        brew install openblas lapack
+        echo "LIBRARY_PATH=$(brew --prefix openblas)/lib:$(brew --prefix lapack)/lib${LIBRARY_PATH:+:$LIBRARY_PATH}" >> $GITHUB_ENV
+        echo "LDFLAGS=-L$(brew --prefix openblas)/lib -L$(brew --prefix lapack)/lib ${LDFLAGS:-}" >> $GITHUB_ENV
+        echo "CPPFLAGS=-I$(brew --prefix openblas)/include -I$(brew --prefix lapack)/include ${CPPFLAGS:-}" >> $GITHUB_ENV
 
-    # ----------------------------------------------------
+    - name: Setup compiler toolchain
+      uses: fortran-lang/setup-fortran@v1
+      id: setup-fortran
+      with:
+        compiler: ${{ matrix.toolchain.compiler }}
+        version: ${{ matrix.toolchain.version }}
+
     - uses: fortran-lang/setup-fpm@v7
       id: setup-fpm
       with:
         fpm-version: "v0.13.0"
 
     - name: Compile
-      shell: bash -l {0}
+      shell: bash
       run: |
+        build_dir="build/fpm-${{ runner.os }}-${{ matrix.toolchain.compiler }}-${{ matrix.toolchain.version }}-${{ matrix.build_type }}"
         "$FC" --version
-        fpm build --profile ${{ matrix.build_type }} --compiler "$FC"
+        fpm build --profile ${{ matrix.build_type }} --compiler "$FC" --build-dir "$build_dir"
 
     - name: Test
-      shell: bash -l {0}
+      shell: bash
       run: |
+        build_dir="build/fpm-${{ runner.os }}-${{ matrix.toolchain.compiler }}-${{ matrix.toolchain.version }}-${{ matrix.build_type }}"
         "$FC" --version
-        fpm test --profile ${{ matrix.build_type }} --compiler "$FC"
+        fpm test --profile ${{ matrix.build_type }} --compiler "$FC" --build-dir "$build_dir"
