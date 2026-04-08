@@ -61,7 +61,11 @@ submodule(athena__container_layer) athena__container_layer_submodule
        classify_neural_operator_onnx_expanded_nop, &
        build_neural_operator_onnx_expanded_nop, &
        classify_spectral_filter_onnx_expanded_nop, &
-       build_spectral_filter_onnx_expanded_nop
+       build_spectral_filter_onnx_expanded_nop, &
+       classify_kipf_onnx_expanded_gnn, &
+       build_kipf_onnx_expanded_gnn, &
+       classify_duvenaud_onnx_expanded_gnn, &
+       build_duvenaud_onnx_expanded_gnn
 
 contains
 
@@ -258,5 +262,34 @@ contains
     end if
 
   end subroutine allocate_list_of_onnx_expanded_nop_layer_creators
+
+  module subroutine allocate_list_of_onnx_expanded_gnn_layer_creators( &
+       addit_list)
+    implicit none
+    type(onnx_expanded_gnn_create_layer_container), &
+         dimension(:), intent(in), optional :: addit_list
+
+    if(.not.allocated( &
+         list_of_onnx_expanded_gnn_layer_creators)) &
+    allocate( &
+         list_of_onnx_expanded_gnn_layer_creators(0))
+    list_of_onnx_expanded_gnn_layer_creators = [ &
+         list_of_onnx_expanded_gnn_layer_creators, &
+         onnx_expanded_gnn_create_layer_container( &
+              'kipf', &
+              classify_kipf_onnx_expanded_gnn, &
+              build_kipf_onnx_expanded_gnn), &
+         onnx_expanded_gnn_create_layer_container( &
+              'duvenaud', &
+              classify_duvenaud_onnx_expanded_gnn, &
+              build_duvenaud_onnx_expanded_gnn) &
+    ]
+    if(present(addit_list))then
+       list_of_onnx_expanded_gnn_layer_creators = &
+            [list_of_onnx_expanded_gnn_layer_creators, &
+                 addit_list]
+    end if
+
+  end subroutine allocate_list_of_onnx_expanded_gnn_layer_creators
 
 end submodule athena__container_layer_submodule

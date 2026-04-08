@@ -51,6 +51,10 @@ module athena__onnx_creators
   public :: build_neural_operator_onnx_expanded_nop
   public :: classify_spectral_filter_onnx_expanded_nop
   public :: build_spectral_filter_onnx_expanded_nop
+  public :: classify_kipf_onnx_expanded_gnn
+  public :: build_kipf_onnx_expanded_gnn
+  public :: classify_duvenaud_onnx_expanded_gnn
+  public :: build_duvenaud_onnx_expanded_gnn
 
 
 
@@ -919,8 +923,8 @@ contains
 
 
 !###############################################################################
-  logical function classify_dynamic_lno_onnx_expanded_nop(prefix, nodes, &
-       num_nodes)
+  function classify_dynamic_lno_onnx_expanded_nop(prefix, nodes, &
+       num_nodes) result(is_dynamic_lno)
     !! Return true when the expanded-ONNX node cluster
     !! for prefix is a dynamic LNO.
     implicit none
@@ -933,7 +937,10 @@ contains
     integer, intent(in) :: num_nodes
     !! Number of valid node entries
 
-    classify_dynamic_lno_onnx_expanded_nop = &
+    logical :: is_dynamic_lno
+    !! Return value
+
+    is_dynamic_lno = &
          find_onnx_expanded_node_by_suffix( &
               nodes, num_nodes, prefix, 'Exp') .gt. 0 &
          .and. &
@@ -1045,8 +1052,8 @@ contains
 
 
 !###############################################################################
-  logical function classify_fixed_lno_onnx_expanded_nop(prefix, nodes, &
-       num_nodes)
+  function classify_fixed_lno_onnx_expanded_nop(prefix, nodes, &
+       num_nodes) result(is_fixed_lno)
     !! Return true when the expanded-ONNX node cluster
     !! for prefix is a fixed LNO.
     implicit none
@@ -1059,8 +1066,11 @@ contains
     integer, intent(in) :: num_nodes
     !! Number of valid node entries
 
+    logical :: is_fixed_lno
+    !! Return value
+
     !! Fixed LNO has MatMul_3 but not the Exp/Exp_1 pair of dynamic LNO
-    classify_fixed_lno_onnx_expanded_nop = &
+    is_fixed_lno = &
          find_onnx_expanded_node_by_suffix( &
               nodes, num_nodes, prefix, 'MatMul_3') .gt. 0 &
          .and. &
@@ -1159,8 +1169,8 @@ contains
 
 
 !###############################################################################
-  logical function classify_neural_operator_onnx_expanded_nop(prefix, nodes, &
-       num_nodes)
+  function classify_neural_operator_onnx_expanded_nop(prefix, nodes, &
+       num_nodes) result(is_neural_operator)
     !! Return true when the expanded-ONNX node cluster
     !! for prefix is a neural operator.
     implicit none
@@ -1173,8 +1183,11 @@ contains
     integer, intent(in) :: num_nodes
     !! Number of valid node entries
 
+    logical :: is_neural_operator
+    !! Return value
+
     !! Neural operator has ReduceMean but not Exp/Exp_1 or MatMul_3
-    classify_neural_operator_onnx_expanded_nop = &
+    is_neural_operator = &
          find_onnx_expanded_node_by_suffix( &
               nodes, num_nodes, prefix, 'ReduceMean') .gt. 0
 
@@ -1267,8 +1280,8 @@ contains
 
 
 !###############################################################################
-  logical function classify_spectral_filter_onnx_expanded_nop(prefix, nodes, &
-       num_nodes)
+  function classify_spectral_filter_onnx_expanded_nop(prefix, nodes, &
+       num_nodes) result(is_spectral_filter)
     !! Return true when the expanded-ONNX node cluster
     !! for prefix is a spectral filter.
     implicit none
@@ -1281,8 +1294,11 @@ contains
     integer, intent(in) :: num_nodes
     !! Number of valid node entries
 
+    logical :: is_spectral_filter
+    !! Return value
+
     !! Spectral filter has Mul but not Exp/Exp_1 or ReduceMean or MatMul_3
-    classify_spectral_filter_onnx_expanded_nop = &
+    is_spectral_filter = &
          find_onnx_expanded_node_by_suffix( &
               nodes, num_nodes, prefix, 'Mul') .gt. 0 &
          .and. &
@@ -1382,6 +1398,470 @@ contains
     allocate(layer, source=typed_layer)
 
   end function build_spectral_filter_onnx_expanded_nop
+!###############################################################################
+
+
+!###############################################################################
+! Expanded-ONNX GNN layer classifiers and builders
+!###############################################################################
+
+
+!###############################################################################
+  function find_gnn_node(nodes, num_nodes, name) result(idx)
+    !! Return the index of a node with exact name match, or zero.
+    implicit none
+
+    ! Arguments
+    type(onnx_node_type), intent(in) :: nodes(:)
+    !! Parsed ONNX nodes
+    integer, intent(in) :: num_nodes
+    !! Number of valid node entries
+    character(*), intent(in) :: name
+    !! Exact node name to search for
+
+    integer :: idx
+    !! Return value: index of the matching node, or zero if not found
+
+    ! Local variables
+    integer :: i
+
+    idx = 0
+    do i = 1, num_nodes
+       if(trim(nodes(i)%name) .eq. trim(name))then
+          idx = i
+          return
+       end if
+    end do
+
+  end function find_gnn_node
+!###############################################################################
+
+
+!###############################################################################
+  function detect_gnn_expanded_activation( &
+       prefix, nodes, num_nodes) result(name)
+    !! Detect the activation op used in a GNN layer cluster.
+    use athena__onnx_utils, only: onnx_to_athena_activation
+    implicit none
+
+    ! Arguments
+    character(*), intent(in) :: prefix
+    !! Layer node prefix (e.g. "node_2")
+    type(onnx_node_type), intent(in) :: nodes(:)
+    !! Parsed ONNX nodes
+    integer, intent(in) :: num_nodes
+    !! Number of valid node entries
+    character(64) :: name
+    !! Detected ATHENA activation name
+
+    integer :: i
+    character(128) :: check_prefix
+
+    name = 'none'
+    write(check_prefix, '(A,"_t")') trim(prefix)
+
+    do i = 1, num_nodes
+       if(index(trim(nodes(i)%name), &
+            trim(check_prefix)) .ne. 1) cycle
+       select case(trim(nodes(i)%op_type))
+       case('Relu', 'LeakyRelu', 'Sigmoid', &
+            'Tanh', 'Selu', 'Swish')
+          name = onnx_to_athena_activation( &
+               trim(nodes(i)%op_type))
+       end select
+    end do
+
+  end function detect_gnn_expanded_activation
+!###############################################################################
+
+
+!###############################################################################
+  function classify_kipf_onnx_expanded_gnn( &
+       prefix, nodes, num_nodes) result(is_kipf)
+    !! Return true when the expanded-ONNX node cluster
+    !! for prefix is a Kipf GCN layer.
+    !!
+    !! Kipf layers have Pow nodes for D^{-1/2} normalisation
+    !! (named {prefix}_t1_pow_coeff).
+    implicit none
+
+    ! Arguments
+    character(*), intent(in) :: prefix
+    !! Layer prefix (e.g. "node_2")
+    type(onnx_node_type), intent(in) :: nodes(:)
+    !! Parsed ONNX nodes
+    integer, intent(in) :: num_nodes
+    !! Number of valid node entries
+
+    logical :: is_kipf
+    !! Return value: true when the cluster matches the Kipf GCN pattern
+
+
+    is_kipf = &
+         find_gnn_node(nodes, num_nodes, &
+              trim(prefix)//'_t1_pow_coeff') &
+         .gt. 0
+
+  end function classify_kipf_onnx_expanded_gnn
+!###############################################################################
+
+
+!###############################################################################
+  function build_kipf_onnx_expanded_gnn( &
+       prefix, nodes, num_nodes, inits, &
+       num_inits, inputs, num_inputs) &
+  result(layer)
+    !! Build a Kipf GCN layer from an expanded-ONNX cluster.
+    use athena__kipf_msgpass_layer, only: &
+         kipf_msgpass_layer_type
+    use athena__onnx_nop_utils, only: &
+         find_initialiser_by_name
+    use athena__onnx_utils, only: row_to_col_major_2d
+    implicit none
+
+    ! Arguments
+    character(*), intent(in) :: prefix
+    !! Layer node prefix (e.g. "node_2")
+    type(onnx_node_type), intent(in) :: nodes(:)
+    !! Parsed ONNX nodes
+    integer, intent(in) :: num_nodes
+    !! Number of valid node entries
+    type(onnx_initialiser_type), intent(in) :: inits(:)
+    !! Parsed ONNX initialisers
+    integer, intent(in) :: num_inits
+    !! Number of valid initialiser entries
+    type(onnx_tensor_type), intent(in) :: inputs(:)
+    !! Parsed ONNX graph input tensors
+    integer, intent(in) :: num_inputs
+    !! Number of valid graph input entries
+    class(base_layer_type), allocatable :: layer
+    !! Constructed Kipf GCN layer
+
+    integer :: t, nts, idx
+    integer, allocatable :: nv_arr(:)
+    character(128) :: init_name
+    character(64) :: msg_activation
+    real(real32), allocatable :: col_data(:)
+
+    ! Count timesteps by scanning for _t{N}_W inits
+    nts = 0
+    do t = 1, 99
+       write(init_name, '(A,"_t",I0,"_W")') &
+            trim(prefix), t
+       idx = find_initialiser_by_name( &
+            trim(init_name), inits, num_inits)
+       if(idx .le. 0) exit
+       nts = nts + 1
+    end do
+
+    if(nts .eq. 0)then
+       call stop_program( &
+            'Kipf ONNX cluster has no weights for ' &
+            // trim(prefix))
+    end if
+
+    ! Build vertex feature array from init dims
+    allocate(nv_arr(nts + 1))
+    do t = 1, nts
+       write(init_name, '(A,"_t",I0,"_W")') &
+            trim(prefix), t
+       idx = find_initialiser_by_name( &
+            trim(init_name), inits, num_inits)
+       ! Kipf weight: [nv_out, nv_in]
+       nv_arr(t+1) = inits(idx)%dims(1)
+       if(t .eq. 1) nv_arr(1) = inits(idx)%dims(2)
+    end do
+
+    msg_activation = detect_gnn_expanded_activation( &
+         prefix, nodes, num_nodes)
+
+    block
+      type(kipf_msgpass_layer_type) :: kipf_layer
+
+      kipf_layer = kipf_msgpass_layer_type( &
+           num_vertex_features = nv_arr, &
+           num_time_steps = nts, &
+           activation = trim(msg_activation) &
+      )
+
+      do t = 1, nts
+         write(init_name, '(A,"_t",I0,"_W")') &
+              trim(prefix), t
+         idx = find_initialiser_by_name( &
+              trim(init_name), inits, num_inits)
+         if(allocated(inits(idx)%data) .and. &
+              allocated(kipf_layer%params))then
+            allocate(col_data(size(inits(idx)%data)))
+            call row_to_col_major_2d( &
+                 inits(idx)%data, col_data, &
+                 nv_arr(t+1), nv_arr(t))
+            kipf_layer%params(t)%val(:,1) = col_data
+            deallocate(col_data)
+         end if
+      end do
+
+      allocate(layer, source=kipf_layer)
+    end block
+
+  end function build_kipf_onnx_expanded_gnn
+!###############################################################################
+
+
+!###############################################################################
+  function classify_duvenaud_onnx_expanded_gnn( &
+       prefix, nodes, num_nodes) result(is_duvenaud)
+    !! Return true when the expanded-ONNX node cluster
+    !! for prefix is a Duvenaud message-passing layer.
+    !!
+    !! Duvenaud layers contain ReduceSum, Clip, and Div
+    !! nodes within their subgraph.
+    implicit none
+
+    ! Arguments
+    character(*), intent(in) :: prefix
+    !! Layer prefix (e.g. "node_2")
+    type(onnx_node_type), intent(in) :: nodes(:)
+    !! Parsed ONNX nodes
+    integer, intent(in) :: num_nodes
+    !! Number of valid node entries
+
+    logical :: is_duvenaud
+    !! Return value: true when the cluster matches the Duvenaud pattern
+
+    ! Local variables
+    integer :: i
+    character(128) :: check_prefix
+    logical :: has_reducesum, has_clip, has_div
+
+    has_reducesum = .false.
+    has_clip = .false.
+    has_div = .false.
+    write(check_prefix, '(A,"_t")') trim(prefix)
+
+    do i = 1, num_nodes
+       if(index(trim(nodes(i)%name), &
+            trim(check_prefix)) .ne. 1) cycle
+       select case(trim(nodes(i)%op_type))
+       case('ReduceSum')
+          has_reducesum = .true.
+       case('Clip')
+          has_clip = .true.
+       case('Div')
+          has_div = .true.
+       end select
+       if(has_reducesum .and. has_clip &
+            .and. has_div) exit
+    end do
+
+    is_duvenaud = &
+         has_reducesum .and. has_clip .and. has_div
+
+  end function classify_duvenaud_onnx_expanded_gnn
+!###############################################################################
+
+
+!###############################################################################
+  function build_duvenaud_onnx_expanded_gnn( &
+       prefix, nodes, num_nodes, inits, &
+       num_inits, inputs, num_inputs) &
+  result(layer)
+    !! Build a Duvenaud layer from an expanded-ONNX cluster.
+    use athena__duvenaud_msgpass_layer, only: &
+         duvenaud_msgpass_layer_type
+    use athena__onnx_nop_utils, only: &
+         find_initialiser_by_name
+    use athena__onnx_utils, only: row_to_col_major_2d
+    implicit none
+
+    ! Arguments
+    character(*), intent(in) :: prefix
+    !! Layer node prefix (e.g. "node_2")
+    type(onnx_node_type), intent(in) :: nodes(:)
+    !! Parsed ONNX nodes
+    integer, intent(in) :: num_nodes
+    !! Number of valid node entries
+    type(onnx_initialiser_type), intent(in) :: inits(:)
+    !! Parsed ONNX initialisers
+    integer, intent(in) :: num_inits
+    !! Number of valid initialiser entries
+    type(onnx_tensor_type), intent(in) :: inputs(:)
+    !! Parsed ONNX graph input tensors
+    integer, intent(in) :: num_inputs
+    !! Number of valid graph input entries
+    class(base_layer_type), allocatable :: layer
+    !! Constructed Duvenaud layer
+
+    ! Local variables
+    integer :: t, nts, idx, n_out
+    integer :: num_deg, min_deg, max_deg
+    integer :: ne_in, nv_in_first, total_in
+    integer, allocatable :: nv_arr(:), ne_arr(:)
+    character(128) :: init_name, rename_name
+    character(64) :: msg_activation
+    real(real32), allocatable :: col_data(:)
+    integer :: i, rename_idx, slice_size, d
+
+    ! Count timesteps
+    nts = 0
+    do t = 1, 99
+       write(init_name, '(A,"_t",I0,"_W")') &
+            trim(prefix), t
+       idx = find_initialiser_by_name( &
+            trim(init_name), inits, num_inits)
+       if(idx .le. 0) exit
+       nts = nts + 1
+    end do
+
+    if(nts .eq. 0)then
+       call stop_program( &
+            'Duvenaud ONNX cluster has no weights' &
+            // ' for ' // trim(prefix))
+    end if
+
+    ! Get first weight init to extract dims
+    write(init_name, '(A,"_t1_W")') trim(prefix)
+    idx = find_initialiser_by_name( &
+         trim(init_name), inits, num_inits)
+    ! 3D shape: [num_deg, nv_out, nv_in+ne]
+    num_deg = inits(idx)%dims(1)
+    total_in = inits(idx)%dims(3)
+
+    ! Get degree bounds from constant inits
+    write(init_name, '(A,"_t1_min_deg")') trim(prefix)
+    idx = find_initialiser_by_name( &
+         trim(init_name), inits, num_inits)
+    if(idx .gt. 0 .and. allocated(inits(idx)%data))then
+       min_deg = nint(inits(idx)%data(1))
+    else
+       min_deg = 1
+    end if
+
+    write(init_name, '(A,"_t1_max_deg")') trim(prefix)
+    idx = find_initialiser_by_name( &
+         trim(init_name), inits, num_inits)
+    if(idx .gt. 0 .and. allocated(inits(idx)%data))then
+       max_deg = nint(inits(idx)%data(1))
+    else
+       max_deg = min_deg + num_deg - 1
+    end if
+
+    ! Determine ne from graph inputs via the rename
+    ! Identity node: {prefix}_rename_edge → input is
+    ! the graph input tensor with edge feature dims
+    ne_in = 0
+    rename_name = trim(prefix) // '_rename_edge'
+    rename_idx = find_gnn_node( &
+         nodes, num_nodes, trim(rename_name))
+    if(rename_idx .gt. 0 .and. &
+         allocated(nodes(rename_idx)%inputs))then
+       do i = 1, num_inputs
+          if(trim(inputs(i)%name) .eq. &
+               trim(nodes(rename_idx)%inputs(1)))then
+             if(allocated(inputs(i)%dims) .and. &
+                  size(inputs(i)%dims) .ge. 2)then
+                ne_in = inputs(i)%dims(2)
+             end if
+             exit
+          end if
+       end do
+    end if
+
+    ! Build vertex and edge feature arrays
+    allocate(nv_arr(nts + 1))
+    allocate(ne_arr(nts + 1))
+    ne_arr = ne_in
+
+    ! First timestep: infer nv_in from total - ne
+    write(init_name, '(A,"_t1_W")') trim(prefix)
+    idx = find_initialiser_by_name( &
+         trim(init_name), inits, num_inits)
+    nv_in_first = total_in - ne_in
+    nv_arr(1) = nv_in_first
+
+    do t = 1, nts
+       write(init_name, '(A,"_t",I0,"_W")') &
+            trim(prefix), t
+       idx = find_initialiser_by_name( &
+            trim(init_name), inits, num_inits)
+       nv_arr(t+1) = inits(idx)%dims(2)
+    end do
+
+    ! Get num_outputs from readout weight
+    write(init_name, '(A,"_ro_t1_R")') trim(prefix)
+    idx = find_initialiser_by_name( &
+         trim(init_name), inits, num_inits)
+    if(idx .gt. 0)then
+       n_out = inits(idx)%dims(1)
+    else
+       n_out = nv_arr(nts + 1)
+    end if
+
+    msg_activation = detect_gnn_expanded_activation( &
+         prefix, nodes, num_nodes)
+
+    block
+      type(duvenaud_msgpass_layer_type) :: duv_layer
+
+      duv_layer = duvenaud_msgpass_layer_type( &
+           num_vertex_features = nv_arr, &
+           num_edge_features = ne_arr, &
+           num_time_steps = nts, &
+           num_outputs = n_out, &
+           min_vertex_degree = min_deg, &
+           max_vertex_degree = max_deg, &
+           message_activation = msg_activation &
+      )
+
+      do t = 1, nts
+         ! Message weight: [num_deg, nv_out, nv_in+ne]
+         write(init_name, '(A,"_t",I0,"_W")') &
+              trim(prefix), t
+         idx = find_initialiser_by_name( &
+              trim(init_name), inits, num_inits)
+         if(allocated(inits(idx)%data) .and. &
+              allocated(duv_layer%params))then
+            allocate(col_data(size(inits(idx)%data)))
+            slice_size = nv_arr(t+1) * &
+                 (nv_arr(t) + ne_arr(1))
+            do d = 1, num_deg
+               call row_to_col_major_2d( &
+                    inits(idx)%data( &
+                         (d-1)*slice_size+1 : &
+                         d*slice_size), &
+                    col_data( &
+                         (d-1)*slice_size+1 : &
+                         d*slice_size), &
+                    nv_arr(t+1), &
+                    nv_arr(t) + ne_arr(1))
+            end do
+            duv_layer%params(t)%val(:,1) = col_data
+            deallocate(col_data)
+         end if
+
+         ! Readout weight: [n_out, nv_out]
+         write(init_name, '(A,"_ro_t",I0,"_R")') &
+              trim(prefix), t
+         idx = find_initialiser_by_name( &
+              trim(init_name), inits, num_inits)
+         if(idx .gt. 0)then
+            if(allocated(inits(idx)%data) .and. &
+                 allocated(duv_layer%params))then
+               allocate(col_data( &
+                    size(inits(idx)%data)))
+               call row_to_col_major_2d( &
+                    inits(idx)%data, col_data, &
+                    n_out, nv_arr(t+1))
+               duv_layer%params(nts + t)%val(:,1) = &
+                    col_data
+               deallocate(col_data)
+            end if
+         end if
+      end do
+
+      allocate(layer, source=duv_layer)
+    end block
+
+  end function build_duvenaud_onnx_expanded_gnn
 !###############################################################################
 
 

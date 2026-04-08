@@ -142,4 +142,96 @@ program onnx_gnn_example
      error stop 1
   end if
 
+
+  !-----------------------------------------------------------------------------
+  ! Test expanded-ONNX (no metadata) import path
+  !-----------------------------------------------------------------------------
+  write(*,*) ""
+  write(*,*) "=== Testing expanded-ONNX import (no metadata) ==="
+  call strip_metadata_from_json(onnx_file, &
+       "example/onnx_gnn/model_no_meta.json")
+
+  write(*,*) "Reading model without metadata..."
+  reloaded_network = read_onnx( &
+       "example/onnx_gnn/model_no_meta.json", verbose=2)
+
+  call reloaded_network%compile( &
+       optimiser = adam_optimiser_type( &
+            learning_rate = 1.E-2_real32), &
+       loss_method = "mse", &
+       metrics = metric_dict, &
+       batch_size = 1, verbose = 1, &
+       accuracy_method = "mse" &
+  )
+
+  call reloaded_network%set_batch_size(1)
+  call reloaded_network%set_inference_mode()
+
+  call reloaded_network%forward(graphs_in(:,1:1))
+  imported_output = reloaded_network%model( &
+       reloaded_network%auto_graph%vertex( &
+            reloaded_network%leaf_vertices(1))%id &
+  )%layer%output(1,1)%val(1,1)
+
+  rel_diff = abs(orig_output - imported_output) / &
+       (abs(orig_output) + 1.E-30_real32)
+
+  write(*,'(A,ES20.12)') "Original output:  ", orig_output
+  write(*,'(A,ES20.12)') "Expanded import:  ", imported_output
+  write(*,'(A,ES20.12)') "Relative diff:    ", rel_diff
+
+  if(rel_diff .lt. 1.E-5_real32)then
+     write(*,*) "Expanded-ONNX Kipf test PASSED"
+  else
+     write(*,*) "Expanded-ONNX Kipf test FAILED"
+     error stop 1
+  end if
+
+contains
+
+  subroutine strip_metadata_from_json(infile, outfile)
+    !! Copy JSON but remove the metadataProps block.
+    implicit none
+    character(*), intent(in) :: infile, outfile
+
+    integer :: uin, uout, stat
+    character(131072) :: line
+    logical :: skipping
+
+    open(newunit=uin, file=infile, status='old', &
+         action='read', iostat=stat)
+    if(stat .ne. 0) return
+    open(newunit=uout, file=outfile, status='replace', &
+         action='write', iostat=stat)
+    if(stat .ne. 0)then
+       close(uin)
+       return
+    end if
+
+    skipping = .false.
+    do
+       read(uin, '(A)', iostat=stat) line
+       if(stat .ne. 0) exit
+
+       if(index(line, '"metadataProps"') .gt. 0)then
+          write(uout, '(A)') '  "metadataProps": []'
+          skipping = .true.
+          cycle
+       end if
+
+       if(skipping)then
+          if(index(line, ']') .gt. 0) then
+             skipping = .false.
+          end if
+          cycle
+       end if
+
+       write(uout, '(A)') trim(line)
+    end do
+
+    close(uin)
+    close(uout)
+
+  end subroutine strip_metadata_from_json
+
 end program onnx_gnn_example
