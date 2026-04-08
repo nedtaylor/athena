@@ -19,12 +19,9 @@ module athena__container_layer
   public :: onnx_create_layer_container
   public :: list_of_onnx_layer_creators
   public :: allocate_list_of_onnx_layer_creators
-  public :: onnx_gnn_create_layer_container
-  public :: list_of_onnx_gnn_layer_creators
-  public :: allocate_list_of_onnx_gnn_layer_creators
-  public :: onnx_nop_create_layer_container
-  public :: list_of_onnx_nop_layer_creators
-  public :: allocate_list_of_onnx_nop_layer_creators
+  public :: onnx_meta_create_layer_container
+  public :: list_of_onnx_meta_layer_creators
+  public :: allocate_list_of_onnx_meta_layer_creators
   public :: onnx_expanded_nop_create_layer_container
   public :: list_of_onnx_expanded_nop_layer_creators
   public :: allocate_list_of_onnx_expanded_nop_layer_creators
@@ -103,29 +100,17 @@ module athena__container_layer
      end function create_gnn_from_onnx_layer
   end interface
 
-  type :: onnx_gnn_create_layer_container
-     !! Type containing information needed to create a GNN layer from ONNX
-     character(20) :: gnn_subtype
-     !! GNN subtype name (e.g. "duvenaud", "kipf")
+  type :: onnx_meta_create_layer_container
+     !! Type containing information needed to create a metadata layer from ONNX
+     character(30) :: layer_subtype
+     !! Metadata subtype name (e.g. "duvenaud", "dynamic_lno")
      procedure(create_gnn_from_onnx_layer), nopass, pointer :: &
           create_ptr => null()
-     !! Pointer to the GNN layer creation function
-  end type onnx_gnn_create_layer_container
-  type(onnx_gnn_create_layer_container), dimension(:), allocatable :: &
-       list_of_onnx_gnn_layer_creators
-  !! List of GNN subtype names and their associated ONNX creation functions
-
-  type :: onnx_nop_create_layer_container
-     !! Type containing information needed to create a NOP layer from ONNX
-     character(30) :: nop_subtype
-     !! NOP subtype name (e.g. "dynamic_lno", "fixed_lno")
-     procedure(create_gnn_from_onnx_layer), nopass, pointer :: &
-          create_ptr => null()
-     !! Pointer to the NOP layer creation function
-  end type onnx_nop_create_layer_container
-  type(onnx_nop_create_layer_container), dimension(:), allocatable :: &
-       list_of_onnx_nop_layer_creators
-  !! List of NOP subtype names and their associated ONNX creation functions
+     !! Pointer to the metadata layer creation function
+  end type onnx_meta_create_layer_container
+  type(onnx_meta_create_layer_container), dimension(:), allocatable :: &
+       list_of_onnx_meta_layer_creators
+  !! List of metadata subtypes and their associated ONNX creation functions
 
   abstract interface
      logical function classify_onnx_expanded_nop_layer(prefix, nodes, &
@@ -276,19 +261,12 @@ module athena__container_layer
        !! Additional list of ONNX layer creation procedures
      end subroutine allocate_list_of_onnx_layer_creators
 
-     module subroutine allocate_list_of_onnx_gnn_layer_creators(addit_list)
-       !! Allocate the list of GNN ONNX layer creation procedures
-       type(onnx_gnn_create_layer_container), &
+     module subroutine allocate_list_of_onnx_meta_layer_creators(addit_list)
+       !! Allocate the list of metadata-based ONNX layer creation procedures
+       type(onnx_meta_create_layer_container), &
             dimension(:), intent(in), optional :: addit_list
-       !! Additional list of GNN ONNX layer creation procedures
-     end subroutine allocate_list_of_onnx_gnn_layer_creators
-
-     module subroutine allocate_list_of_onnx_nop_layer_creators(addit_list)
-       !! Allocate the list of NOP ONNX layer creation procedures
-       type(onnx_nop_create_layer_container), &
-            dimension(:), intent(in), optional :: addit_list
-       !! Additional list of NOP ONNX layer creation procedures
-     end subroutine allocate_list_of_onnx_nop_layer_creators
+       !! Additional list of metadata-based ONNX layer creation procedures
+     end subroutine allocate_list_of_onnx_meta_layer_creators
 
      module subroutine allocate_list_of_onnx_expanded_nop_layer_creators( &
           addit_list)

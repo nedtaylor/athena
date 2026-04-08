@@ -885,16 +885,14 @@ contains
        meta_keys, meta_values, num_meta, verbose_)
     !! Build a network containing GNN layers from parsed JSON data.
     !!
-    !! GNN layer creation is delegated to the registered creator in
-    !! list_of_onnx_gnn_layer_creators, keyed by the subtype stored in
+    !! Metadata layer creation is delegated to the registered creator in
+    !! list_of_onnx_meta_layer_creators, keyed by the subtype stored in
     !! the metadata value string.
     !! Standard (non-GNN) layer creation is delegated to the registered
     !! creator in list_of_onnx_layer_creators, keyed by the ONNX op_type.
     use athena__base_layer, only: base_layer_type
-    use athena__container_layer, only: list_of_onnx_gnn_layer_creators, &
-         allocate_list_of_onnx_gnn_layer_creators, &
-         list_of_onnx_nop_layer_creators, &
-         allocate_list_of_onnx_nop_layer_creators, &
+    use athena__container_layer, only: list_of_onnx_meta_layer_creators, &
+         allocate_list_of_onnx_meta_layer_creators, &
          list_of_onnx_layer_creators, &
          allocate_list_of_onnx_layer_creators
     implicit none
@@ -931,11 +929,8 @@ contains
     integer :: i, layer_id, meta_index, node_index
     !! Loop index and per-layer lookup indices
 
-    if(.not.allocated(list_of_onnx_gnn_layer_creators))then
-       call allocate_list_of_onnx_gnn_layer_creators()
-    end if
-    if(.not.allocated(list_of_onnx_nop_layer_creators))then
-       call allocate_list_of_onnx_nop_layer_creators()
+    if(.not.allocated(list_of_onnx_meta_layer_creators))then
+       call allocate_list_of_onnx_meta_layer_creators()
     end if
     if(.not.allocated(list_of_onnx_layer_creators))then
        call allocate_list_of_onnx_layer_creators()
@@ -988,8 +983,7 @@ contains
        num_inits, verbose_)
     !! Create one GNN or NOP layer from metadata and append it to the network.
     use athena__base_layer, only: base_layer_type
-    use athena__container_layer, only: list_of_onnx_gnn_layer_creators, &
-         list_of_onnx_nop_layer_creators
+    use athena__container_layer, only: list_of_onnx_meta_layer_creators
     implicit none
 
     ! Arguments
@@ -1010,40 +1004,9 @@ contains
 
     call extract_gnn_subtype(meta_value, subtype_name)
 
-    !--------------------------------------------------------------------------
-    ! Try NOP creators first when the key uses the athena_nop_ prefix
-    !--------------------------------------------------------------------------
-    if(index(trim(meta_key), 'athena_nop_') .gt. 0)then
-       layer_index = 0
-       do i = 1, size(list_of_onnx_nop_layer_creators)
-          if(trim(list_of_onnx_nop_layer_creators(i)%nop_subtype) .eq. &
-               trim(subtype_name))then
-             layer_index = i
-             exit
-          end if
-       end do
-
-       if(layer_index .eq. 0)then
-          write(*,*) 'ERROR: Unknown NOP subtype: ', trim(subtype_name)
-          return
-       end if
-
-       block
-         class(base_layer_type), allocatable :: nop_layer
-
-         nop_layer = list_of_onnx_nop_layer_creators(layer_index)%create_ptr(&
-              meta_key, meta_value, inits(1:num_inits), verbose_)
-         call network%add(nop_layer)
-       end block
-       return
-    end if
-
-    !--------------------------------------------------------------------------
-    ! Fall back to GNN creators for athena_gnn_ prefix
-    !--------------------------------------------------------------------------
     layer_index = 0
-    do i = 1, size(list_of_onnx_gnn_layer_creators)
-       if(trim(list_of_onnx_gnn_layer_creators(i)%gnn_subtype) .eq. &
+    do i = 1, size(list_of_onnx_meta_layer_creators)
+       if(trim(list_of_onnx_meta_layer_creators(i)%layer_subtype) .eq. &
             trim(subtype_name))then
           layer_index = i
           exit
@@ -1051,16 +1014,20 @@ contains
     end do
 
     if(layer_index .eq. 0)then
-       write(*,*) 'ERROR: Unknown GNN subtype: ', trim(subtype_name)
+       if(index(trim(meta_key), 'athena_nop_') .gt. 0)then
+          write(*,*) 'ERROR: Unknown NOP subtype: ', trim(subtype_name)
+       else
+          write(*,*) 'ERROR: Unknown GNN subtype: ', trim(subtype_name)
+       end if
        return
     end if
 
     block
-      class(base_layer_type), allocatable :: gnn_layer
+      class(base_layer_type), allocatable :: meta_layer
 
-      gnn_layer = list_of_onnx_gnn_layer_creators(layer_index)%create_ptr( &
+      meta_layer = list_of_onnx_meta_layer_creators(layer_index)%create_ptr( &
            meta_key, meta_value, inits(1:num_inits), verbose_)
-      call network%add(gnn_layer)
+      call network%add(meta_layer)
     end block
 
   end subroutine add_gnn_layer_from_metadata
@@ -1400,7 +1367,7 @@ contains
     integer, intent(in) :: num_meta, layer_id
     !! Number of metadata entries and target layer id
 
-    logical :: meta_index
+    integer :: meta_index
     !! Index of the found metadata entry, or 0 if not found
 
     ! Local variables
@@ -1476,7 +1443,7 @@ contains
     integer, intent(in) :: num_nodes, layer_id
     !! Number of valid nodes and target layer id
 
-    logical :: node_index
+    integer :: node_index
     !! Index of the found primary node, or 0 if not found
 
     ! Local variables

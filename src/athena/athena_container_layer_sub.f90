@@ -184,54 +184,37 @@ contains
 
   end subroutine allocate_list_of_onnx_layer_creators
 
-  module subroutine allocate_list_of_onnx_gnn_layer_creators(addit_list)
+  module subroutine allocate_list_of_onnx_meta_layer_creators(addit_list)
     implicit none
-    type(onnx_gnn_create_layer_container), &
+    type(onnx_meta_create_layer_container), &
          dimension(:), intent(in), optional :: addit_list
 
-    if(.not.allocated(list_of_onnx_gnn_layer_creators)) &
-         allocate(list_of_onnx_gnn_layer_creators(0))
-    list_of_onnx_gnn_layer_creators = [ &
-         list_of_onnx_gnn_layer_creators, &
-         onnx_gnn_create_layer_container('duvenaud', &
+    if(.not.allocated(list_of_onnx_meta_layer_creators)) &
+         allocate(list_of_onnx_meta_layer_creators(0))
+    list_of_onnx_meta_layer_creators = [ &
+         list_of_onnx_meta_layer_creators, &
+         onnx_meta_create_layer_container('duvenaud', &
               create_from_onnx_duvenaud_layer), &
-         onnx_gnn_create_layer_container('kipf', &
-              create_from_onnx_kipf_layer) &
-    ]
-    if(present(addit_list))then
-       list_of_onnx_gnn_layer_creators = &
-            [list_of_onnx_gnn_layer_creators, addit_list]
-    end if
-
-  end subroutine allocate_list_of_onnx_gnn_layer_creators
-
-  module subroutine allocate_list_of_onnx_nop_layer_creators(addit_list)
-    implicit none
-    type(onnx_nop_create_layer_container), &
-         dimension(:), intent(in), optional :: addit_list
-
-    if(.not.allocated(list_of_onnx_nop_layer_creators)) &
-         allocate(list_of_onnx_nop_layer_creators(0))
-    list_of_onnx_nop_layer_creators = [ &
-         list_of_onnx_nop_layer_creators, &
-         onnx_nop_create_layer_container( &
+         onnx_meta_create_layer_container('kipf', &
+              create_from_onnx_kipf_layer), &
+         onnx_meta_create_layer_container( &
               'dynamic_lno', create_from_onnx_dynamic_lno_layer), &
-         onnx_nop_create_layer_container( &
+         onnx_meta_create_layer_container( &
               'fixed_lno', create_from_onnx_fixed_lno_layer), &
-         onnx_nop_create_layer_container( &
+         onnx_meta_create_layer_container( &
               'neural_operator', create_from_onnx_neural_operator_layer), &
-         onnx_nop_create_layer_container( &
+         onnx_meta_create_layer_container( &
               'orthogonal_nop', create_from_onnx_orthogonal_nop_layer), &
-         onnx_nop_create_layer_container( &
+         onnx_meta_create_layer_container( &
               'orthogonal_attention', &
               create_from_onnx_orthogonal_attention_layer) &
     ]
     if(present(addit_list))then
-       list_of_onnx_nop_layer_creators = &
-            [list_of_onnx_nop_layer_creators, addit_list]
+       list_of_onnx_meta_layer_creators = &
+            [list_of_onnx_meta_layer_creators, addit_list]
     end if
 
-  end subroutine allocate_list_of_onnx_nop_layer_creators
+  end subroutine allocate_list_of_onnx_meta_layer_creators
 
   module subroutine allocate_list_of_onnx_expanded_nop_layer_creators( &
        addit_list)
