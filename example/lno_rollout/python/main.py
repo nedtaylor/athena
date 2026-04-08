@@ -528,13 +528,13 @@ def main() -> None:
 
     if args.export_model:
         dummy_input = torch.randn(1, config['grid_size'])
-        torch.onnx.export(model, dummy_input, SHARED_DIR / 'model.onnx', verbose=False, input_names=['input'], output_names=['output'], opset_version=14)
+        torch.onnx.export(model, dummy_input, SHARED_DIR / 'python_model.onnx', verbose=False, input_names=['input'], output_names=['output'], opset_version=14)
         import onnx
         from google.protobuf.json_format import MessageToJson
 
-        onnx_model = onnx.load(SHARED_DIR / 'model.onnx')
+        onnx_model = onnx.load(SHARED_DIR / 'python_model.onnx')
 
-        with open(SHARED_DIR / 'model.json', "w") as f:
+        with open(SHARED_DIR / 'python_model.json', "w") as f:
             f.write(MessageToJson(onnx_model))
 
     train_rollout(model, train_traj, val_traj, config)

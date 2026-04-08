@@ -21,6 +21,10 @@ module athena__onnx_nop_utils
   public :: load_nop_param_from_inits
   public :: find_initialiser_by_name
   public :: infer_dynamic_lno_poles
+  public :: find_onnx_expanded_node_by_suffix
+  public :: find_node_initialiser_index
+  public :: detect_onnx_expanded_nop_activation
+  public :: load_onnx_expanded_matrix_param
 
 contains
 
@@ -348,6 +352,126 @@ contains
     end do
 
   end subroutine infer_dynamic_lno_poles
+!###############################################################################
+
+!###############################################################################
+  integer function find_onnx_expanded_node_by_suffix( &
+       nodes, num_nodes, prefix, suffix)
+    !! Return the node index matching one /layerN/suffix name, or zero.
+    implicit none
+
+    ! Arguments
+    type(onnx_node_type), intent(in) :: nodes(:)
+    !! Parsed ONNX nodes
+    integer, intent(in) :: num_nodes
+    !! Number of valid node entries
+    character(*), intent(in) :: prefix, suffix
+    !! Layer prefix and trailing node name token
+
+    ! Local variables
+    integer :: i
+    !! Loop index
+    character(128) :: target_name
+    !! Full node name to match
+
+    write(target_name, '("/",A,"/",A)') trim(prefix), trim(suffix)
+    find_onnx_expanded_node_by_suffix = 0
+
+    do i = 1, num_nodes
+       if(trim(nodes(i)%name) .eq. trim(target_name))then
+          find_onnx_expanded_node_by_suffix = i
+          return
+       end if
+    end do
+
+  end function find_onnx_expanded_node_by_suffix
+!###############################################################################
+
+
+!###############################################################################
+  integer function find_node_initialiser_index(node, inits, num_inits)
+    !! Return the first initialiser referenced by a node's inputs.
+    implicit none
+
+    ! Arguments
+    type(onnx_node_type), intent(in) :: node
+    !! Parsed ONNX node whose inputs may reference an initialiser
+    type(onnx_initialiser_type), intent(in) :: inits(:)
+    !! Parsed ONNX initialisers
+    integer, intent(in) :: num_inits
+    !! Number of valid initialiser entries
+
+    ! Local variables
+    integer :: i, init_idx
+    !! Loop index and candidate initialiser index
+
+    find_node_initialiser_index = 0
+    if(.not.allocated(node%inputs)) return
+
+    do i = 1, size(node%inputs)
+       init_idx = find_initialiser_by_name(node%inputs(i), inits, num_inits)
+       if(init_idx .gt. 0)then
+          find_node_initialiser_index = init_idx
+          return
+       end if
+    end do
+
+  end function find_node_initialiser_index
+!###############################################################################
+
+
+!###############################################################################
+  function detect_onnx_expanded_nop_activation(prefix, nodes, num_nodes) &
+       result(name)
+    !! Reconstruct the activation name from the tail of an expanded-ONNX NOP
+    !! cluster.
+    implicit none
+
+    ! Arguments
+    character(*), intent(in) :: prefix
+    !! Layer node prefix without leading slash
+    type(onnx_node_type), intent(in) :: nodes(:)
+    !! Parsed ONNX nodes
+    integer, intent(in) :: num_nodes
+    !! Number of valid node entries
+    character(64) :: name
+    !! Reconstructed ATHENA activation name
+
+    if(find_onnx_expanded_node_by_suffix(nodes, num_nodes, prefix, 'Relu') &
+         .gt. 0) &
+    then
+       name = 'relu'
+    else
+       name = 'none'
+    end if
+
+  end function detect_onnx_expanded_nop_activation
+!###############################################################################
+
+
+!###############################################################################
+  subroutine load_onnx_expanded_matrix_param(param, init, rows, cols)
+    !! Copy a row-major ONNX matrix initialiser into a diffstruc parameter.
+    implicit none
+
+    ! Arguments
+    type(array_type), intent(inout) :: param
+    !! Destination diffstruc parameter tensor
+    type(onnx_initialiser_type), intent(in) :: init
+    !! Row-major ONNX initialiser data
+    integer, intent(in) :: rows, cols
+    !! Matrix shape
+
+    ! Local variables
+    real(real32), allocatable :: col_major(:)
+    !! Temporary column-major buffer for ATHENA internal storage
+
+    allocate(col_major(rows * cols))
+    call row_to_col_major_2d(init%data, col_major, rows, cols)
+    param%val(:,1) = col_major
+    deallocate(col_major)
+
+  end subroutine load_onnx_expanded_matrix_param
 !###############################################################################
 
 end module athena__onnx_nop_utils
