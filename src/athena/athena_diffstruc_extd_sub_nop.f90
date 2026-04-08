@@ -630,24 +630,24 @@ contains
     real(real32), dimension(:,:), intent(in)  :: upstream_grad
     real(real32), dimension(:,:), intent(out) :: output
 
-    integer :: n_in, M, m, j, s, num_samples
+    integer :: n_in, num_modes, mode_index, j, s, num_samples
     real(real32) :: t, mu_m
-    real(real32), allocatable :: ET(:,:)  ! [n_in, M]
+    real(real32), allocatable :: ET(:,:)  ! [n_in, num_modes]
 
     n_in = this%indices(1)
-    M    = this%indices(2)
+    num_modes = this%indices(2)
     num_samples = size(upstream_grad, 2)
 
-    allocate(ET(n_in, M))
-    do m = 1, M
-       mu_m = this%right_operand%val(m, 1)
+    allocate(ET(n_in, num_modes))
+    do mode_index = 1, num_modes
+       mu_m = this%right_operand%val(mode_index, 1)
        do j = 1, n_in
           if(n_in .gt. 1) then
              t = real(j-1, real32) / real(n_in-1, real32)
           else
              t = 0.0_real32
           end if
-          ET(j, m) = exp(-mu_m * t)
+          ET(j, mode_index) = exp(-mu_m * t)
        end do
     end do
 
@@ -683,17 +683,17 @@ contains
     real(real32), dimension(:,:), intent(in)  :: upstream_grad
     real(real32), dimension(:,:), intent(out) :: output
 
-    integer :: n_in, M, m, j, s, num_samples
+    integer :: n_in, num_modes, mode_index, j, s, num_samples
     real(real32) :: t, mu_m, accum
 
     n_in = this%indices(1)
-    M    = this%indices(2)
+    num_modes = this%indices(2)
     num_samples = size(upstream_grad, 2)
 
     output = 0.0_real32
     do s = 1, num_samples
-       do m = 1, M
-          mu_m = this%right_operand%val(m, 1)
+       do mode_index = 1, num_modes
+          mu_m = this%right_operand%val(mode_index, 1)
           accum = 0.0_real32
           do j = 1, n_in
              if(n_in .gt. 1) then
@@ -704,7 +704,7 @@ contains
              accum = accum + (-t) * exp(-mu_m * t) * &
                   this%left_operand%val(j, s)
           end do
-          output(m, s) = upstream_grad(m, s) * accum
+          output(mode_index, s) = upstream_grad(mode_index, s) * accum
        end do
     end do
 
@@ -811,24 +811,24 @@ contains
     real(real32), dimension(:,:), intent(in)  :: upstream_grad
     real(real32), dimension(:,:), intent(out) :: output
 
-    integer :: n_out, M, m, i, num_samples
+    integer :: n_out, num_modes, mode_index, i, num_samples
     real(real32) :: t, mu_m
-    real(real32), allocatable :: DT(:,:)  ! [M, n_out]
+    real(real32), allocatable :: DT(:,:)  ! [num_modes, n_out]
 
     n_out = this%indices(1)
-    M     = this%indices(2)
+    num_modes = this%indices(2)
     num_samples = size(upstream_grad, 2)
 
-    allocate(DT(M, n_out))
-    do m = 1, M
-       mu_m = this%right_operand%val(m, 1)
+    allocate(DT(num_modes, n_out))
+    do mode_index = 1, num_modes
+       mu_m = this%right_operand%val(mode_index, 1)
        do i = 1, n_out
           if(n_out .gt. 1) then
              t = real(i-1, real32) / real(n_out-1, real32)
           else
              t = 0.0_real32
           end if
-          DT(m, i) = exp(-mu_m * t)
+          DT(mode_index, i) = exp(-mu_m * t)
        end do
     end do
 
@@ -864,17 +864,17 @@ contains
     real(real32), dimension(:,:), intent(in)  :: upstream_grad
     real(real32), dimension(:,:), intent(out) :: output
 
-    integer :: n_out, M, m, i, s, num_samples
+    integer :: n_out, num_modes, mode_index, i, s, num_samples
     real(real32) :: t, mu_m, accum
 
     n_out = this%indices(1)
-    M     = this%indices(2)
+    num_modes = this%indices(2)
     num_samples = size(upstream_grad, 2)
 
     output = 0.0_real32
     do s = 1, num_samples
-       do m = 1, M
-          mu_m = this%right_operand%val(m, 1)
+       do mode_index = 1, num_modes
+          mu_m = this%right_operand%val(mode_index, 1)
           accum = 0.0_real32
           do i = 1, n_out
              if(n_out .gt. 1) then
@@ -884,7 +884,7 @@ contains
              end if
              accum = accum + upstream_grad(i, s) * (-t) * exp(-mu_m * t)
           end do
-          output(m, s) = accum * this%left_operand%val(m, s)
+          output(mode_index, s) = accum * this%left_operand%val(mode_index, s)
        end do
     end do
 
