@@ -836,7 +836,7 @@ contains
 
 
 !###############################################################################
-  logical function is_json_object_start(line)
+  function is_json_object_start(line) result(is_start)
     !! Return true for section object lines like `{`.
     implicit none
 
@@ -844,7 +844,10 @@ contains
     character(*), intent(in) :: line
     !! Current JSON line to classify
 
-    is_json_object_start = index(line, '{') .gt. 0 .and. &
+    logical :: is_start
+    !! Whether this line is the start of a JSON object
+
+    is_start = index(line, '{') .gt. 0 .and. &
          index(line, '"') .eq. 0
 
   end function is_json_object_start
@@ -1387,7 +1390,7 @@ contains
 
 
 !###############################################################################
-  integer function find_metadata_for_layer_id(meta_keys, num_meta, layer_id)
+  function find_metadata_for_layer_id(meta_keys, num_meta, layer_id) result(meta_index)
     !! Return metadata index for a given layer id, or 0 if absent.
     implicit none
 
@@ -1397,17 +1400,20 @@ contains
     integer, intent(in) :: num_meta, layer_id
     !! Number of metadata entries and target layer id
 
+    logical :: meta_index
+    !! Index of the found metadata entry, or 0 if not found
+
     ! Local variables
     integer :: i, id_tmp
     !! Loop index and parsed id candidate
     logical :: found
     !! Whether a key parsed successfully
 
-    find_metadata_for_layer_id = 0
+    meta_index = 0
     do i = 1, num_meta
        call parse_meta_layer_id(meta_keys(i), id_tmp, found)
        if(found .and. id_tmp .eq. layer_id)then
-          find_metadata_for_layer_id = i
+          meta_index = i
           return
        end if
     end do
@@ -1459,7 +1465,8 @@ contains
 
 
 !###############################################################################
-  integer function find_primary_node_for_layer_id(nodes, num_nodes, layer_id)
+  function find_primary_node_for_layer_id(nodes, num_nodes, layer_id) &
+       result(node_index)
     !! Return node index for primary node_<id>, or 0 if not found.
     implicit none
 
@@ -1469,17 +1476,20 @@ contains
     integer, intent(in) :: num_nodes, layer_id
     !! Number of valid nodes and target layer id
 
+    logical :: node_index
+    !! Index of the found primary node, or 0 if not found
+
     ! Local variables
     integer :: i, id_tmp
     !! Loop index and parsed node id candidate
     logical :: is_primary
     !! Whether current node matches primary pattern
 
-    find_primary_node_for_layer_id = 0
+    node_index = 0
     do i = 1, num_nodes
        call parse_primary_layer_id(nodes(i)%name, id_tmp, is_primary)
        if(is_primary .and. id_tmp .eq. layer_id)then
-          find_primary_node_for_layer_id = i
+          node_index = i
           return
        end if
     end do
@@ -1489,7 +1499,8 @@ contains
 
 
 !###############################################################################
-  integer function find_activation_node_for_layer_id(nodes, num_nodes, layer_id)
+  function find_activation_node_for_layer_id(nodes, num_nodes, layer_id) &
+       result(actv_index)
     !! Return node index for activation attached to node_<id>, or 0.
     implicit none
 
@@ -1499,6 +1510,9 @@ contains
     integer, intent(in) :: num_nodes, layer_id
     !! Number of valid nodes and target layer id
 
+    integer :: actv_index
+    !! Index of the found activation node
+
     ! Local variables
     integer :: i
     !! Loop index
@@ -1506,12 +1520,12 @@ contains
     !! Prefix for activation nodes linked to layer_id
 
     write(prefix, '("node_",I0,"_")') layer_id
-    find_activation_node_for_layer_id = 0
+    actv_index = 0
 
     do i = 1, num_nodes
        if(index(trim(nodes(i)%name), trim(prefix)) .ne. 1) cycle
        if(is_activation_op_type(trim(nodes(i)%op_type)))then
-          find_activation_node_for_layer_id = i
+          actv_index = i
           return
        end if
     end do
@@ -1521,7 +1535,7 @@ contains
 
 
 !###############################################################################
-  logical function is_activation_op_type(op_type)
+  function is_activation_op_type(op_type) result(is_activation)
     !! Return true for ONNX activation nodes emitted by ATHENA export.
     implicit none
 
@@ -1529,11 +1543,14 @@ contains
     character(*), intent(in) :: op_type
     !! ONNX operation type string
 
+    logical :: is_activation
+    !! Whether op_type matches an activation emitted by ATHENA export
+
     select case(trim(op_type))
     case('Relu', 'LeakyRelu', 'Sigmoid', 'Softmax', 'Tanh', 'Selu', 'Swish')
-       is_activation_op_type = .true.
+       is_activation = .true.
     case default
-       is_activation_op_type = .false.
+       is_activation = .false.
     end select
 
   end function is_activation_op_type
@@ -1570,7 +1587,7 @@ contains
 
 
 !###############################################################################
-  logical function is_onnx_expanded_nop_graph(nodes, num_nodes)
+  function is_onnx_expanded_nop_graph(nodes, num_nodes) result(output)
     !! Return true when the parsed ONNX graph is a supported expanded-ONNX NOP
     !! decomposition that ATHENA can collapse back into native NOP layers.
     use athena__container_layer, only: &
@@ -1583,6 +1600,9 @@ contains
     !! Parsed ONNX nodes
     integer, intent(in) :: num_nodes
     !! Number of valid node entries
+
+    logical :: output
+    !! Whether the graph matches expanded-ONNX NOP patterns
 
     ! Local variables
     character(32), allocatable :: layer_prefixes(:)
@@ -1603,14 +1623,14 @@ contains
     do i = 1, num_nodes
        prefix = extract_onnx_expanded_layer_prefix(nodes(i)%name)
        if(len_trim(prefix) .eq. 0)then
-          is_onnx_expanded_nop_graph = .false.
+          output = .false.
           return
        end if
        call append_unique_onnx_expanded_prefix(prefix, layer_prefixes)
     end do
 
     if(size(layer_prefixes) .eq. 0)then
-       is_onnx_expanded_nop_graph = .false.
+       output = .false.
        return
     end if
 
@@ -1624,12 +1644,12 @@ contains
           end if
        end do
        if(.not.recognised)then
-          is_onnx_expanded_nop_graph = .false.
+          output = .false.
           return
        end if
     end do
 
-    is_onnx_expanded_nop_graph = .true.
+    output = .true.
 
   end function is_onnx_expanded_nop_graph
 !###############################################################################
@@ -1698,6 +1718,228 @@ contains
     end if
 
   end subroutine build_network_from_json_onnx_expanded_nop
+!###############################################################################
+
+
+!###############################################################################
+  function is_onnx_expanded_gnn_graph(nodes, num_nodes) result(output)
+    !! Return true when the parsed ONNX graph contains expanded-ONNX GNN
+    !! patterns that ATHENA can collapse back into native message passing
+    !! layers.
+    use athena__container_layer, only: &
+         list_of_onnx_expanded_gnn_layer_creators, &
+         allocate_list_of_onnx_expanded_gnn_layer_creators
+    implicit none
+
+    ! Arguments
+    type(onnx_node_type), intent(in) :: nodes(:)
+    !! Parsed ONNX nodes
+    integer, intent(in) :: num_nodes
+    !! Number of valid node entries
+
+    logical :: output
+    !! Whether the graph contains recognizable expanded-ONNX GNN patterns
+
+    ! Local variables
+    integer, allocatable :: layer_ids(:)
+    !! Unique layer ids from node names
+    integer :: i, j, layer_id
+    !! Loop indices and current layer id
+    character(32) :: prefix
+    !! Candidate GNN prefix
+
+    if(.not.allocated( &
+         list_of_onnx_expanded_gnn_layer_creators))then
+       call allocate_list_of_onnx_expanded_gnn_layer_creators()
+    end if
+
+    output = .false.
+    allocate(layer_ids(0))
+
+    do i = 1, num_nodes
+       call parse_any_node_layer_id( &
+            nodes(i)%name, layer_id, j)
+       if(j .le. 0) cycle
+       if(.not.any(layer_ids .eq. layer_id))then
+          layer_ids = [layer_ids, layer_id]
+       end if
+    end do
+
+    do i = 1, size(layer_ids)
+       write(prefix, '("node_",I0)') layer_ids(i)
+       do j = 1, size( &
+            list_of_onnx_expanded_gnn_layer_creators)
+          if(list_of_onnx_expanded_gnn_layer_creators( &
+               j)%classify_ptr( &
+               prefix, nodes, num_nodes))then
+             output = .true.
+             return
+          end if
+       end do
+    end do
+
+  end function is_onnx_expanded_gnn_graph
+!###############################################################################
+
+
+!###############################################################################
+  subroutine parse_any_node_layer_id( &
+       node_name, layer_id, found)
+    !! Parse layer id from node_X or node_X_* names.
+    implicit none
+
+    ! Arguments
+    character(*), intent(in) :: node_name
+    !! Candidate ONNX node name
+    integer, intent(out) :: layer_id
+    !! Parsed layer id when present
+    integer, intent(out) :: found
+    !! Positive when parsing succeeded, zero otherwise
+
+    ! Local variables
+    integer :: stat, upos
+    !! Read status and underscore position
+    character(128) :: rest
+    !! Node name suffix after node_ prefix
+
+    layer_id = -1
+    found = 0
+
+    if(index(trim(node_name), 'node_') .ne. 1) return
+    rest = trim(node_name(6:))
+
+    ! Find end of the integer part
+    upos = index(rest, '_')
+    if(upos .gt. 0)then
+       read(rest(1:upos-1), *, iostat=stat) layer_id
+    else
+       read(rest, *, iostat=stat) layer_id
+    end if
+
+    if(stat .eq. 0 .and. layer_id .gt. 0) found = 1
+
+  end subroutine parse_any_node_layer_id
+!###############################################################################
+
+
+!###############################################################################
+  subroutine build_network_from_json_onnx_expanded_gnn( &
+       network, nodes, num_nodes, inits, num_inits, &
+       inputs, num_inputs, verbose_)
+    !! Reconstruct ATHENA GNN layers from an expanded-ONNX graph
+    !! when metadata is absent.
+    !!
+    !! For each layer prefix, tries the registered GNN classifiers
+    !! first. Unrecognised prefixes are handled as standard layers
+    !! via the existing ONNX creator framework.
+    use athena__base_layer, only: base_layer_type
+    use athena__container_layer, only: &
+         list_of_onnx_expanded_gnn_layer_creators, &
+         list_of_onnx_layer_creators, &
+         allocate_list_of_onnx_layer_creators
+    implicit none
+
+    ! Arguments
+    type(network_type), intent(inout) :: network
+    !! Network receiving the reconstructed layers
+    type(onnx_node_type), intent(in) :: nodes(:)
+    !! Parsed ONNX nodes
+    integer, intent(in) :: num_nodes
+    !! Number of valid node entries
+    type(onnx_initialiser_type), intent(in) :: inits(:)
+    !! Parsed ONNX initialisers
+    integer, intent(in) :: num_inits
+    !! Number of valid initialiser entries
+    type(onnx_tensor_type), intent(in) :: inputs(:)
+    !! Parsed ONNX graph input tensors
+    integer, intent(in) :: num_inputs
+    !! Number of valid graph input entries
+    integer, intent(in) :: verbose_
+    !! Effective verbosity level
+
+    ! Local variables
+    integer, allocatable :: ordered_ids(:)
+    !! Sorted unique layer ids
+    integer :: i, j, layer_id, node_index
+    !! Loop indices and per-layer lookup results
+    character(32) :: prefix
+    !! Candidate layer prefix
+    logical :: classified
+    !! Whether a GNN classifier handled this prefix
+    class(base_layer_type), allocatable :: layer
+    !! Constructed layer
+
+    if(.not.allocated(list_of_onnx_layer_creators))then
+       call allocate_list_of_onnx_layer_creators()
+    end if
+
+    allocate(ordered_ids(0))
+
+    ! Collect layer ids from all node names
+    do i = 1, num_nodes
+       call parse_any_node_layer_id( &
+            nodes(i)%name, layer_id, j)
+       if(j .le. 0) cycle
+       if(.not.any(ordered_ids .eq. layer_id))then
+          ordered_ids = [ordered_ids, layer_id]
+       end if
+    end do
+
+    ! Also scan init names for layer ids
+    do i = 1, num_inits
+       call parse_any_node_layer_id( &
+            inits(i)%name, layer_id, j)
+       if(j .le. 0) cycle
+       if(.not.any(ordered_ids .eq. layer_id))then
+          ordered_ids = [ordered_ids, layer_id]
+       end if
+    end do
+
+    call sort_int_array(ordered_ids)
+
+    do i = 1, size(ordered_ids)
+       layer_id = ordered_ids(i)
+       write(prefix, '("node_",I0)') layer_id
+
+       ! Try GNN expanded classifiers
+       classified = .false.
+       do j = 1, size( &
+            list_of_onnx_expanded_gnn_layer_creators)
+          if(list_of_onnx_expanded_gnn_layer_creators( &
+               j)%classify_ptr( &
+               prefix, nodes, num_nodes))then
+             layer = &
+                  list_of_onnx_expanded_gnn_layer_creators( &
+                       j)%build_ptr( &
+                       prefix, nodes, num_nodes, &
+                       inits, num_inits, &
+                       inputs, num_inputs)
+             call network%add(layer)
+             classified = .true.
+             exit
+          end if
+       end do
+
+       if(.not.classified)then
+          ! Try standard layer processing
+          node_index = find_primary_node_for_layer_id( &
+               nodes, num_nodes, layer_id)
+          if(node_index .gt. 0)then
+             call add_standard_layer_from_onnx( &
+                  network, layer_id, node_index, &
+                  nodes, num_nodes, &
+                  inits, num_inits, verbose_)
+          end if
+       end if
+    end do
+
+    if(verbose_ .gt. 0)then
+       write(*,*) 'Network built with ', &
+            network%num_layers, &
+            ' expanded-ONNX GNN layers'
+    end if
+
+  end subroutine build_network_from_json_onnx_expanded_gnn
 !###############################################################################
 
 
@@ -1800,6 +2042,14 @@ contains
     if(is_onnx_expanded_nop_graph(nodes, num_nodes))then
        call build_network_from_json_onnx_expanded_nop( &
             network, nodes, num_nodes, inits, num_inits, verbose_)
+       return
+    end if
+
+    if(is_onnx_expanded_gnn_graph(nodes, num_nodes))then
+       call build_network_from_json_onnx_expanded_gnn( &
+            network, nodes, num_nodes, &
+            inits, num_inits, &
+            inputs, num_inputs, verbose_)
        return
     end if
 
