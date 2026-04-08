@@ -103,6 +103,14 @@ program lno_rollout
        loss_method='mse', metrics=['loss'], verbose=0)
   call network%set_batch_size(1)
   call apply_shared_initialisation(network, init_seed, init_scale)
+
+  !-----------------------------------------------------------------------------
+  ! Export ONNX models (after shared init so values match Python)
+  !-----------------------------------------------------------------------------
+  call write_onnx('example/lno_rollout/shared/fortran_model.json', network)
+  call write_onnx('example/lno_rollout/shared/fortran_model_expanded.json', &
+       network, format='onnx_expanded')
+
   allocate(init_params_all(network%get_num_params()))
   init_params_all = network%get_params()
   init_params_preview = init_params_all(1:6)
