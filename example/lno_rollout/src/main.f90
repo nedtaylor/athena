@@ -45,17 +45,21 @@ program lno_rollout
   !! learning rate
   real(real32), parameter :: init_scale = 5.0e-2_real32
   !! init value scale
+  logical :: file_exists
+  !! boolean whether the Python ONNX model file exists for import
   character(len=*), parameter :: coeff_path = &
        'example/lno_rollout/shared/rollout_coeffs.csv'
   character(len=*), parameter :: metrics_path = &
        'example/lno_rollout/shared/fortran_benchmark.txt'
   character(len=*), parameter :: python_final_state_path = &
        'example/lno_rollout/shared/python_final_state.csv'
+  character(len=*), parameter :: python_model_filename = &
+       'example/lno_rollout/shared/python_model.json'
 
   !-----------------------------------------------------------------------------
   ! Model state and data buffers
   !-----------------------------------------------------------------------------
-  type(network_type) :: network
+  type(network_type) :: network, python_model
   !! Athena network object
   type(array_type), dimension(1,1) :: inp, tgt
   !! Athena IO wrappers
@@ -117,6 +121,21 @@ program lno_rollout
 
   call inp(1,1)%allocate([n_grid, 1])
   call tgt(1,1)%allocate([n_grid, 1])
+
+  !-----------------------------------------------------------------------------
+  ! Import ONNX model from python if present
+  !-----------------------------------------------------------------------------
+  inquire(file=trim(python_model_filename), exist=file_exists)
+  if(file_exists)then
+     write(*,'(A)') 'Importing ONNX model from Python...'
+     python_model = read_onnx('example/lno_rollout/shared/python_model.json')
+     call python_model%compile( &
+          optimiser=adam_optimiser_type( &
+               learning_rate=learning_rate, &
+               clip_dict=clip_type(clip_min=-1.0_real32, clip_max=1.0_real32)), &
+          loss_method='mse', metrics=['loss'], verbose=0)
+     call python_model%print_summary()
+  end if
 
 
   !-----------------------------------------------------------------------------

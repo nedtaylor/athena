@@ -5,7 +5,7 @@ submodule(athena__onnx) athena__onnx_read_submodule
   !! representation and rebuild ATHENA networks from it.
   use athena__misc_types, only: onnx_attribute_type, onnx_node_type, &
        onnx_initialiser_type, onnx_tensor_type
-  use coreutils, only: real32, to_lower
+  use coreutils, only: real32, to_lower, stop_program
   implicit none
 
   integer, parameter :: MAX_ITEMS = 500
@@ -41,6 +41,8 @@ submodule(athena__onnx) athena__onnx_read_submodule
      !! Whether parser is currently inside a node object
      logical :: in_attribute = .false.
      !! Whether parser is currently inside an attribute array
+     integer :: attribute_bracket_depth = 0
+     !! Current square-bracket nesting depth inside a multiline attribute block
      character(256) :: name = ''
      !! Node name parsed from JSON
      character(256) :: op_type = ''
@@ -53,6 +55,8 @@ submodule(athena__onnx) athena__onnx_read_submodule
      !! Number of valid input names
      integer :: num_outputs = 0
      !! Number of valid output names
+     character(16) :: active_string_array = ''
+     !! Currently active multiline string array: input or output
      type(onnx_attribute_type), allocatable :: attrs(:)
      !! Temporary parsed node attributes
      integer :: num_attrs = 0
@@ -62,6 +66,8 @@ submodule(athena__onnx) athena__onnx_read_submodule
   type :: json_initialiser_state_type
      logical :: in_object = .false.
      !! Whether parser is currently inside an initialiser object
+     logical :: in_dims_array = .false.
+     !! Whether parser is currently inside a multiline dims array
      character(128) :: name = ''
      !! Initialiser tensor name
      integer :: data_type = 1
@@ -296,10 +302,18 @@ contains
     end if
 
     if(state%in_object)then
+       if(len_trim(state%active_string_array) .gt. 0)then
+          if(index(line, ']') .gt. 0) state%active_string_array = ''
+          call append_json_string_array_item(line, state%active_string_array, &
+               state%inputs, state%num_inputs, state%outputs, &
+               state%num_outputs)
+          return
+       end if
+
        if(state%in_attribute)then
-          if(index(line, ']') .gt. 0 .and. index(line, '"') .eq. 0)then
+          call update_array_bracket_depth(line, state%attribute_bracket_depth)
+          if(state%attribute_bracket_depth .le. 0)then
              state%in_attribute = .false.
-             return
           end if
           if(index(line, '{') .gt. 0)then
              call parse_json_attribute(line, state%attrs, state%num_attrs)
@@ -309,14 +323,17 @@ contains
 
        if(index(line, '"attribute"') .gt. 0 .and. index(line, '[') .gt. 0)then
           state%in_attribute = .true.
+          state%attribute_bracket_depth = 1
           if(index(line, ']') .gt. 0)then
              call parse_json_attribute(line, state%attrs, state%num_attrs)
              state%in_attribute = .false.
+             state%attribute_bracket_depth = 0
           end if
           return
        end if
 
-       if(index(line, '}') .gt. 0 .and. index(line, '"') .eq. 0)then
+       if(index(line, '}') .gt. 0 .and. index(line, '"') .eq. 0 .and. &
+            .not.state%in_attribute)then
           call store_node_state(state, parsed)
           state%in_object = .false.
           return
@@ -325,12 +342,18 @@ contains
        if(index(line, '"input"') .gt. 0)then
           call parse_json_string_array(line, '"input"', state%inputs, &
                state%num_inputs)
+          if(index(line, '[') .gt. 0 .and. index(line, ']') .eq. 0)then
+             state%active_string_array = 'input'
+          end if
           return
        end if
 
        if(index(line, '"output"') .gt. 0)then
           call parse_json_string_array(line, '"output"', state%outputs, &
                state%num_outputs)
+          if(index(line, '[') .gt. 0 .and. index(line, ']') .eq. 0)then
+             state%active_string_array = 'output'
+          end if
           return
        end if
 
@@ -400,10 +423,12 @@ contains
 
     state%in_object = .false.
     state%in_attribute = .false.
+    state%attribute_bracket_depth = 0
     state%name = ''
     state%op_type = ''
     state%num_inputs = 0
     state%num_outputs = 0
+    state%active_string_array = ''
     state%num_attrs = 0
 
     if(.not.allocated(state%inputs)) allocate(state%inputs(100))
@@ -412,6 +437,74 @@ contains
     allocate(state%attrs(0))
 
   end subroutine reset_node_state
+!###############################################################################
+
+
+!###############################################################################
+  subroutine append_json_string_array_item(line, active_array, inputs, &
+       num_inputs, outputs, num_outputs)
+    !! Append one string element from a multiline JSON string array.
+    implicit none
+
+    ! Arguments
+    character(*), intent(in) :: line
+    !! Current JSON line inside a multiline string array
+    character(*), intent(in) :: active_array
+    !! Array currently being accumulated: input or output
+    character(128), intent(inout) :: inputs(:), outputs(:)
+    !! Mutable node input/output buffers
+    integer, intent(inout) :: num_inputs, num_outputs
+    !! Counts of valid input/output entries
+
+    ! Local variables
+    integer :: pos1, pos2
+    !! Quote positions used to slice the current string token
+    character(128) :: value
+    !! Current array element value
+
+    if(index(line, '"') .eq. 0) return
+
+    pos1 = index(line, '"')
+    if(pos1 .le. 0) return
+    pos2 = index(line(pos1+1:), '"')
+    if(pos2 .le. 0) return
+
+    value = line(pos1+1:pos1+pos2-1)
+
+    select case(trim(active_array))
+    case('input')
+       num_inputs = num_inputs + 1
+       inputs(num_inputs) = trim(value)
+    case('output')
+       num_outputs = num_outputs + 1
+       outputs(num_outputs) = trim(value)
+    end select
+
+  end subroutine append_json_string_array_item
+!###############################################################################
+
+
+!###############################################################################
+  subroutine update_array_bracket_depth(line, depth)
+    !! Update square-bracket nesting depth for multiline JSON arrays.
+    implicit none
+
+    ! Arguments
+    character(*), intent(in) :: line
+    !! Current JSON line inside a multiline array
+    integer, intent(inout) :: depth
+    !! Mutable array nesting depth
+
+    ! Local variables
+    integer :: i
+    !! Character index while scanning brackets
+
+    do i = 1, len_trim(line)
+       if(line(i:i) .eq. '[') depth = depth + 1
+       if(line(i:i) .eq. ']') depth = depth - 1
+    end do
+
+  end subroutine update_array_bracket_depth
 !###############################################################################
 
 
@@ -441,6 +534,12 @@ contains
     end if
 
     if(state%in_object)then
+       if(state%in_dims_array)then
+          call append_json_int_string_item(line, state%dims)
+          if(index(line, ']') .gt. 0) state%in_dims_array = .false.
+          return
+       end if
+
        if(index(line, '}') .gt. 0 .and. index(line, '"rawData"') .eq. 0 .and. &
             index(line, '"dims"') .eq. 0)then
           call store_initialiser_state(state, parsed)
@@ -450,6 +549,9 @@ contains
 
        if(index(line, '"dims"') .gt. 0)then
           call parse_json_int_array_from_strings(line, state%dims)
+          if(index(line, '[') .gt. 0 .and. index(line, ']') .eq. 0)then
+             state%in_dims_array = .true.
+          end if
           return
        end if
 
@@ -544,6 +646,7 @@ contains
     !! Initialiser parser state to reset
 
     state%in_object = .false.
+    state%in_dims_array = .false.
     state%name = ''
     state%data_type = 1
     if(allocated(state%dims)) deallocate(state%dims)
@@ -552,6 +655,45 @@ contains
     allocate(character(0) :: state%raw_data)
 
   end subroutine reset_initialiser_state
+!###############################################################################
+
+
+!###############################################################################
+  subroutine append_json_int_string_item(line, values)
+    !! Append one integer value stored as a quoted JSON string.
+    implicit none
+
+    ! Arguments
+    character(*), intent(in) :: line
+    !! Current JSON line inside a multiline integer array
+    integer, allocatable, intent(inout) :: values(:)
+    !! Mutable integer array buffer updated in-place
+
+    ! Local variables
+    integer :: pos1, pos2, parsed_value, stat
+    !! Quote positions plus parsed integer value and read status
+    character(32) :: value
+    !! Extracted numeric token before conversion
+
+    if(index(line, '"') .eq. 0) return
+
+    pos1 = index(line, '"')
+    if(pos1 .le. 0) return
+    pos2 = index(line(pos1+1:), '"')
+    if(pos2 .le. 0) return
+
+    value = line(pos1+1:pos1+pos2-1)
+    read(value, *, iostat=stat) parsed_value
+    if(stat .ne. 0) return
+
+    if(.not.allocated(values))then
+       allocate(values(1))
+       values(1) = parsed_value
+    else
+       values = [values, parsed_value]
+    end if
+
+  end subroutine append_json_int_string_item
 !###############################################################################
 
 
@@ -1428,6 +1570,195 @@ contains
 
 
 !###############################################################################
+  logical function is_onnx_expanded_nop_graph(nodes, num_nodes)
+    !! Return true when the parsed ONNX graph is a supported expanded-ONNX NOP
+    !! decomposition that ATHENA can collapse back into native NOP layers.
+    use athena__container_layer, only: &
+         list_of_onnx_expanded_nop_layer_creators, &
+         allocate_list_of_onnx_expanded_nop_layer_creators
+    implicit none
+
+    ! Arguments
+    type(onnx_node_type), intent(in) :: nodes(:)
+    !! Parsed ONNX nodes
+    integer, intent(in) :: num_nodes
+    !! Number of valid node entries
+
+    ! Local variables
+    character(32), allocatable :: layer_prefixes(:)
+    !! Unique /layerN prefixes discovered in encounter order
+    character(32) :: prefix
+    !! Prefix extracted from the current node name
+    integer :: i, j
+    !! Loop indices
+    logical :: recognised
+    !! Whether at least one registered creator recognises the prefix
+
+    if(.not.allocated(list_of_onnx_expanded_nop_layer_creators))then
+       call allocate_list_of_onnx_expanded_nop_layer_creators()
+    end if
+
+    allocate(layer_prefixes(0))
+
+    do i = 1, num_nodes
+       prefix = extract_onnx_expanded_layer_prefix(nodes(i)%name)
+       if(len_trim(prefix) .eq. 0)then
+          is_onnx_expanded_nop_graph = .false.
+          return
+       end if
+       call append_unique_onnx_expanded_prefix(prefix, layer_prefixes)
+    end do
+
+    if(size(layer_prefixes) .eq. 0)then
+       is_onnx_expanded_nop_graph = .false.
+       return
+    end if
+
+    do i = 1, size(layer_prefixes)
+       recognised = .false.
+       do j = 1, size(list_of_onnx_expanded_nop_layer_creators)
+          if(list_of_onnx_expanded_nop_layer_creators(j)%classify_ptr( &
+               layer_prefixes(i), nodes, num_nodes))then
+             recognised = .true.
+             exit
+          end if
+       end do
+       if(.not.recognised)then
+          is_onnx_expanded_nop_graph = .false.
+          return
+       end if
+    end do
+
+    is_onnx_expanded_nop_graph = .true.
+
+  end function is_onnx_expanded_nop_graph
+!###############################################################################
+
+
+!###############################################################################
+  subroutine build_network_from_json_onnx_expanded_nop( &
+       network, nodes, num_nodes, inits, num_inits, verbose_)
+    !! Reconstruct ATHENA NOP layers from an expanded-ONNX decomposed graph.
+    !!
+    !! Layer creation is delegated to the registered creators in
+    !! list_of_onnx_expanded_nop_layer_creators, selected by their
+    !! classify_ptr.
+    use athena__base_layer, only: base_layer_type
+    use athena__container_layer, only: &
+         list_of_onnx_expanded_nop_layer_creators
+    implicit none
+
+    ! Arguments
+    type(network_type), intent(inout) :: network
+    !! Network receiving the reconstructed layers
+    type(onnx_node_type), intent(in) :: nodes(:)
+    !! Parsed ONNX nodes
+    integer, intent(in) :: num_nodes
+    !! Number of valid node entries
+    type(onnx_initialiser_type), intent(in) :: inits(:)
+    !! Parsed ONNX initialisers
+    integer, intent(in) :: num_inits
+    !! Number of valid initialiser entries
+    integer, intent(in) :: verbose_
+    !! Effective verbosity level
+
+    ! Local variables
+    character(32), allocatable :: layer_prefixes(:)
+    !! Unique /layerN prefixes discovered in encounter order
+    character(32) :: prefix
+    !! Prefix extracted from the current node name
+    integer :: i, j
+    !! Loop indices
+    class(base_layer_type), allocatable :: layer
+    !! Constructed layer for each prefix
+
+    allocate(layer_prefixes(0))
+
+    do i = 1, num_nodes
+       prefix = extract_onnx_expanded_layer_prefix(nodes(i)%name)
+       if(len_trim(prefix) .eq. 0) cycle
+       call append_unique_onnx_expanded_prefix(prefix, layer_prefixes)
+    end do
+
+    do i = 1, size(layer_prefixes)
+       do j = 1, size(list_of_onnx_expanded_nop_layer_creators)
+          if(list_of_onnx_expanded_nop_layer_creators(j)%classify_ptr( &
+               layer_prefixes(i), nodes, num_nodes))then
+             layer = list_of_onnx_expanded_nop_layer_creators(j)%build_ptr( &
+                  layer_prefixes(i), nodes, num_nodes, inits, num_inits)
+             call network%add(layer)
+             exit
+          end if
+       end do
+    end do
+
+    if(verbose_ .gt. 0)then
+       write(*,*) 'Network built with ', network%num_layers, &
+            ' expanded-ONNX NOP layers'
+    end if
+
+  end subroutine build_network_from_json_onnx_expanded_nop
+!###############################################################################
+
+
+!###############################################################################
+  subroutine append_unique_onnx_expanded_prefix(prefix, prefixes)
+    !! Append a /layerN prefix to a list if it is not already present.
+    implicit none
+
+    ! Arguments
+    character(*), intent(in) :: prefix
+    !! Prefix to append
+    character(32), allocatable, intent(inout) :: prefixes(:)
+    !! Prefix list updated in-place
+
+    ! Local variables
+    integer :: i
+    !! Loop index
+
+    if(len_trim(prefix) .eq. 0) return
+
+    do i = 1, size(prefixes)
+       if(trim(prefixes(i)) .eq. trim(prefix)) return
+    end do
+
+    prefixes = [prefixes, trim(prefix)]
+
+  end subroutine append_unique_onnx_expanded_prefix
+!###############################################################################
+
+
+!###############################################################################
+  function extract_onnx_expanded_layer_prefix(node_name) result(prefix)
+    !! Extract the layerN prefix from an expanded-ONNX node name.
+    implicit none
+
+    ! Arguments
+    character(*), intent(in) :: node_name
+    !! Node name such as /layer1/MatMul
+    character(32) :: prefix
+    !! Extracted layer prefix without leading slash
+
+    ! Local variables
+    integer :: pos
+    !! Position of the second slash in the node name
+    character(128) :: trimmed_name
+    !! Trimmed working copy of the node name
+
+    prefix = ''
+    trimmed_name = trim(node_name)
+    if(index(trimmed_name, '/layer') .ne. 1) return
+
+    pos = index(trimmed_name(2:), '/')
+    if(pos .le. 0) return
+
+    prefix = trimmed_name(2:pos)
+
+  end function extract_onnx_expanded_layer_prefix
+!###############################################################################
+
+
+!###############################################################################
   subroutine build_network_from_json_standard( &
        network, nodes, num_nodes, inits, num_inits, inputs, num_inputs, &
        verbose_)
@@ -1465,6 +1796,12 @@ contains
     !! Current node output tensor name
     character(32) :: op_type_name
     !! Current node ONNX op type
+
+    if(is_onnx_expanded_nop_graph(nodes, num_nodes))then
+       call build_network_from_json_onnx_expanded_nop( &
+            network, nodes, num_nodes, inits, num_inits, verbose_)
+       return
+    end if
 
     allocate(value_infos(num_nodes))
     num_vi = 0

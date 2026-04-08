@@ -53,7 +53,15 @@ submodule(athena__container_layer) athena__container_layer_submodule
        create_from_onnx_fixed_lno_layer, &
        create_from_onnx_neural_operator_layer, &
        create_from_onnx_orthogonal_nop_layer, &
-       create_from_onnx_orthogonal_attention_layer
+       create_from_onnx_orthogonal_attention_layer, &
+       classify_dynamic_lno_onnx_expanded_nop, &
+       build_dynamic_lno_onnx_expanded_nop, &
+       classify_fixed_lno_onnx_expanded_nop, &
+       build_fixed_lno_onnx_expanded_nop, &
+       classify_neural_operator_onnx_expanded_nop, &
+       build_neural_operator_onnx_expanded_nop, &
+       classify_spectral_filter_onnx_expanded_nop, &
+       build_spectral_filter_onnx_expanded_nop
 
 contains
 
@@ -220,5 +228,35 @@ contains
     end if
 
   end subroutine allocate_list_of_onnx_nop_layer_creators
+
+  module subroutine allocate_list_of_onnx_expanded_nop_layer_creators( &
+       addit_list)
+    implicit none
+    type(onnx_expanded_nop_create_layer_container), &
+         dimension(:), intent(in), optional :: addit_list
+
+    if(.not.allocated(list_of_onnx_expanded_nop_layer_creators)) &
+         allocate(list_of_onnx_expanded_nop_layer_creators(0))
+    list_of_onnx_expanded_nop_layer_creators = [ &
+         list_of_onnx_expanded_nop_layer_creators, &
+         onnx_expanded_nop_create_layer_container( &
+              'dynamic_lno', classify_dynamic_lno_onnx_expanded_nop, &
+              build_dynamic_lno_onnx_expanded_nop), &
+         onnx_expanded_nop_create_layer_container( &
+              'fixed_lno', classify_fixed_lno_onnx_expanded_nop, &
+              build_fixed_lno_onnx_expanded_nop), &
+         onnx_expanded_nop_create_layer_container( &
+              'neural_operator', classify_neural_operator_onnx_expanded_nop, &
+              build_neural_operator_onnx_expanded_nop), &
+         onnx_expanded_nop_create_layer_container( &
+              'spectral_filter', classify_spectral_filter_onnx_expanded_nop, &
+              build_spectral_filter_onnx_expanded_nop) &
+    ]
+    if(present(addit_list))then
+       list_of_onnx_expanded_nop_layer_creators = &
+            [list_of_onnx_expanded_nop_layer_creators, addit_list]
+    end if
+
+  end subroutine allocate_list_of_onnx_expanded_nop_layer_creators
 
 end submodule athena__container_layer_submodule

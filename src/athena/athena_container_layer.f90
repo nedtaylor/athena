@@ -25,6 +25,9 @@ module athena__container_layer
   public :: onnx_nop_create_layer_container
   public :: list_of_onnx_nop_layer_creators
   public :: allocate_list_of_onnx_nop_layer_creators
+  public :: onnx_expanded_nop_create_layer_container
+  public :: list_of_onnx_expanded_nop_layer_creators
+  public :: allocate_list_of_onnx_expanded_nop_layer_creators
 #if defined(GFORTRAN)
   public :: container_reduction
 #endif
@@ -121,6 +124,56 @@ module athena__container_layer
        list_of_onnx_nop_layer_creators
   !! List of NOP subtype names and their associated ONNX creation functions
 
+  abstract interface
+     logical function classify_onnx_expanded_nop_layer(prefix, nodes, &
+          num_nodes)
+       !! Return true when this creator handles the given
+       !! expanded-ONNX NOP prefix.
+       import :: onnx_node_type
+       character(*), intent(in) :: prefix
+       !! Expanded-ONNX layer prefix (e.g. "layer1")
+       type(onnx_node_type), intent(in) :: nodes(:)
+       !! Parsed ONNX nodes
+       integer, intent(in) :: num_nodes
+       !! Number of valid node entries
+     end function classify_onnx_expanded_nop_layer
+
+     function build_onnx_expanded_nop_layer( &
+          prefix, nodes, num_nodes, inits, &
+          num_inits) result(layer)
+       !! Build one expanded-ONNX NOP layer from a node cluster.
+       import :: base_layer_type, onnx_node_type, onnx_initialiser_type
+       character(*), intent(in) :: prefix
+       !! Expanded-ONNX layer prefix (e.g. "layer1")
+       type(onnx_node_type), intent(in) :: nodes(:)
+       !! Parsed ONNX nodes
+       integer, intent(in) :: num_nodes
+       !! Number of valid node entries
+       type(onnx_initialiser_type), intent(in) :: inits(:)
+       !! Parsed ONNX initialisers
+       integer, intent(in) :: num_inits
+       !! Number of valid initialiser entries
+       class(base_layer_type), allocatable :: layer
+       !! Constructed layer
+     end function build_onnx_expanded_nop_layer
+  end interface
+
+  type :: onnx_expanded_nop_create_layer_container
+     !! Registration entry for one expanded-ONNX NOP layer type
+     character(30) :: nop_subtype
+     !! Subtype name used for diagnostics (e.g. "dynamic_lno")
+     procedure(classify_onnx_expanded_nop_layer), nopass, pointer :: &
+          classify_ptr => null()
+     !! Pointer to the classifier that recognises this layer type
+     procedure(build_onnx_expanded_nop_layer), nopass, pointer :: &
+          build_ptr => null()
+     !! Pointer to the builder that constructs the layer
+  end type onnx_expanded_nop_create_layer_container
+  type(onnx_expanded_nop_create_layer_container), dimension(:), allocatable :: &
+       list_of_onnx_expanded_nop_layer_creators
+  !! List of expanded-ONNX NOP creators registered for pattern-matched ONNX
+  !! import
+
   interface
      module function read_layer(unit, verbose) result(layer)
        !! Read a layer from a file
@@ -177,6 +230,14 @@ module athena__container_layer
             dimension(:), intent(in), optional :: addit_list
        !! Additional list of NOP ONNX layer creation procedures
      end subroutine allocate_list_of_onnx_nop_layer_creators
+
+     module subroutine allocate_list_of_onnx_expanded_nop_layer_creators( &
+          addit_list)
+       !! Allocate the list of expanded-ONNX NOP layer creation procedures
+       type(onnx_expanded_nop_create_layer_container), &
+            dimension(:), intent(in), optional :: addit_list
+       !! Additional list of expanded-ONNX NOP layer creation procedures
+     end subroutine allocate_list_of_onnx_expanded_nop_layer_creators
   end interface
 
   interface

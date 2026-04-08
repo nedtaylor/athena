@@ -21,7 +21,9 @@ module athena__onnx_creators
   use athena__misc_types, only: &
        onnx_node_type, onnx_initialiser_type, onnx_tensor_type
   use athena__onnx_nop_utils, only: parse_nop_metadata, extract_nop_prefix, &
-       load_nop_param_from_inits
+       load_nop_param_from_inits, find_onnx_expanded_node_by_suffix, &
+       find_node_initialiser_index, detect_onnx_expanded_nop_activation, &
+       load_onnx_expanded_matrix_param
   use athena__onnx_utils, only: row_to_col_major_2d, &
        parse_space_separated_ints
   implicit none
@@ -41,6 +43,14 @@ module athena__onnx_creators
   public :: create_from_onnx_neural_operator_layer
   public :: create_from_onnx_orthogonal_nop_layer
   public :: create_from_onnx_orthogonal_attention_layer
+  public :: classify_dynamic_lno_onnx_expanded_nop
+  public :: build_dynamic_lno_onnx_expanded_nop
+  public :: classify_fixed_lno_onnx_expanded_nop
+  public :: build_fixed_lno_onnx_expanded_nop
+  public :: classify_neural_operator_onnx_expanded_nop
+  public :: build_neural_operator_onnx_expanded_nop
+  public :: classify_spectral_filter_onnx_expanded_nop
+  public :: build_spectral_filter_onnx_expanded_nop
 
 
 
@@ -900,6 +910,478 @@ contains
     end block
 
   end function create_from_onnx_orthogonal_attention_layer
+!###############################################################################
+
+
+!###############################################################################
+! Expanded-ONNX NOP layer classifiers and builders
+!###############################################################################
+
+
+!###############################################################################
+  logical function classify_dynamic_lno_onnx_expanded_nop(prefix, nodes, &
+       num_nodes)
+    !! Return true when the expanded-ONNX node cluster
+    !! for prefix is a dynamic LNO.
+    implicit none
+
+    ! Arguments
+    character(*), intent(in) :: prefix
+    !! Expanded-ONNX layer prefix (e.g. "layer1")
+    type(onnx_node_type), intent(in) :: nodes(:)
+    !! Parsed ONNX nodes
+    integer, intent(in) :: num_nodes
+    !! Number of valid node entries
+
+    classify_dynamic_lno_onnx_expanded_nop = &
+         find_onnx_expanded_node_by_suffix( &
+              nodes, num_nodes, prefix, 'Exp') .gt. 0 &
+         .and. &
+         find_onnx_expanded_node_by_suffix( &
+              nodes, num_nodes, prefix, 'Exp_1') .gt. 0
+
+  end function classify_dynamic_lno_onnx_expanded_nop
+!###############################################################################
+
+
+!###############################################################################
+  function build_dynamic_lno_onnx_expanded_nop( &
+       prefix, nodes, num_nodes, inits, num_inits) result(layer)
+    !! Build one dynamic LNO layer from an expanded-ONNX node cluster.
+    use athena__dynamic_lno_layer, only: dynamic_lno_layer_type
+    use athena__onnx_nop_utils, only: infer_dynamic_lno_poles
+    implicit none
+
+    ! Arguments
+    character(*), intent(in) :: prefix
+    !! Layer node prefix (e.g. layer1)
+    type(onnx_node_type), intent(in) :: nodes(:)
+    !! Parsed ONNX nodes
+    integer, intent(in) :: num_nodes
+    !! Number of valid node entries
+    type(onnx_initialiser_type), intent(in) :: inits(:)
+    !! Parsed ONNX initialisers
+    integer, intent(in) :: num_inits
+    !! Number of valid initialiser entries
+    class(base_layer_type), allocatable :: layer
+    !! Constructed dynamic LNO layer
+
+    ! Local variables
+    type(dynamic_lno_layer_type) :: typed_layer
+    !! Concrete layer object before up-casting
+    integer :: exp_idx, exp1_idx, mul_idx, matmul2_idx, add1_idx
+    !! Node indices for the dynamic LNO decomposition
+    integer :: e_idx, d_idx, beta_idx, w_idx, b_idx
+    !! Initialiser indices used to populate the layer parameters
+    integer :: num_inputs, num_outputs, num_modes
+    !! Reconstructed layer dimensions
+    logical :: use_bias
+    !! Whether the graph includes a bias add
+    character(64) :: activation_name
+    !! Activation reconstructed from the tail of the graph
+    real(real32), allocatable :: poles(:)
+    !! Dynamic poles reconstructed from exported encoder/decoder arguments
+
+    exp_idx = find_onnx_expanded_node_by_suffix(nodes, num_nodes, prefix, &
+         'Exp')
+    exp1_idx = find_onnx_expanded_node_by_suffix(nodes, num_nodes, prefix, &
+         'Exp_1')
+    mul_idx = find_onnx_expanded_node_by_suffix(nodes, num_nodes, prefix, &
+         'Mul')
+    matmul2_idx = find_onnx_expanded_node_by_suffix(nodes, num_nodes, prefix, &
+         'MatMul_2')
+    add1_idx = find_onnx_expanded_node_by_suffix(nodes, num_nodes, prefix, &
+         'Add_1')
+
+    if(exp_idx .le. 0 .or. exp1_idx .le. 0 .or. mul_idx .le. 0 .or. &
+         matmul2_idx .le. 0)then
+       call stop_program('Dynamic LNO ONNX cluster is incomplete for ' // &
+            trim(prefix))
+    end if
+
+    e_idx = find_node_initialiser_index(nodes(exp_idx), inits, num_inits)
+    d_idx = find_node_initialiser_index(nodes(exp1_idx), inits, num_inits)
+    beta_idx = find_node_initialiser_index(nodes(mul_idx), inits, num_inits)
+    w_idx = find_node_initialiser_index(nodes(matmul2_idx), inits, num_inits)
+
+    if(min(e_idx, d_idx, beta_idx, w_idx) .le. 0)then
+       call stop_program('Dynamic LNO ONNX parameters are missing for ' // &
+            trim(prefix))
+    end if
+
+    num_modes = inits(beta_idx)%dims(1)
+    num_outputs = inits(w_idx)%dims(1)
+    num_inputs = inits(w_idx)%dims(2)
+    use_bias = add1_idx .gt. 0
+    activation_name = detect_onnx_expanded_nop_activation( &
+         prefix, nodes, num_nodes)
+
+    typed_layer = dynamic_lno_layer_type( &
+         num_outputs=num_outputs, num_modes=num_modes, &
+         num_inputs=num_inputs, use_bias=use_bias, &
+         activation=trim(activation_name))
+
+    allocate(poles(num_modes))
+    call infer_dynamic_lno_poles( &
+         inits(e_idx), inits(d_idx), num_inputs, num_outputs, poles)
+    typed_layer%params(1)%val(:,1) = poles
+    typed_layer%params(2)%val(:,1) = inits(beta_idx)%data
+    call load_onnx_expanded_matrix_param( &
+         typed_layer%params(3), inits(w_idx), num_outputs, num_inputs)
+
+    if(use_bias)then
+       b_idx = find_node_initialiser_index(nodes(add1_idx), inits, num_inits)
+       if(b_idx .le. 0)then
+          call stop_program('Dynamic LNO bias initialiser missing for ' // &
+               trim(prefix))
+       end if
+       typed_layer%params(4)%val(:,1) = inits(b_idx)%data
+    end if
+
+    allocate(layer, source=typed_layer)
+
+  end function build_dynamic_lno_onnx_expanded_nop
+!###############################################################################
+
+
+!###############################################################################
+  logical function classify_fixed_lno_onnx_expanded_nop(prefix, nodes, &
+       num_nodes)
+    !! Return true when the expanded-ONNX node cluster
+    !! for prefix is a fixed LNO.
+    implicit none
+
+    ! Arguments
+    character(*), intent(in) :: prefix
+    !! Expanded-ONNX layer prefix (e.g. "layer2")
+    type(onnx_node_type), intent(in) :: nodes(:)
+    !! Parsed ONNX nodes
+    integer, intent(in) :: num_nodes
+    !! Number of valid node entries
+
+    !! Fixed LNO has MatMul_3 but not the Exp/Exp_1 pair of dynamic LNO
+    classify_fixed_lno_onnx_expanded_nop = &
+         find_onnx_expanded_node_by_suffix( &
+              nodes, num_nodes, prefix, 'MatMul_3') .gt. 0 &
+         .and. &
+         find_onnx_expanded_node_by_suffix( &
+              nodes, num_nodes, prefix, 'Exp') .le. 0
+
+  end function classify_fixed_lno_onnx_expanded_nop
+!###############################################################################
+
+
+!###############################################################################
+  function build_fixed_lno_onnx_expanded_nop( &
+       prefix, nodes, num_nodes, inits, num_inits) result(layer)
+    !! Build one fixed LNO layer from an expanded-ONNX node cluster.
+    use athena__fixed_lno_layer, only: fixed_lno_layer_type
+    implicit none
+
+    ! Arguments
+    character(*), intent(in) :: prefix
+    !! Layer node prefix (e.g. layer2)
+    type(onnx_node_type), intent(in) :: nodes(:)
+    !! Parsed ONNX nodes
+    integer, intent(in) :: num_nodes
+    !! Number of valid node entries
+    type(onnx_initialiser_type), intent(in) :: inits(:)
+    !! Parsed ONNX initialisers
+    integer, intent(in) :: num_inits
+    !! Number of valid initialiser entries
+    class(base_layer_type), allocatable :: layer
+    !! Constructed fixed LNO layer
+
+    ! Local variables
+    type(fixed_lno_layer_type) :: typed_layer
+    !! Concrete layer object before up-casting
+    integer :: matmul1_idx, matmul3_idx, add1_idx
+    !! Node indices for learnable parameters in the fixed LNO decomposition
+    integer :: r_idx, w_idx, b_idx
+    !! Initialiser indices used to populate the layer parameters
+    integer :: num_inputs, num_outputs, num_modes
+    !! Reconstructed layer dimensions
+    logical :: use_bias
+    !! Whether the graph includes a bias add
+    character(64) :: activation_name
+    !! Activation reconstructed from the tail of the graph
+
+    matmul1_idx = find_onnx_expanded_node_by_suffix(nodes, num_nodes, prefix, &
+         'MatMul_1')
+    matmul3_idx = find_onnx_expanded_node_by_suffix(nodes, num_nodes, prefix, &
+         'MatMul_3')
+    add1_idx = find_onnx_expanded_node_by_suffix(nodes, num_nodes, prefix, &
+         'Add_1')
+
+    if(matmul1_idx .le. 0 .or. matmul3_idx .le. 0)then
+       call stop_program('Fixed LNO ONNX cluster is incomplete for ' // &
+            trim(prefix))
+    end if
+
+    r_idx = find_node_initialiser_index(nodes(matmul1_idx), inits, num_inits)
+    w_idx = find_node_initialiser_index(nodes(matmul3_idx), inits, num_inits)
+
+    if(min(r_idx, w_idx) .le. 0)then
+       call stop_program('Fixed LNO ONNX parameters are missing for ' // &
+            trim(prefix))
+    end if
+
+    num_modes = inits(r_idx)%dims(1)
+    num_outputs = inits(w_idx)%dims(1)
+    num_inputs = inits(w_idx)%dims(2)
+    use_bias = add1_idx .gt. 0
+    activation_name = detect_onnx_expanded_nop_activation( &
+         prefix, nodes, num_nodes)
+
+    typed_layer = fixed_lno_layer_type( &
+         num_outputs=num_outputs, num_modes=num_modes, &
+         num_inputs=num_inputs, use_bias=use_bias, &
+         activation=trim(activation_name))
+
+    call load_onnx_expanded_matrix_param( &
+         typed_layer%params(1), inits(r_idx), num_modes, num_modes)
+    call load_onnx_expanded_matrix_param( &
+         typed_layer%params(2), inits(w_idx), num_outputs, num_inputs)
+
+    if(use_bias)then
+       b_idx = find_node_initialiser_index(nodes(add1_idx), inits, num_inits)
+       if(b_idx .le. 0)then
+          call stop_program('Fixed LNO bias initialiser missing for ' // &
+               trim(prefix))
+       end if
+       typed_layer%params(3)%val(:,1) = inits(b_idx)%data
+    end if
+
+    allocate(layer, source=typed_layer)
+
+  end function build_fixed_lno_onnx_expanded_nop
+!###############################################################################
+
+
+!###############################################################################
+  logical function classify_neural_operator_onnx_expanded_nop(prefix, nodes, &
+       num_nodes)
+    !! Return true when the expanded-ONNX node cluster
+    !! for prefix is a neural operator.
+    implicit none
+
+    ! Arguments
+    character(*), intent(in) :: prefix
+    !! Expanded-ONNX layer prefix (e.g. "layer3")
+    type(onnx_node_type), intent(in) :: nodes(:)
+    !! Parsed ONNX nodes
+    integer, intent(in) :: num_nodes
+    !! Number of valid node entries
+
+    !! Neural operator has ReduceMean but not Exp/Exp_1 or MatMul_3
+    classify_neural_operator_onnx_expanded_nop = &
+         find_onnx_expanded_node_by_suffix( &
+              nodes, num_nodes, prefix, 'ReduceMean') .gt. 0
+
+  end function classify_neural_operator_onnx_expanded_nop
+!###############################################################################
+
+
+!###############################################################################
+  function build_neural_operator_onnx_expanded_nop( &
+       prefix, nodes, num_nodes, inits, num_inits) result(layer)
+    !! Build one neural operator layer from an expanded-ONNX node cluster.
+    use athena__neural_operator_layer, only: neural_operator_layer_type
+    implicit none
+
+    ! Arguments
+    character(*), intent(in) :: prefix
+    !! Layer node prefix (e.g. layer3)
+    type(onnx_node_type), intent(in) :: nodes(:)
+    !! Parsed ONNX nodes
+    integer, intent(in) :: num_nodes
+    !! Number of valid node entries
+    type(onnx_initialiser_type), intent(in) :: inits(:)
+    !! Parsed ONNX initialisers
+    integer, intent(in) :: num_inits
+    !! Number of valid initialiser entries
+    class(base_layer_type), allocatable :: layer
+    !! Constructed neural operator layer
+
+    ! Local variables
+    type(neural_operator_layer_type) :: typed_layer
+    !! Concrete layer object before up-casting
+    integer :: matmul_idx, mul_idx, add1_idx
+    !! Node indices for the neural operator decomposition
+    integer :: w_idx, wk_idx, b_idx
+    !! Initialiser indices used to populate the layer parameters
+    integer :: num_inputs, num_outputs
+    !! Reconstructed layer dimensions
+    logical :: use_bias
+    !! Whether the graph includes a bias add
+    character(64) :: activation_name
+    !! Activation reconstructed from the tail of the graph
+
+    matmul_idx = find_onnx_expanded_node_by_suffix(nodes, num_nodes, prefix, &
+         'MatMul')
+    mul_idx = find_onnx_expanded_node_by_suffix(nodes, num_nodes, prefix, &
+         'Mul')
+    add1_idx = find_onnx_expanded_node_by_suffix(nodes, num_nodes, prefix, &
+         'Add_1')
+
+    if(matmul_idx .le. 0 .or. mul_idx .le. 0)then
+       call stop_program('Neural operator ONNX cluster is incomplete for ' // &
+            trim(prefix))
+    end if
+
+    w_idx = find_node_initialiser_index(nodes(matmul_idx), inits, num_inits)
+    wk_idx = find_node_initialiser_index(nodes(mul_idx), inits, num_inits)
+
+    if(min(w_idx, wk_idx) .le. 0)then
+       call stop_program('Neural operator ONNX parameters are missing for ' // &
+            trim(prefix))
+    end if
+
+    num_outputs = inits(w_idx)%dims(1)
+    num_inputs = inits(w_idx)%dims(2)
+    use_bias = add1_idx .gt. 0
+    activation_name = detect_onnx_expanded_nop_activation( &
+         prefix, nodes, num_nodes)
+
+    typed_layer = neural_operator_layer_type( &
+         num_outputs=num_outputs, num_inputs=num_inputs, &
+         use_bias=use_bias, activation=trim(activation_name))
+
+    call load_onnx_expanded_matrix_param( &
+         typed_layer%params(1), inits(w_idx), num_outputs, num_inputs)
+    typed_layer%params(2)%val(:,1) = inits(wk_idx)%data
+
+    if(use_bias)then
+       b_idx = find_node_initialiser_index(nodes(add1_idx), inits, num_inits)
+       if(b_idx .le. 0)then
+          call stop_program('Neural operator bias initialiser missing for ' // &
+               trim(prefix))
+       end if
+       typed_layer%params(3)%val(:,1) = inits(b_idx)%data
+    end if
+
+    allocate(layer, source=typed_layer)
+
+  end function build_neural_operator_onnx_expanded_nop
+!###############################################################################
+
+
+!###############################################################################
+  logical function classify_spectral_filter_onnx_expanded_nop(prefix, nodes, &
+       num_nodes)
+    !! Return true when the expanded-ONNX node cluster
+    !! for prefix is a spectral filter.
+    implicit none
+
+    ! Arguments
+    character(*), intent(in) :: prefix
+    !! Expanded-ONNX layer prefix (e.g. "layer4")
+    type(onnx_node_type), intent(in) :: nodes(:)
+    !! Parsed ONNX nodes
+    integer, intent(in) :: num_nodes
+    !! Number of valid node entries
+
+    !! Spectral filter has Mul but not Exp/Exp_1 or ReduceMean or MatMul_3
+    classify_spectral_filter_onnx_expanded_nop = &
+         find_onnx_expanded_node_by_suffix( &
+              nodes, num_nodes, prefix, 'Mul') .gt. 0 &
+         .and. &
+         find_onnx_expanded_node_by_suffix( &
+              nodes, num_nodes, prefix, 'Exp') .le. 0 &
+         .and. &
+         find_onnx_expanded_node_by_suffix( &
+              nodes, num_nodes, prefix, 'ReduceMean') .le. 0 &
+         .and. &
+         find_onnx_expanded_node_by_suffix( &
+              nodes, num_nodes, prefix, 'MatMul_3') .le. 0
+
+  end function classify_spectral_filter_onnx_expanded_nop
+!###############################################################################
+
+
+!###############################################################################
+  function build_spectral_filter_onnx_expanded_nop( &
+       prefix, nodes, num_nodes, inits, num_inits) result(layer)
+    !! Build one spectral filter layer from an expanded-ONNX node cluster.
+    use athena__spectral_filter_layer, only: spectral_filter_layer_type
+    implicit none
+
+    ! Arguments
+    character(*), intent(in) :: prefix
+    !! Layer node prefix (e.g. layer4)
+    type(onnx_node_type), intent(in) :: nodes(:)
+    !! Parsed ONNX nodes
+    integer, intent(in) :: num_nodes
+    !! Number of valid node entries
+    type(onnx_initialiser_type), intent(in) :: inits(:)
+    !! Parsed ONNX initialisers
+    integer, intent(in) :: num_inits
+    !! Number of valid initialiser entries
+    class(base_layer_type), allocatable :: layer
+    !! Constructed spectral filter layer
+
+    ! Local variables
+    type(spectral_filter_layer_type) :: typed_layer
+    !! Concrete layer object before up-casting
+    integer :: mul_idx, matmul_idx, add1_idx
+    !! Node indices for the spectral filter decomposition
+    integer :: ws_idx, w_idx, b_idx
+    !! Initialiser indices used to populate the layer parameters
+    integer :: num_inputs, num_outputs, num_modes
+    !! Reconstructed layer dimensions
+    logical :: use_bias
+    !! Whether the graph includes a bias add
+    character(64) :: activation_name
+    !! Activation reconstructed from the tail of the graph
+
+    mul_idx = find_onnx_expanded_node_by_suffix(nodes, num_nodes, prefix, &
+         'Mul')
+    matmul_idx = find_onnx_expanded_node_by_suffix(nodes, num_nodes, prefix, &
+         'MatMul')
+    add1_idx = find_onnx_expanded_node_by_suffix(nodes, num_nodes, prefix, &
+         'Add_1')
+
+    if(mul_idx .le. 0 .or. matmul_idx .le. 0)then
+       call stop_program('Spectral filter ONNX cluster is incomplete for ' // &
+            trim(prefix))
+    end if
+
+    ws_idx = find_node_initialiser_index(nodes(mul_idx), inits, num_inits)
+    w_idx = find_node_initialiser_index(nodes(matmul_idx), inits, num_inits)
+
+    if(min(ws_idx, w_idx) .le. 0)then
+       call stop_program('Spectral filter ONNX parameters are missing for ' // &
+            trim(prefix))
+    end if
+
+    num_modes = inits(ws_idx)%dims(1)
+    num_outputs = inits(w_idx)%dims(1)
+    num_inputs = inits(w_idx)%dims(2)
+    use_bias = add1_idx .gt. 0
+    activation_name = detect_onnx_expanded_nop_activation( &
+         prefix, nodes, num_nodes)
+
+    typed_layer = spectral_filter_layer_type( &
+         num_outputs=num_outputs, num_modes=num_modes, &
+         num_inputs=num_inputs, use_bias=use_bias, &
+         activation=trim(activation_name))
+
+    typed_layer%params(1)%val(:,1) = inits(ws_idx)%data
+    call load_onnx_expanded_matrix_param( &
+         typed_layer%params(2), inits(w_idx), num_outputs, num_inputs)
+
+    if(use_bias)then
+       b_idx = find_node_initialiser_index(nodes(add1_idx), inits, num_inits)
+       if(b_idx .le. 0)then
+          call stop_program('Spectral filter bias initialiser missing for ' // &
+               trim(prefix))
+       end if
+       typed_layer%params(3)%val(:,1) = inits(b_idx)%data
+    end if
+
+    allocate(layer, source=typed_layer)
+
+  end function build_spectral_filter_onnx_expanded_nop
 !###############################################################################
 
 
