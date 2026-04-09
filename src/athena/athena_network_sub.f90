@@ -3734,6 +3734,7 @@ contains
           end if
 #else
           call move_alloc(this%expected_array, saved_expected_array)
+#endif
 
           ! Save validation output to network
           call this%save_output( val_output )
