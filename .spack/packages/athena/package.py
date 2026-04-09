@@ -4,16 +4,18 @@
 # SPDX-License-Identifier: (Apache-2.0 OR MIT)
 
 import subprocess
-from pathlib import Path
 from spack.package import *
+from spack.util.executable import Executable
 
 
-class Athena(Package):
-    """A Fortran library for building, training and testing feed-forward neural networks."""
+class Athena(GitHubArchivePackage):
+    """A Fortran library for building, training and testing neural networks."""
 
     homepage = "https://github.com/nedtaylor/athena"
-    url = "https://github.com/nedtaylor/athena/archive/refs/tags/1.3.3.tar.gz"
     git = "https://github.com/nedtaylor/athena.git"
+
+    # GitHub repository
+    github = "nedtaylor/athena"
 
     maintainers("nedtaylor")
 
@@ -24,12 +26,12 @@ class Athena(Package):
     variant("mpi", default=False, description="Enable parallel execution")
 
     depends_on("fortran", type="build")
-
-    # FIXME: Add dependencies if required.
-    depends_on("fpm@0.9:", type="build")
+    depends_on("fpm@0.13:", type="build")
     depends_on("mpi", when="+mpi")
-
+    depends_on("blas")
+    depends_on("lapack")
 
     def install(self, spec, prefix):
-        subprocess.run(["fpm", "install", "--prefix", "."])
-        install_tree('.', prefix)
+        fpm = Executable("fpm")
+        fpm("install", "--prefix", prefix)
+        install_tree(".", prefix)
