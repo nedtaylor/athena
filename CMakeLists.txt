@@ -79,8 +79,8 @@ CPMAddPackage(
 )
 CPMAddPackage(
   NAME diffstruc
+  VERSION 1.2.0
   GITHUB_REPOSITORY nedtaylor/diffstruc
-  GIT_TAG development
 )
 CPMAddPackage(
   NAME graphstruc
