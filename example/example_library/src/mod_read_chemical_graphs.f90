@@ -2,7 +2,8 @@ module read_chemical_graphs
   use coreutils, only: real32
   use misc_linalg, only: modu
   use atomstruc, only: basis_type, geom_read, igeom_input
-  use athena, only: graph_type, edge_type, array_type
+  use graphstruc, only: graph_type, edge_type
+  use diffstruc, only: array_type
   implicit none
 
   private

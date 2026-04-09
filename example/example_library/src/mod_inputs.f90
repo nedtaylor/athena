@@ -6,25 +6,35 @@
 module inputs
   use coreutils, only: real32, icount, flagmaker, file_check, to_lower
   use constants_mnist, only: ierror
-  use athena, only: &
-       metric_dict_type, &
-       base_optimiser_type, &
-       sgd_optimiser_type, &
-       adam_optimiser_type, &
-       l1l2_regulariser_type, &
-       l1_regulariser_type, &
-       l2_regulariser_type
   implicit none
+
+  type :: input_metric_type
+     logical :: active = .false.
+     character(len=16) :: key = ""
+     real(real32) :: threshold = 1.E-1_real32
+  end type input_metric_type
+
   integer :: verbosity    ! verbose printing
   integer :: seed         ! random seed
   integer :: num_threads  ! number of threads (FOR OPENMP PARALLEL ONLY!)
   integer :: batch_print_step
   real(real32) :: loss_threshold     ! threshold for loss convergence
   real(real32) :: plateau_threshold  ! threshold for plateau checking
-  class(base_optimiser_type), allocatable :: optimiser
   logical :: batch_learning
   character(:), allocatable :: accuracy_method
   character(:), allocatable :: loss_method
+  character(:), allocatable :: optimiser_method
+  real(real32) :: optimiser_learning_rate
+  real(real32) :: optimiser_momentum
+  real(real32) :: optimiser_beta1
+  real(real32) :: optimiser_beta2
+  real(real32) :: optimiser_epsilon
+  character(:), allocatable :: regularisation_method
+  real(real32) :: regularisation_l1
+  real(real32) :: regularisation_l2
+  character(:), allocatable :: clip_min_value
+  character(:), allocatable :: clip_max_value
+  character(:), allocatable :: clip_norm_value
   character(1024) :: input_file, output_file
   logical :: restart
   character(:), allocatable :: data_dir
@@ -60,7 +70,7 @@ module inputs
   real(real32) :: train_size  ! fraction of data to train on (NOT YET USED)
   logical :: shuffle_dataset  ! shuffle train and test data
 
-  type(metric_dict_type), dimension(2) :: metric_dict
+  type(input_metric_type), dimension(2) :: metric_settings
 
 
 
@@ -75,10 +85,15 @@ module inputs
   public :: batch_learning
   public :: plateau_threshold
   public :: accuracy_method, loss_method
-  public :: metric_dict, metric_dict_type
+  public :: optimiser_method, optimiser_learning_rate
+  public :: optimiser_momentum, optimiser_beta1
+  public :: optimiser_beta2, optimiser_epsilon
+  public :: regularisation_method
+  public :: regularisation_l1, regularisation_l2
+  public :: clip_min_value, clip_max_value, clip_norm_value
+  public :: metric_settings, input_metric_type
 
   public :: num_epochs, batch_size
-  public :: optimiser
 
   public :: cv_num_filters, cv_kernel_size, cv_stride
   public :: convolution_method, padding_method
@@ -130,14 +145,27 @@ contains
     verbosity = 1
     num_threads = 1
 
-    metric_dict%active = .false.
-    metric_dict(1)%key = "loss"
-    metric_dict(2)%key = "accuracy"
-    metric_dict%threshold = 1.E-1_real32
+    metric_settings%active = .false.
+    metric_settings(1)%key = "loss"
+    metric_settings(2)%key = "accuracy"
+    metric_settings%threshold = 1.E-1_real32
 
     plateau_threshold = 1.E-3_real32
     shuffle_dataset = .false.
     batch_learning = .true.
+
+    optimiser_method = "none"
+    optimiser_learning_rate = 0.025_real32
+    optimiser_momentum = 0._real32
+    optimiser_beta1 = 0.9_real32
+    optimiser_beta2 = 0.999_real32
+    optimiser_epsilon = 1.E-8_real32
+    regularisation_method = "none"
+    regularisation_l1 = 0._real32
+    regularisation_l2 = 0._real32
+    clip_min_value = ""
+    clip_max_value = ""
+    clip_norm_value = ""
 
     num_epochs = 20
     batch_size = 20
@@ -193,10 +221,10 @@ contains
                 end if
              end do infilename_do
           end if
-       !elseif(index(buffer,'-d').eq.1)then
-       !   flag="-d"
-       !   call flagmaker(buffer,flag,i,skip,empty)
-       !   if(.not.empty) read(buffer,'(A)') dir
+          !elseif(index(buffer,'-d').eq.1)then
+          !   flag="-d"
+          !   call flagmaker(buffer,flag,i,skip,empty)
+          !   if(.not.empty) read(buffer,'(A)') dir
 !!!------------------------------------------------------------------------
 !!! NEURAL NETWORK FLAGS
 !!!------------------------------------------------------------------------
@@ -253,7 +281,7 @@ contains
     write(6,*) "======PARAMETERS======"
     write(6,*) "shuffle dataset:",shuffle_dataset
     write(6,*) "batch learning:",batch_learning
-    write(6,*) "learning rate:",optimiser%learning_rate
+    write(6,*) "learning rate:",optimiser_learning_rate
     write(6,*) "number of epochs:",num_epochs
     write(6,*) "number of filters:",cv_num_filters
     write(6,*) "hidden layers:",fc_num_hidden
@@ -403,15 +431,15 @@ contains
     allocate(metric_list(num_metrics))
     read(metrics,*) metric_list
     do i=1,num_metrics,1
-       where(trim(metric_list(i)).eq.metric_dict%key)
-          metric_dict%active = .true.
-          metric_dict%threshold = threshold(i)
+       where(trim(metric_list(i)).eq.metric_settings%key)
+          metric_settings%active = .true.
+          metric_settings%threshold = threshold(i)
        end where
     end do
-    do i=1,size(metric_dict,dim=1)
-       if(metric_dict(i)%active) &
+    do i=1,size(metric_settings,dim=1)
+       if(metric_settings(i)%active) &
             write(*,'("Metric: ",A,", threshold: ",E10.3E2)') &
-            trim(metric_dict(i)%key), metric_dict(i)%threshold
+            trim(metric_settings(i)%key), metric_settings(i)%threshold
     end do
 
 
@@ -548,11 +576,16 @@ contains
     else
        adaptive_learning = to_lower(trim(adaptive_learning))
     end if
-    select case(adaptive_learning)
+    optimiser_method = trim(adaptive_learning)
+    optimiser_learning_rate = learning_rate
+    optimiser_momentum = momentum
+    optimiser_beta1 = beta1
+    optimiser_beta2 = beta2
+    optimiser_epsilon = epsilon
+    select case(optimiser_method)
     case("none")
-       optimiser = base_optimiser_type()
        write(*,*) "No adaptive learning method"
-    case("sgd")
+    case("sgd", "momentum")
        write(*,*) "Stocastic Gradient Descent momentum-based adaptive learning method"
        if(abs(momentum).le.1.E-6_real32)then
           write(*,*) "ERROR: momentum adaptive learning set with momentum = 0"
@@ -561,7 +594,6 @@ contains
           stop "Exiting..."
        end if
        write(*,*) "momentum =",momentum
-       optimiser = sgd_optimiser_type(momentum = momentum)
     case("nesterov")
        write(*,*) "Nesterov momentum-based adaptive learning method"
        if(abs(momentum).le.1.E-6_real32)then
@@ -571,14 +603,11 @@ contains
           stop "Exiting..."
        end if
        write(*,*) "momentum =",momentum
-       optimiser = sgd_optimiser_type(momentum = momentum, nesterov = .true.)
     case("adam")
        write(*,*) "Adam-based adaptive learning method"
        write(*,*) "beta1 =", beta1
        write(*,*) "beta2 =", beta2
        write(*,*) "epsilon =", epsilon
-       optimiser = adam_optimiser_type(beta1 = beta1, beta2 = beta2, &
-            epsilon = epsilon)
     case("step_decay")
        !optimiser%decay_rate = decay_rate
        !optimiser%decay_steps = decay_steps
@@ -601,7 +630,6 @@ contains
     !! l1l2  = l1 and l2 regularisation
     if(trim(regularisation).eq."")then
        if(l1_lambda.gt.0._real32.and.l2_lambda.gt.0._real32)then
-          optimiser%regularisation = .true.
           regularisation = "l1l2"
           write(*,*) "l1_lambda and l2_lambda were set, but not regularisation"
           write(*,*) 'Setting regularisation = "l1l2"'
@@ -609,7 +637,6 @@ contains
           write(*,*) '   regularisation = "none"'
           write(*,*) '   l1_lambda = 0.0, l2_lambda = 0.0'
        elseif(l1_lambda.gt.0._real32)then
-          optimiser%regularisation = .true.
           regularisation = "l1"
           write(*,*) "l1_lambda was set, but not regularisation"
           write(*,*) 'Setting regularisation = "l1"'
@@ -617,7 +644,6 @@ contains
           write(*,*) '   regularisation = "none"'
           write(*,*) '   l1_lambda = 0.0'
        elseif(l2_lambda.gt.0._real32)then
-          optimiser%regularisation = .true.
           regularisation = "l2"
           write(*,*) "l2_lambda was set, but not regularisation"
           write(*,*) 'Setting regularisation = "l2"'
@@ -626,56 +652,50 @@ contains
           write(*,*) '   l2_lambda = 0.0'
        else
           regularisation = "none"
-          optimiser%regularisation = .false.
        end if
-    else
-       optimiser%regularisation = .true.
     end if
-    select case(to_lower(trim(regularisation)))
+    regularisation_method = to_lower(trim(regularisation))
+    regularisation_l1 = l1_lambda
+    regularisation_l2 = l2_lambda
+    select case(regularisation_method)
     case("none")
-       optimiser%regularisation = .false.
        write(*,*) "No regularisation set"
     case("l1l2")
        write(*,*) "L1L2 regularisation"
        if(abs(l1_lambda).le.1.E-8_real32.and.abs(l2_lambda).le.1.E-8_real32)then
           write(*,*) "ERROR: l1_lambda and l2_lambda set to = 0.0"
           write(*,*) "Please rerun with either a different regularisation or &
-                &a larger values"
+               &a larger values"
           stop "Exiting..."
        end if
        write(*,*) "l1_lambda =",l1_lambda
        write(*,*) "l2_lambda =",l2_lambda
-       allocate( optimiser%regulariser, &
-             source = l1l2_regulariser_type(l1 = l1_lambda, l2 = l2_lambda) )
     case("l1")
        write(*,*) "L1 regularisation"
        if(abs(l1_lambda).le.1.E-8_real32)then
           write(*,*) "ERROR: l1_lambda set to = 0.0"
           write(*,*) "Please rerun with either a different regularisation or &
-                &a larger values"
+               &a larger values"
           stop "Exiting..."
        end if
        write(*,*) "l1_lambda =",l1_lambda
-       allocate( optimiser%regulariser, &
-             source = l1l2_regulariser_type(l1 = l1_lambda) )
     case("l2")
        write(*,*) "L2 regularisation"
        if(abs(l2_lambda).le.1.E-8_real32)then
           write(*,*) "ERROR: l2_lambda set to = 0.0"
           write(*,*) "Please rerun with either a different regularisation or &
-                &a larger values"
+               &a larger values"
           stop "Exiting..."
        end if
        write(*,*) "l2_lambda =",l2_lambda
-       allocate( optimiser%regulariser, &
-             source = l1l2_regulariser_type(l2 = l2_lambda) )
     case default
        write(*,*) "ERROR: regularisation = "//regularisation//" &
-             &not known"
+            &not known"
        stop "Exiting..."
     end select
-    optimiser%learning_rate = learning_rate
-    call optimiser%clip_dict%read(clip_min, clip_max, clip_norm)
+    clip_min_value = trim(clip_min)
+    clip_max_value = trim(clip_max)
+    clip_norm_value = trim(clip_norm)
 
 
 !-------------------------------------------------------------------------------

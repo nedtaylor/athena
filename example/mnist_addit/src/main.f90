@@ -38,12 +38,16 @@ program mnist_example
 #endif
   use athena
   use constants_mnist, only: real32
+  use mnist_example_utils, only: limit_mnist_dataset
   use read_mnist, only: read_mnist_db
   use inputs
+  use mnist_addit_runtime_config, only: initialise_training_state
 
   implicit none
 
   type(network_type) :: network
+  class(base_optimiser_type), allocatable :: optimiser
+  type(metric_dict_type), dimension(2) :: metric_dict
 
   ! data loading and preoprocessing
   real(real32), allocatable, dimension(:,:,:,:) :: input_images, test_images
@@ -54,6 +58,10 @@ program mnist_example
 
   ! neural network size and shape variables
   integer, parameter :: num_classes = 10    ! Number of output classes
+  logical :: limit_dataset = .false.
+  integer, parameter :: max_train_samples = 512
+  integer, parameter :: max_test_samples = 128
+  integer, parameter :: max_epochs = 1
   integer :: image_size
   integer :: input_channels
 
@@ -72,7 +80,8 @@ program mnist_example
   !-----------------------------------------------------------------------------
   ! initialise global variables
   !-----------------------------------------------------------------------------
-  call set_global_vars(param_file="example/mnist/test_job.in")
+  call initialise_training_state( &
+       "example/mnist_addit/test_job.in", optimiser, metric_dict)
 #ifdef _OPENMP
   write(*,*) "number of threads:", num_threads
   call omp_set_num_threads(num_threads)
@@ -96,6 +105,14 @@ program mnist_example
   call read_mnist_db(test_file,test_images, test_labels, &
        maxval(cv_kernel_size), itmp1, "none") !padding_method)
   num_samples_test = size(test_images, 4)
+
+  if(limit_dataset)then
+     call limit_mnist_dataset(input_images, labels, max_train_samples)
+     num_samples = size(input_images, 4)
+     call limit_mnist_dataset(test_images, test_labels, max_test_samples)
+     num_samples_test = size(test_images, 4)
+     num_epochs = min(num_epochs, max_epochs)
+  end if
 
 
   !-----------------------------------------------------------------------------
@@ -199,8 +216,8 @@ program mnist_example
   !-----------------------------------------------------------------------------
   deallocate(input_labels)
   allocate(input_labels(num_classes,num_samples_test), source = 0._real32)
-  do i=1,num_samples
-     input_labels(labels(i),i) = 1._real32
+  do i=1,num_samples_test
+     input_labels(test_labels(i),i) = 1._real32
   end do
   call test_array(1,1)%allocate(array_shape = shape(test_images))
   call test_array(1,1)%set(test_images)

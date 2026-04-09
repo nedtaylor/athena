@@ -1,6 +1,5 @@
 module read_mnist
   use coreutils, only: real32
-  use athena, only: pad_data
   implicit none
 
   private
@@ -110,14 +109,6 @@ contains
     end do
 
     close(unit)
-
-
-!-------------------------------------------------------------------------------
-! populate padding
-!-------------------------------------------------------------------------------
-    call pad_data(images, images_padded, &
-         t_kernel_size, t_padding_method, 4, 3)
-    images = images_padded
 
 
 !-------------------------------------------------------------------------------

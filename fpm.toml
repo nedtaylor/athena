@@ -6,8 +6,8 @@ maintainer = "n.t.taylor@exeter.ac.uk"
 description = "A Fortran library for building, training and testing neural networks"
 
 [library]
-source-dir="src"
-
+source-dir = "src"
+type = ["static"]
 
 [build]
 auto-executables = true
@@ -32,7 +32,8 @@ wandb.example = [
 ]
 
 [install]
-library = false
+library = true
+module-dir = "fortran/modules"
 
 [fortran]
 implicit-typing = false
@@ -47,78 +48,56 @@ suffixes = ["F90", "f90"]
 name = "sine"
 source-dir = "example/sine/src"
 main = "main.f90"
+
 [example.dependencies]
 example_library = { path = "example/example_library"}
+atomstruc = { git = "https://github.com/nedtaylor/atomstruc", branch = "column-major-order" }
+
 
 [[example]]
 name = "simple"
 source-dir = "example/simple/src"
 main = "main.f90"
-[example.dependencies]
-example_library = { path = "example/example_library"}
 
 [[example]]
 name = "mnist"
 source-dir = "example/mnist/src"
-[example.dependencies]
-example_library = { path = "example/example_library"}
 
 [[example]]
 name = "mnist_addit"
 source-dir = "example/mnist_addit/src"
-[example.dependencies]
-example_library = { path = "example/example_library"}
 
 [[example]]
 name = "mnist_3D"
 source-dir = "example/mnist_3D/src"
-[example.dependencies]
-example_library = { path = "example/example_library"}
 
 [[example]]
 name = "mnist_bn"
 source-dir = "example/mnist_bn/src"
-[example.dependencies]
-example_library = { path = "example/example_library"}
 
 [[example]]
 name = "mnist_drop"
 source-dir = "example/mnist_drop/src"
-[example.dependencies]
-example_library = { path = "example/example_library"}
 
 [[example]]
 name = "msgpass_chemical"
 source-dir = "example/msgpass_chemical/src"
-[example.dependencies]
-example_library = { path = "example/example_library"}
-atomstruc = { git = "https://github.com/nedtaylor/atomstruc", branch = "column-major-order" }
 
 [[example]]
 name = "onnx_gnn"
 source-dir = "example/onnx_gnn/src"
-[example.dependencies]
-example_library = { path = "example/example_library"}
-atomstruc = { git = "https://github.com/nedtaylor/atomstruc", branch = "column-major-order" }
 
 [[example]]
 name = "msgpass_euler"
 source-dir = "example/msgpass_euler/src"
-[example.dependencies]
-example_library = { path = "example/example_library"}
 
 [[example]]
 name = "pinn_chemical"
 source-dir = "example/pinn_chemical/src"
-[example.dependencies]
-example_library = { path = "example/example_library"}
-atomstruc = { git = "https://github.com/nedtaylor/atomstruc", branch = "column-major-order" }
 
 [[example]]
 name = "pinn_burgers"
 source-dir = "example/pinn_burgers/src"
-[example.dependencies]
-example_library = { path = "example/example_library"}
 
 [[example]]
 name = "adam_benchmark"
@@ -128,8 +107,6 @@ main = "main.f90"
 [[example]]
 name = "custom_forward"
 source-dir = "example/custom_forward/src"
-[example.dependencies]
-example_library = { path = "example/example_library"}
 
 [[example]]
 name = "onnx"
@@ -147,8 +124,6 @@ source-dir = "example/resnet/src"
 name = "rnn_timeseries"
 source-dir = "example/rnn_timeseries/src"
 main = "main.f90"
-[example.dependencies]
-example_library = { path = "example/example_library"}
 
 [[example]]
 name = "gno_regression"
@@ -158,15 +133,11 @@ source-dir = "example/gno_regression/src"
 name = "ono_heat"
 source-dir = "example/ono_heat/src"
 main = "main.f90"
-[example.dependencies]
-example_library = { path = "example/example_library"}
 
 [[example]]
 name = "lno_heat"
 source-dir = "example/lno_heat/src"
 main = "main.f90"
-[example.dependencies]
-example_library = { path = "example/example_library"}
 
 [[example]]
 name = "lno_rollout"
@@ -177,8 +148,6 @@ main = "main.f90"
 name = "ono_attention_heat"
 source-dir = "example/ono_attention_heat/src"
 main = "main.f90"
-[example.dependencies]
-example_library = { path = "example/example_library"}
 
 [[example]]
 name = "inverse_design"
