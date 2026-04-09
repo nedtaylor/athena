@@ -7,7 +7,7 @@ description = "A Fortran library for building, training and testing neural netwo
 
 [library]
 source-dir = "src"
-type = ["static"]
+# type = ["static"]
 
 [build]
 auto-executables = true
@@ -32,8 +32,8 @@ wandb.example = [
 ]
 
 [install]
-library = true
-module-dir = "fortran/modules"
+library = false
+# module-dir = "fortran/modules"
 
 [fortran]
 implicit-typing = false

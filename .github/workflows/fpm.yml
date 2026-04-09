@@ -69,20 +69,27 @@ jobs:
 
   build-and-test-fpm-hosted:
     if: github.actor != 'nektos/act'
-    name: Build and test (${{ matrix.os }}, ${{ matrix.build_type }}, ${{ matrix.toolchain.compiler }}, ${{ matrix.toolchain.version }})
+    name: Build and test (${{ matrix.os }}, ${{ matrix.build_type }}, ${{ matrix.toolchain }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
         build_type: [release, debug]
-        toolchain:
-        - {compiler: gcc, version: 14}
-        - {compiler: gcc, version: 15}
-        - {compiler: intel, version: '2025.2'}
+        toolchain: [gcc-14, gcc-15, intel-2025.2.1]
         exclude:
         - os: macos-latest
-          toolchain: {compiler: intel, version: '2025.2'}
+          toolchain: intel-2025.2.1
+        include:
+        - toolchain: gcc-14
+          compiler: gcc
+          version: 14
+        - toolchain: gcc-15
+          compiler: gcc
+          version: 15
+        - toolchain: intel-2025.2.1
+          compiler: intel
+          version: '2025.2.1'
     steps:
     - name: checkout repo
       uses: actions/checkout@v4
@@ -94,38 +101,51 @@ jobs:
         sudo apt-get update
         sudo DEBIAN_FRONTEND=noninteractive apt-get install -y libblas-dev liblapack-dev
 
-    - name: Install BLAS/LAPACK system libraries (macOS)
-      if: matrix.os == 'macos-latest'
-      shell: bash
-      run: |
-        brew update
-        brew install openblas lapack
-        echo "LIBRARY_PATH=$(brew --prefix openblas)/lib:$(brew --prefix lapack)/lib${LIBRARY_PATH:+:$LIBRARY_PATH}" >> $GITHUB_ENV
-        echo "LDFLAGS=-L$(brew --prefix openblas)/lib -L$(brew --prefix lapack)/lib ${LDFLAGS:-}" >> $GITHUB_ENV
-        echo "CPPFLAGS=-I$(brew --prefix openblas)/include -I$(brew --prefix lapack)/include ${CPPFLAGS:-}" >> $GITHUB_ENV
-
     - name: Setup compiler toolchain
       uses: fortran-lang/setup-fortran@v1
       id: setup-fortran
       with:
-        compiler: ${{ matrix.toolchain.compiler }}
-        version: ${{ matrix.toolchain.version }}
+        compiler: ${{ matrix.compiler }}
+        version: ${{ matrix.version }}
 
-    - uses: fortran-lang/setup-fpm@v7
+    - name: Normalise compiler environment
+      shell: bash
+      run: |
+        compiler="${FC:-${{ steps.setup-fortran.outputs.fc }}}"
+        if [ -z "$compiler" ]; then
+          echo "Fortran compiler was not configured" >&2
+          exit 1
+        fi
+
+        echo "FC=$compiler" >> "$GITHUB_ENV"
+        echo "FPM_FC=$compiler" >> "$GITHUB_ENV"
+
+    - name: Setup fpm (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
+      uses: fortran-lang/setup-fpm@v7
       id: setup-fpm
       with:
         fpm-version: "v0.13.0"
 
-    - name: Compile
+    - name: Install fpm (macOS)
+      if: matrix.os == 'macos-latest'
       shell: bash
       run: |
-        build_dir="build/fpm-${{ runner.os }}-${{ matrix.toolchain.compiler }}-${{ matrix.toolchain.version }}-${{ matrix.build_type }}"
+        brew install fpm
+        echo "$(brew --prefix)/bin" >> "$GITHUB_PATH"
+
+    - name: Compile
+      shell: bash -l {0}
+      run: |
+        build_dir="build/fpm-${{ runner.os }}-${{ matrix.toolchain }}-${{ matrix.build_type }}"
         "$FC" --version
+        command -v fpm
+        fpm --version
         fpm build --profile ${{ matrix.build_type }} --compiler "$FC" --build-dir "$build_dir"
 
     - name: Test
-      shell: bash
+      shell: bash -l {0}
       run: |
-        build_dir="build/fpm-${{ runner.os }}-${{ matrix.toolchain.compiler }}-${{ matrix.toolchain.version }}-${{ matrix.build_type }}"
+        build_dir="build/fpm-${{ runner.os }}-${{ matrix.toolchain }}-${{ matrix.build_type }}"
         "$FC" --version
         fpm test --profile ${{ matrix.build_type }} --compiler "$FC" --build-dir "$build_dir"

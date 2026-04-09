@@ -31,6 +31,10 @@ program inverse_design_example
   type(network_type), target :: network
   real(real32), dimension(:,:), allocatable :: x_opt
   type(array_type) :: x_array(1), y_array(1,1)
+#ifdef __INTEL_COMPILER
+  ! ifort has a compiler frontend crash at the call site of the built-in inverse_design
+  type(array_type) :: target_array, x_init_array, x_opt_array
+#endif
   type(array_type), pointer :: loss
 
   integer, parameter :: num_train = 50000
@@ -107,7 +111,8 @@ program inverse_design_example
   write(*,*)
 
   ! verify the network is well trained
-  predicted = network%predict(input=reshape([0.5_real32], [1,1]))
+  x(1,1) = 0.5_real32
+  predicted = network%predict(input=x)
   write(*,'(A,F10.6)') "  Sanity check: predict(0.5) = ", predicted(1,1)
   write(*,'(A,F10.6)') "  Expected:     (2*0.5+0.5)/2.5 = ", 0.6_real32
   write(*,*)
@@ -129,12 +134,24 @@ program inverse_design_example
   write(*,'(A,F8.4)') "  Expected optimal input:      ", 0.5_real32
   write(*,*)
 
+#ifdef __INTEL_COMPILER
+  call target_array%allocate(source=target_y)
+  call x_init_array%allocate(source=x_init)
+  x_opt_array = network%inverse_design( &
+       target = target_array, &
+       x_init = x_init_array, &
+       optimiser = sgd_optimiser_type(learning_rate=0.1_real32), &
+       steps = inverse_steps &
+  )
+  x_opt = x_opt_array%val
+#else
   x_opt = network%inverse_design( &
        target = target_y, &
        x_init = x_init, &
        optimiser = sgd_optimiser_type(learning_rate=0.1_real32), &
        steps = inverse_steps &
   )
+#endif
 
   ! verify by running optimised input through the network
   ! Use a real array (not reshape) to avoid gfortran assumed-rank bug
@@ -151,7 +168,8 @@ program inverse_design_example
   write(*,*)
 
   ! check if network is still intact
-  predicted = network%predict(input=reshape([0.5_real32], [1,1]))
+  x(1,1) = 0.5_real32
+  predicted = network%predict(input=x)
   write(*,'(A,F10.6)') "  Post-inverse predict(0.5) = ", predicted(1,1)
 
 
@@ -171,7 +189,11 @@ contains
     !! This gives full control over the optimisation process.
     implicit none
 
+#ifdef __INTEL_COMPILER
+    type(array_type), pointer :: cx(:,:), cy(:,:)
+#else
     type(array_type) :: cx(1,1), cy(1,1)
+#endif
     type(array_type), pointer :: closs
     real(real32) :: cx_flat(1), cx_grad(1)
     integer :: step, root_id
@@ -182,6 +204,9 @@ contains
     call opt%init(num_params=1)
 
     ! initialise x from the same starting point
+#ifdef __INTEL_COMPILER
+    allocate(cx(1,1), cy(1,1))
+#endif
     call cx(1,1)%allocate(source=reshape([0.1_real32], [1,1]))
     call cx(1,1)%set_requires_grad(.true.)
 
@@ -252,6 +277,12 @@ contains
     write(*,'(A,ES10.3)') "  Input error:        ", &
          abs(cx(1,1)%val(1,1) - 0.5_real32)
     write(*,*)
+
+    call cx(1,1)%deallocate()
+    call cy(1,1)%deallocate()
+#ifdef __INTEL_COMPILER
+    deallocate(cx, cy)
+#endif
 
   end subroutine custom_inverse_design
 

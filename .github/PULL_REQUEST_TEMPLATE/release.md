@@ -33,7 +33,7 @@ The release includes bug fixes, improvements, and new features stabilised during
 
 * [ ] `fpm build` succeeds
 * [ ] `fpm test` succeeds
-* [ ] Installation via `fpm install` verified
+* [ ] `fpm run --example` succeeds
 
 ---
 
