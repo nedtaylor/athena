@@ -400,7 +400,7 @@ The native format includes athena version information:
 .. code-block:: fortran
 
    ! Saved files include:
-   ! ATHENA_VERSION = 2.0.0
+   ! ATHENA_VERSION = X.Y.Z
 
 * Models saved with newer versions may not load in older athena
 * Check release notes for breaking changes
