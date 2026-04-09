@@ -18,20 +18,19 @@ contains
     integer :: i, c, s
     integer :: num_elements, num_dims
 
-    call output%allocate(array_shape = input%shape)
+    allocate(output)
+    if(output%allocated) call output%deallocate()
+    call output%allocate(array_shape = [ input%shape, size(input%val,2) ])
     output%epsilon = epsilon
     output%mean = mean
     output%variance = variance
     num_dims = size(input%shape)
     num_elements = product(input%shape(1:num_dims - 1))
     do concurrent(c = 1:input%shape(num_dims))
-       do concurrent(i=1:num_elements)
-          output%val(i + (c-1) * num_elements:i + c * num_elements - 1, s) = &
-               params%val(c,1) * ( &
-                    input%val(i + (c-1) * num_elements:i + c * num_elements - 1, s) &
-                    - mean(c) &
-               ) / &
-               sqrt(variance(c) + output%epsilon) + &
+       do concurrent(s = 1:size(input%val,2), i = 1:num_elements)
+          output%val(i + (c-1) * num_elements, s) = &
+               params%val(c,1) * ( input%val(i + (c-1) * num_elements, s) - &
+                    mean(c) ) / sqrt(variance(c) + output%epsilon) + &
                params%val(c+input%shape(num_dims),1)
        end do
     end do
