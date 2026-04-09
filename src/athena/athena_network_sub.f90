@@ -1448,11 +1448,15 @@ contains
              )
           else
              ! add flatten layer between the current layer and the child layer
+             operator = this%auto_graph%edge( &
+                  this%auto_graph%adjacency(i,child_vertices(j)) &
+             )%id
              call this%auto_graph%remove_edges( &
                   indices = [this%auto_graph%adjacency(i,child_vertices(j))] &
              )
              call this%add( &
-                  t_flatten_layer, input_list = [i], output_list = [child_id], &
+                  t_flatten_layer, input_list = [layer_id], &
+                  output_list = [child_id], &
                   operator=operator &
              )
           end if
@@ -3488,7 +3492,7 @@ contains
     real(real32) :: val_loss, val_accuracy, val_loss_sum, val_accuracy_sum
     !! Validation loss and accuracy
 #ifdef __INTEL_COMPILER
-   type(array_type), pointer :: saved_expected_array(:,:) => null()
+    type(array_type), pointer :: saved_expected_array(:,:) => null()
     !! Saved training expected output (for restoring after validation)
 #else
     type(array_type), dimension(:,:), allocatable :: saved_expected_array
@@ -3800,7 +3804,7 @@ contains
              deallocate(this%expected_array)
           end if
 #ifdef __INTEL_COMPILER
-           ! `ifx` does not support `move_alloc` in this context
+          ! `ifx` does not support `move_alloc` in this context
           if(associated(saved_expected_array))then
              allocate(this%expected_array( &
                   size(saved_expected_array, 1), size(saved_expected_array, 2) &
@@ -4733,16 +4737,16 @@ contains
     !! Optimised input
 
     ! Local variables
-   type(array_type), pointer :: target_arr(:,:), x_init_arr(:,:), x_opt_arr(:,:)
+    type(array_type), pointer :: target_arr(:,:), x_init_arr(:,:), x_opt_arr(:,:)
     !! Working input and target as array_type
 
 
     !---------------------------------------------------------------------------
     ! Convert real arrays to array_type
     !---------------------------------------------------------------------------
-   allocate(target_arr(1,1), x_init_arr(1,1), x_opt_arr(1,1))
-   call target_arr(1,1)%allocate(source=target)
-   call x_init_arr(1,1)%allocate(source=x_init)
+    allocate(target_arr(1,1), x_init_arr(1,1), x_opt_arr(1,1))
+    call target_arr(1,1)%allocate(source=target)
+    call x_init_arr(1,1)%allocate(source=x_init)
 
     !---------------------------------------------------------------------------
     ! Delegate to array_type implementation
@@ -4752,10 +4756,10 @@ contains
     )
     x_opt = x_opt_arr(1,1)%val
 
-       call target_arr(1,1)%deallocate()
-       call x_init_arr(1,1)%deallocate()
-       call x_opt_arr(1,1)%deallocate()
-       deallocate(target_arr, x_init_arr, x_opt_arr)
+    call target_arr(1,1)%deallocate()
+    call x_init_arr(1,1)%deallocate()
+    call x_opt_arr(1,1)%deallocate()
+    deallocate(target_arr, x_init_arr, x_opt_arr)
 
   end function inverse_design_real
 !###############################################################################
@@ -4784,15 +4788,15 @@ contains
     !! Optimised input
 
     ! Local variables
-   type(array_type), pointer :: target_arr(:,:), x_init_arr(:,:), x_opt_arr(:,:)
+    type(array_type), pointer :: target_arr(:,:), x_init_arr(:,:), x_opt_arr(:,:)
 
 
     !---------------------------------------------------------------------------
     ! Convert real arrays to array_type
     !---------------------------------------------------------------------------
-   allocate(target_arr(1,1), x_init_arr(1,1), x_opt_arr(1,1))
-   call target_arr(1,1)%allocate(source=target)
-   call x_init_arr(1,1)%allocate(source=x_init)
+    allocate(target_arr(1,1), x_init_arr(1,1), x_opt_arr(1,1))
+    call target_arr(1,1)%allocate(source=target)
+    call x_init_arr(1,1)%allocate(source=x_init)
 
     !---------------------------------------------------------------------------
     ! Delegate to array_type implementation
@@ -4802,10 +4806,10 @@ contains
     )
     x_opt = x_opt_arr(1,1)
 
-       call target_arr(1,1)%deallocate()
-       call x_init_arr(1,1)%deallocate()
-       call x_opt_arr(1,1)%deallocate()
-       deallocate(target_arr, x_init_arr, x_opt_arr)
+    call target_arr(1,1)%deallocate()
+    call x_init_arr(1,1)%deallocate()
+    call x_opt_arr(1,1)%deallocate()
+    deallocate(target_arr, x_init_arr, x_opt_arr)
 
   end function inverse_design_array_0d
 !###############################################################################
