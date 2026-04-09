@@ -69,13 +69,27 @@ jobs:
 
   build-and-test-fpm-hosted:
     if: github.actor != 'nektos/act'
-    name: Build and test (${{ matrix.os }}, ${{ matrix.build_type }}, gcc-15)
+    name: Build and test (${{ matrix.os }}, ${{ matrix.build_type }}, ${{ matrix.toolchain }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
         build_type: [release, debug]
+        toolchain: [gcc-14, gcc-15, intel-2025.2.1]
+        exclude:
+        - os: macos-latest
+          toolchain: intel-2025.2.1
+        include:
+        - toolchain: gcc-14
+          compiler: gcc
+          version: 14
+        - toolchain: gcc-15
+          compiler: gcc
+          version: 15
+        - toolchain: intel-2025.2.1
+          compiler: intel
+          version: '2025.2.1'
     steps:
     - name: checkout repo
       uses: actions/checkout@v4
@@ -91,8 +105,8 @@ jobs:
       uses: fortran-lang/setup-fortran@v1
       id: setup-fortran
       with:
-        compiler: gcc
-        version: 15
+        compiler: ${{ matrix.compiler }}
+        version: ${{ matrix.version }}
 
     - name: Normalise compiler environment
       shell: bash
@@ -106,22 +120,32 @@ jobs:
         echo "FC=$compiler" >> "$GITHUB_ENV"
         echo "FPM_FC=$compiler" >> "$GITHUB_ENV"
 
-    - uses: fortran-lang/setup-fpm@v7
+    - name: Setup fpm (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
+      uses: fortran-lang/setup-fpm@v7
       id: setup-fpm
       with:
         fpm-version: "v0.13.0"
 
+    - name: Install fpm (macOS)
+      if: matrix.os == 'macos-latest'
+      shell: bash
+      run: |
+        brew install fpm
+        echo "$(brew --prefix)/bin" >> "$GITHUB_PATH"
+
     - name: Compile
       shell: bash -l {0}
       run: |
-        build_dir="build/fpm-${{ runner.os }}-gcc-15-${{ matrix.build_type }}"
+        build_dir="build/fpm-${{ runner.os }}-${{ matrix.toolchain }}-${{ matrix.build_type }}"
         "$FC" --version
+        command -v fpm
         fpm --version
         fpm build --profile ${{ matrix.build_type }} --compiler "$FC" --build-dir "$build_dir"
 
     - name: Test
       shell: bash -l {0}
       run: |
-        build_dir="build/fpm-${{ runner.os }}-gcc-15-${{ matrix.build_type }}"
+        build_dir="build/fpm-${{ runner.os }}-${{ matrix.toolchain }}-${{ matrix.build_type }}"
         "$FC" --version
         fpm test --profile ${{ matrix.build_type }} --compiler "$FC" --build-dir "$build_dir"
