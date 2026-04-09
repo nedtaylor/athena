@@ -470,39 +470,50 @@ contains
     !! Maximum absolute deviation from orthogonality
 
     ! Local variables
-    integer :: n, k, i, j, idx_ij
+   integer :: n, k, i, j
     !! Matrix dimensions and traversal indices
-    real(real32), allocatable :: Q(:,:), QtQ(:,:)
-    !! Orthogonal basis matrix and Gram matrix
-    real(real32) :: val
-    !! Current absolute deviation entry
-    type(array_type) :: phi
-    !! Basis matrix returned by get_bases
+   real(real32), allocatable :: basis_matrix(:,:), orthogonal_basis(:,:)
+   !! Raw basis weights and orthogonalised basis matrix
+   real(real32) :: norm_val, projection, val
+   !! Gram-Schmidt scalars and current absolute deviation entry
 
     n = this%num_inputs
     k = this%num_basis
 
-    allocate(Q(n, k), QtQ(k, k))
-    phi = this%get_bases()
-    Q = reshape(phi%val(:,1), [n, k])
+    allocate(basis_matrix(n, k), orthogonal_basis(n, k))
+    basis_matrix = reshape(this%params(2)%val(:,1), [n, k])
+    orthogonal_basis = basis_matrix
 
-    ! Compute Q^T @ Q
-    QtQ = matmul(transpose(Q), Q)
+    do j = 1, k
+       do i = 1, j - 1
+          projection = dot_product(orthogonal_basis(:,i), orthogonal_basis(:,j))
+          orthogonal_basis(:,j) = orthogonal_basis(:,j) - &
+               projection * orthogonal_basis(:,i)
+       end do
+       norm_val = sqrt(dot_product( &
+            orthogonal_basis(:,j), orthogonal_basis(:,j)))
+       if(norm_val .gt. 1.0e-12_real32)then
+          orthogonal_basis(:,j) = orthogonal_basis(:,j) / norm_val
+       else
+          orthogonal_basis(:,j) = 0.0_real32
+       end if
+    end do
 
     ! max(|Q^T Q - I|)
     metric = 0.0_real32
     do j = 1, k
        do i = 1, k
+          val = dot_product(orthogonal_basis(:,i), orthogonal_basis(:,j))
           if(i .eq. j)then
-             val = abs(QtQ(i,j) - 1.0_real32)
+             val = abs(val - 1.0_real32)
           else
-             val = abs(QtQ(i,j))
+             val = abs(val)
           end if
           if(val .gt. metric) metric = val
        end do
     end do
 
-    deallocate(Q, QtQ)
+    deallocate(basis_matrix, orthogonal_basis)
 
   end function get_orthogonality_metric
 !###############################################################################

@@ -3487,8 +3487,13 @@ contains
     !! Loop index for validation
     real(real32) :: val_loss, val_accuracy, val_loss_sum, val_accuracy_sum
     !! Validation loss and accuracy
+#ifdef __INTEL_COMPILER
+   type(array_type), pointer :: saved_expected_array(:,:) => null()
+    !! Saved training expected output (for restoring after validation)
+#else
     type(array_type), dimension(:,:), allocatable :: saved_expected_array
     !! Saved training expected output (for restoring after validation)
+#endif
 
 #ifdef _OPENMP
     type(network_type) :: this_copy
@@ -3707,7 +3712,27 @@ contains
        val_str = ""
        if(use_validation)then
 
-          ! Save training expected output
+#ifdef __INTEL_COMPILER
+          ! Save training expected output. `ifx` crashes on the allocatable
+          ! local declaration used with `move_alloc`, so keep an explicit
+          ! pointer-backed copy here instead.
+          if(allocated(this%expected_array))then
+             allocate(saved_expected_array( &
+                  size(this%expected_array, 1), size(this%expected_array, 2) &
+             ))
+             do i = 1, size(this%expected_array, 1)
+                do j = 1, size(this%expected_array, 2)
+                   call saved_expected_array(i,j)%allocate( &
+                        source=this%expected_array(i,j) &
+                   )
+                   call this%expected_array(i,j)%deallocate()
+                end do
+             end do
+             deallocate(this%expected_array)
+          else
+             nullify(saved_expected_array)
+          end if
+#else
           call move_alloc(this%expected_array, saved_expected_array)
 
           ! Save validation output to network
@@ -3773,7 +3798,26 @@ contains
              end do
              deallocate(this%expected_array)
           end if
+#ifdef __INTEL_COMPILER
+           ! `ifx` does not support `move_alloc` in this context
+          if(associated(saved_expected_array))then
+             allocate(this%expected_array( &
+                  size(saved_expected_array, 1), size(saved_expected_array, 2) &
+             ))
+             do i = 1, size(saved_expected_array, 1)
+                do j = 1, size(saved_expected_array, 2)
+                   call this%expected_array(i,j)%allocate( &
+                        source=saved_expected_array(i,j) &
+                   )
+                   call saved_expected_array(i,j)%deallocate()
+                end do
+             end do
+             deallocate(saved_expected_array)
+             nullify(saved_expected_array)
+          end if
+#else
           call move_alloc(saved_expected_array, this%expected_array)
+#endif
 
           ! Restore training input
           num_samples = this%save_input( input )
@@ -4688,15 +4732,16 @@ contains
     !! Optimised input
 
     ! Local variables
-    type(array_type), dimension(1,1) :: target_arr, x_init_arr, x_opt_arr
+   type(array_type), pointer :: target_arr(:,:), x_init_arr(:,:), x_opt_arr(:,:)
     !! Working input and target as array_type
 
 
     !---------------------------------------------------------------------------
     ! Convert real arrays to array_type
     !---------------------------------------------------------------------------
-    call target_arr(1,1)%allocate(source=target)
-    call x_init_arr(1,1)%allocate(source=x_init)
+   allocate(target_arr(1,1), x_init_arr(1,1), x_opt_arr(1,1))
+   call target_arr(1,1)%allocate(source=target)
+   call x_init_arr(1,1)%allocate(source=x_init)
 
     !---------------------------------------------------------------------------
     ! Delegate to array_type implementation
@@ -4705,6 +4750,11 @@ contains
          target_arr, x_init_arr, optimiser, steps &
     )
     x_opt = x_opt_arr(1,1)%val
+
+       call target_arr(1,1)%deallocate()
+       call x_init_arr(1,1)%deallocate()
+       call x_opt_arr(1,1)%deallocate()
+       deallocate(target_arr, x_init_arr, x_opt_arr)
 
   end function inverse_design_real
 !###############################################################################
@@ -4733,14 +4783,15 @@ contains
     !! Optimised input
 
     ! Local variables
-    type(array_type), dimension(1,1) :: target_arr, x_init_arr, x_opt_arr
+   type(array_type), pointer :: target_arr(:,:), x_init_arr(:,:), x_opt_arr(:,:)
 
 
     !---------------------------------------------------------------------------
     ! Convert real arrays to array_type
     !---------------------------------------------------------------------------
-    call target_arr(1,1)%allocate(source=target)
-    call x_init_arr(1,1)%allocate(source=x_init)
+   allocate(target_arr(1,1), x_init_arr(1,1), x_opt_arr(1,1))
+   call target_arr(1,1)%allocate(source=target)
+   call x_init_arr(1,1)%allocate(source=x_init)
 
     !---------------------------------------------------------------------------
     ! Delegate to array_type implementation
@@ -4749,6 +4800,11 @@ contains
          target_arr, x_init_arr, optimiser, steps &
     )
     x_opt = x_opt_arr(1,1)
+
+       call target_arr(1,1)%deallocate()
+       call x_init_arr(1,1)%deallocate()
+       call x_opt_arr(1,1)%deallocate()
+       deallocate(target_arr, x_init_arr, x_opt_arr)
 
   end function inverse_design_array_0d
 !###############################################################################
