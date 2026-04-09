@@ -7,57 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-04-09
+
 ### Added
-- Added spack package manager support
-- Added Code of Conduct
-- Added message passing layer base type
-- Added convolutional MPNN layer
-- Added framework for residual blocks
-- Allow layers to take in multiple inputs
-- Added handling for multiple inputs
-- Added skip layers
-- Added internal version and build information
-- Collapsed inputNd_layers to a single input_layer type
-- Collapsed flattenNd_layers to a single flatten_layer type
-- Added graphstruc external library dependency
-- Added hyperparameter setting procedure for each layer
-- Added custom array derived type
-- Added conv1d_layer_type
-- Added avgpool1d_layer_type
-- Added maxpool1d_layer_type
+- Added neural-operator support, including graph neural operator (GNO), fixed and dynamic Laplace neural operators, and orthogonal operator building blocks, together with new examples and tests.
+- Added optional Weights & Biases integration via `wandb_network_type` plus wandb-enabled examples and documentation.
+- Added inverse-design procedures, train-time validation arguments, and explicit inference-mode controls for networks.
+- Expanded ONNX support to cover message-passing layers, neural operators, expanded NOP graphs, and additional operators such as GEMM and LeakyReLU.
+- Added flang support documentation and updated compiler guidance.
 
 ### Changed
-- Updated Contributing document
-- Changed module filenames to improve consistency and reduce conflicts
-   - All modules have "athena__" prefix
-- Handle errors consistently
-- Changed mod_types.f90 to mod_misc_types.f90
-- Changed athena__infile_tools to athena__tools_infile
-- Renamed real12 to real32
-- Make generic procedure for pool_layer printing
-- Remove forward and backward passes from layer container
-- Changed read procedure for layers
-   - Split into two procedures
-   - One that is a procedure contained in the layer derived type, with the layer as the parent
-   - One that is a public procedure that returns the layer from the read
-- Changed layers outputs and gradients to derived type to enable generic handling
-- Changed commenting in all Fortran files to adopt FORD compatible documenting
-   - This enables documentation of the modules to be compilable using the FORD code (https://forddocs.readthedocs.io/en/stable/)
-   - This tries to follow the format outlined by the Fortran Lang style guide (https://fortran-lang.org/learn/best_practices/style_guide/)
+- Unified ONNX metadata handling and improved automatic reconstruction of graph and neural-operator layers from ONNX models.
+- Expanded documentation and examples for ONNX interchange, deployment, neural operators, and experiment tracking.
+- Updated athena versioning and dependency references for the 2.x release line.
 
 ### Fixed
-- Fixed unallocated lr_decay reference
-- Fixed indentation in mod_misc_ml.f90
-- Fixed identity initialiser
-- Fixed indentation in mod_misc_ml.f90
-- Fixed reference to fpm install in README
-- Fixed unallocated lr_decay reference
-- Fixed ifort and ifx compiler reference to temporary arrays
-- Fixed temporary array reference in tests
-- Fixed epsilon undefined value in mod_loss
-- Fixed project link in CMakeLists.txt
+- Fixed Duvenaud message-passing propagation issues.
+- Fixed activation-function name IO handling and several ONNX parsing edge cases.
+- Fixed convolution memory leaks, Intel ifx compilation issues, and assorted CI/workflow regressions.
 
-# [1.3.3] - 2024-07-03
+
+### Removed
+- Removed deprecated files and feed-forward-only wording from the codebase and documentation.
+
+## [2.0.0] - 2025-12-06
+
+### Added
+- Added Read*the*Docs documentation, tutorials, and additional examples.
+- Added merge/skip layers, recurrent layers, padding layers, reshape layers, and activation layers.
+- Added message passing infrastructure with Kipf and Duvenaud layers, plus support for multi-input and multi-output networks.
+- Added selu and swish activation functions.
+- Added ONNX json-format read/write support.
+- Added initialise-from-data handling.
+- Added Spack package manager support.
+
+### Changed
+- Converted the library to automatic differentiation for training and physics-informed workflows.
+- Moved common derived types and procedures into external libraries, including `graphstruc`, and updated module/file naming to the `athena__` convention under `src/athena`.
+- Renamed the `transfer` component of `learnable_layer_type` to `activation`.
+- Converted loss, initialiser, and activation implementations to derived types for custom extension.
+- Collapsed input and flatten layer variants into unified layer types and standardised layer hyperparameter handling.
+- Added padding handling to convolutional and pooling layers.
+
+### Removed
+- Removed `batch_size` from layers.
+
+## [1.3.3] - 2024-07-03
 
 ### Changed
 - Updated license year
