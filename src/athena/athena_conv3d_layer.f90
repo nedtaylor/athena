@@ -29,7 +29,8 @@ module athena__conv3d_layer
   !!
   !! Shape: \((D, H, W, C_{in}) \rightarrow (D', H', W', C_{out})\)
   use coreutils, only: real32, stop_program
-  use athena__base_layer, only: conv_layer_type, base_layer_type
+  use athena__base_layer, only: conv_layer_type, base_layer_type, &
+       learnable_layer_type
   use athena__pad3d_layer, only: pad3d_layer_type
   use athena__misc_types, only: base_actv_type, base_init_type, &
        onnx_node_type, onnx_initialiser_type, onnx_tensor_type
@@ -51,6 +52,13 @@ module athena__conv3d_layer
      !! Set hyperparameters for 3D convolutional layer
      procedure, pass(this) :: read => read_conv3d
      !! Read 3D convolutional layer from file
+
+#ifdef __INTEL_COMPILER
+     procedure, pass(this) :: reduce => reduce_conv3d
+     !! Merge another 3D convolutional layer into this one
+     procedure :: add_t_t => add_conv3d
+     !! Add two 3D convolutional layers
+#endif
 
      procedure, pass(this) :: forward => forward_conv3d
      !! Forward propagation derived type handler
@@ -119,6 +127,82 @@ contains
   end subroutine finalise_conv3d
 !###############################################################################
 
+#ifdef __INTEL_COMPILER
+!###############################################################################
+  subroutine reduce_conv3d(this, input)
+    !! Merge two 3D convolutional layers via parameter summation
+    implicit none
+
+    class(conv3d_layer_type), intent(inout) :: this
+    class(learnable_layer_type), intent(in) :: input
+
+    real(real32), allocatable :: params(:), gradients(:)
+
+    select type(input)
+    type is (conv3d_layer_type)
+       params = this%get_params() + input%get_params()
+       call this%set_params(params)
+
+       gradients = this%get_gradients() + input%get_gradients()
+       call this%set_gradients(gradients)
+    class default
+       call stop_program("reduce_conv3d: incompatible layer type")
+    end select
+
+  end subroutine reduce_conv3d
+!###############################################################################
+
+
+!###############################################################################
+  function add_conv3d(a, b) result(output)
+    !! Add two 3D convolutional layers without whole-object allocatable copy
+    implicit none
+
+    class(conv3d_layer_type), intent(in) :: a
+    class(learnable_layer_type), intent(in) :: b
+    class(learnable_layer_type), allocatable :: output
+
+    type(conv3d_layer_type) :: layer
+    character(len=20) :: padding
+    real(real32), allocatable :: params(:), gradients(:)
+
+    select type(b)
+    type is (conv3d_layer_type)
+       padding = 'valid'
+       if(allocated(a%pad_layer)) padding = a%pad_layer%method
+
+       call layer%set_hyperparams( &
+            num_filters = a%num_filters, &
+            kernel_size = a%knl, stride = a%stp, dilation = a%dil, &
+            padding = padding, &
+            use_bias = a%use_bias, &
+            activation = a%activation, &
+            kernel_initialiser = a%kernel_init, &
+            bias_initialiser = a%bias_init &
+       )
+
+       if(allocated(a%input_shape)) call layer%init(a%input_shape)
+
+       params = a%get_params() + b%get_params()
+       call layer%set_params(params)
+
+       gradients = a%get_gradients() + b%get_gradients()
+       call layer%set_gradients(gradients)
+
+       layer%id = a%id
+       layer%inference = a%inference
+       layer%use_graph_input = a%use_graph_input
+       layer%use_graph_output = a%use_graph_output
+       layer%subtype = a%subtype
+
+       allocate(output, source=layer)
+    class default
+       call stop_program("add_conv3d: incompatible layer type")
+    end select
+
+  end function add_conv3d
+!###############################################################################
+#endif
 
 !##############################################################################!
 ! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !

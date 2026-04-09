@@ -26,38 +26,19 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build-and-test:
-    name: Build and test (${{ matrix.build_type }})
-    runs-on: ${{ matrix.os }}
+  build-and-test-local:
+    if: github.actor == 'nektos/act'
+    name: Build and test locally (${{ matrix.build_type }})
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest]
-        compiler: [gcc]
-        version: [15]
         build_type: [Release, Debug]
     steps:
       - name: checkout repo
         uses: actions/checkout@v4
 
-      - name: Install BLAS/LAPACK system libraries
-        if: github.actor != 'nektos/act' && matrix.os == 'ubuntu-latest'
-        shell: bash
-        run: |
-          sudo apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y libblas-dev liblapack-dev
-
-      - name: Setup CMake
-        if: github.actor != 'nektos/act'
-        uses: jwlawson/actions-setup-cmake@v2.0.1
-        with:
-          cmake-version: '3.24.x'
-
-      # ----------------------------------------------------
-      # Local act path (Linux Docker runner)
-      # ----------------------------------------------------
       - name: Install compiler + tools (apt)
-        if: github.actor == 'nektos/act' && matrix.os == 'ubuntu-latest' && matrix.compiler == 'gcc' && matrix.version == '15'
         shell: bash
         run: |
           sudo apt-get update
@@ -70,64 +51,113 @@ jobs:
           echo "FC=$(command -v gfortran-15)" >> $GITHUB_ENV
           echo "GCOV=$(command -v gcov-15 || command -v gcov)" >> $GITHUB_ENV
 
-      # ----------------------------------------------------
-      # Conda path (Linux + GCC 15)
-      # ----------------------------------------------------
-      - name: Setup conda
-        if: github.actor != 'nektos/act' && matrix.os == 'ubuntu-latest' && matrix.compiler == 'gcc' && matrix.version == '15'
-        uses: conda-incubator/setup-miniconda@v3
-        with:
-          python-version: 3.11
-          installation-dir: ${{ runner.temp }}/miniconda3
-          pkgs-dirs: ${{ runner.temp }}/conda-pkgs
-          run-post: ${{ github.actor == 'nektos/act' && 'false' || 'true' }}
-
-      - name: Install compiler + tools (conda)
-        if: github.actor != 'nektos/act' && matrix.os == 'ubuntu-latest' && matrix.compiler == 'gcc' && matrix.version == '15'
-        shell: bash -l {0}
-        run: |
-          conda install -y -c conda-forge \
-            "gfortran=${{ matrix.version }}" \
-            "gcc_linux-64=${{ matrix.version }}" \
-            gcovr
-
-          echo "FC=$(which gfortran)" >> $GITHUB_ENV
-          echo "GCOV=$(which gcov)" >> $GITHUB_ENV
-
-      # ----------------------------------------------------
-      # Non-conda compilers (future-proof)
-      # ----------------------------------------------------
-      - name: Setup Fortran compiler
-        if: ${{ github.actor != 'nektos/act' && !(matrix.os == 'ubuntu-latest' && matrix.compiler == 'gcc' && matrix.version == '15') }}
-        uses: fortran-lang/setup-fortran@v1
-        with:
-          compiler: ${{ matrix.compiler }}
-          version: ${{ matrix.version }}
-
-      # ----------------------------------------------------
-      # Build + test (single implementation)
-      # ----------------------------------------------------
       - name: Build and test
         shell: bash -l {0}
         run: |
-          build_dir="$GITHUB_WORKSPACE/build/cmake-${{ matrix.build_type }}"
+          build_dir="$GITHUB_WORKSPACE/build/cmake-act-${{ matrix.build_type }}"
+          jobs=$(nproc)
 
           echo "Build type: ${{ matrix.build_type }}"
-          which gfortran
-          gfortran --version
+          "$FC" --version
           cmake --version
 
-          rm -rf "$build_dir"
-          mkdir -p "$build_dir"
-          cd "$build_dir"
-          export GCOV_PATH=${GCOV:-$(which gcov)}
+          cmake \
+            -S "$GITHUB_WORKSPACE" \
+            -B "$build_dir" \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DCMAKE_Fortran_COMPILER="$FC" \
+            -DGCOV_PATH="${GCOV:-$(command -v gcov)}"
+
+          cmake --build "$build_dir" --parallel "$jobs"
+          cmake --install "$build_dir"
+          ctest --test-dir "$build_dir" --output-on-failure
+
+  build-and-test-hosted:
+    if: github.actor != 'nektos/act'
+    name: Build and test (${{ matrix.os }}, ${{ matrix.build_type }}, gcc-15)
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        build_type: [Release, Debug]
+    steps:
+      - name: checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install runner dependencies (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y gcovr libblas-dev liblapack-dev
+
+      - name: Install runner dependencies (macOS)
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        run: |
+          brew install gcovr
+
+      - name: Setup CMake
+        uses: jwlawson/actions-setup-cmake@v2.0.1
+        with:
+          cmake-version: '3.24.x'
+
+      - name: Setup Fortran compiler
+        uses: fortran-lang/setup-fortran@v1
+        id: setup-fortran
+        with:
+          compiler: gcc
+          version: 15
+
+      - name: Normalise compiler environment
+        shell: bash
+        run: |
+          compiler="${FC:-${{ steps.setup-fortran.outputs.fc }}}"
+          if [ -z "$compiler" ]; then
+            echo "Fortran compiler was not configured" >&2
+            exit 1
+          fi
+
+          compiler_dir="$(dirname "$compiler")"
+          compiler_name="$(basename "$compiler")"
+          compiler_version="${compiler_name##*-}"
+          gcov_candidate=""
+
+          if [ "$compiler_version" != "$compiler_name" ] && [ -x "$compiler_dir/gcov-$compiler_version" ]; then
+            gcov_candidate="$compiler_dir/gcov-$compiler_version"
+          elif [ -x "$compiler_dir/gcov" ]; then
+            gcov_candidate="$compiler_dir/gcov"
+          elif command -v gcov >/dev/null 2>&1; then
+            gcov_candidate="$(command -v gcov)"
+          fi
+
+          echo "FC=$compiler" >> "$GITHUB_ENV"
+          if [ -n "$gcov_candidate" ]; then
+            echo "GCOV=$gcov_candidate" >> "$GITHUB_ENV"
+          fi
+
+      - name: Build and test
+        shell: bash -l {0}
+        run: |
+          build_dir="$GITHUB_WORKSPACE/build/cmake-${{ runner.os }}-${{ matrix.build_type }}"
+          if command -v nproc >/dev/null 2>&1; then
+            jobs=$(nproc)
+          else
+            jobs=$(sysctl -n hw.logicalcpu)
+          fi
+
+          echo "Build type: ${{ matrix.build_type }}"
+          "$FC" --version
+          cmake --version
 
           cmake \
+            -S "$GITHUB_WORKSPACE" \
+            -B "$build_dir" \
             -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-            -DCMAKE_Fortran_COMPILER=${FC:-gfortran} \
-            -DGCOV_PATH=${GCOV_PATH} \
-            "$GITHUB_WORKSPACE"
+            -DCMAKE_Fortran_COMPILER="$FC" \
+            -DGCOV_PATH="${GCOV:-$(command -v gcov)}"
 
-          make -j$(nproc)
-          make install
-          ctest --output-on-failure
+          cmake --build "$build_dir" --parallel "$jobs"
+          cmake --install "$build_dir"
+          ctest --test-dir "$build_dir" --output-on-failure
