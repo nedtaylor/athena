@@ -1,5 +1,5 @@
 ---
-title: 'ATHENA: A Fortran package for neural networks'
+title: 'ATHENA v2: A modular Fortran framework for scientific machine learning with physics-informed, graph, and operator-based models'
 tags:
   - Fortran
   - neural network
@@ -37,19 +37,20 @@ bibliography: paper.bib
 # Summary
 
 Machine learning has become an important tool across computational science, including physics, chemistry, climate science, and materials modelling.
-Modern neural network architectures such as graph neural networks (GNNs), physics-informed neural networks (PINNs), and neural operators enable models that incorporate physical structure and constraints, allowing machine learning to be applied to scientific problems such as atomistic modelling, surrogate simulation, and partial differential equation (PDE) solving.
+Modern network architectures such as graph neural networks (GNNs), physics-informed neural networks (PINNs), and neural operators enable models that incorporate physical structure and constraints, allowing machine learning to be applied to scientific problems such as atomistic modelling, surrogate simulation, and partial differential equation (PDE) solving.
 
 Most widely used machine learning frameworks are implemented in Python.
 While these ecosystems support rapid development, they can be difficult to integrate directly into large scientific codes written in compiled languages.
 In many domains of computational science, particularly materials science and high-performance simulation, legacy and production codes remain predominantly written in Fortran.
 
 `ATHENA` (Adaptive Training for High Efficiency Neural Network Applications) is a neural network framework implemented in modern Fortran.
-Since its initial release in 2024 [@Taylor2024athena], `ATHENA` has evolved to support a wide range of neural network architectures and training workflows commonly used in scientific machine learning.
-The library allows users to construct, train, and deploy neural network models directly within Fortran-based applications.
-It supports common neural network components such as dense and convolutional layers as well as architectures commonly used in scientific machine learning, including graph neural networks, physics-informed neural networks, and neural operators.
-The library also supports automated inverse design workflows through its use of automatic differentiation.
+Since its initial release in 2024 [@Taylor2024athena], `ATHENA` has undergone significant expansion in both scope and capability, evolving from a library focused on conventional neural networks into a broader framework for scientific machine learning.
+Recent developments introduce support for advanced model classes, including graph neural networks, physics-informed neural networks, recurrent architectures, and neural operators, alongside improved training workflows and model flexibility.
+In addition to standard dense and convolutional layers, the framework now provides native support for architectures commonly used in scientific machine learning, enabling the integration of physical constraints and structured data representations.
+`ATHENA` also introduces automated inverse design workflows through its automatic differentiation capabilities, allowing models to be used not only for prediction but also for optimisation and design tasks.
+The library enables users to construct, train, and deploy machine learning models directly within Fortran-based scientific applications.
 
-The project aims to provide a flexible research platform that allows new neural network architectures and training workflows to be developed directly within Fortran simulation environments.
+The project aims to provide a flexible research platform that allows new network architectures and training workflows to be developed directly within Fortran simulation environments.
 
 
 # Statement of need
@@ -61,7 +62,7 @@ While Python-based frameworks dominate the machine learning ecosystem, integrati
 This allows machine learning models to be embedded within existing simulation codes without requiring cross-language interoperability layers.
 The library is particularly aimed at researchers working with large Fortran codebases in fields such as materials science, plasma physics, and computational fluid dynamics.
 
-The software focuses on enabling experimentation with neural network architectures that are increasingly relevant in scientific machine learning, including:
+The software focuses on enabling experimentation with network architectures that are increasingly relevant in scientific machine learning, including:
 
 - Graph neural networks for atomistic and structured data
 - Physics-informed neural networks for solving PDEs
@@ -114,7 +115,7 @@ The documentation is available online at https://athena-fortran.readthedocs.io, 
 # Research impact statement
 
 `ATHENA` is actively used in ongoing computational science research projects.
-One example is its integration into the `RAFFLE` structure prediction software [@Taylor2025raffle], where graph neural networks are being developed to operate directly on atomistic structures within a Fortran-based workflow.
+One example is its integration into the [`RAFFLE`](https://github.com/ExeQuantCode/RAFFLE) structure prediction software [@Taylor2025raffle], where graph neural networks are being developed to perform inverse design of materials with target properties.
 
 The framework is also being used as a platform for implementing physics-informed neural networks for solving partial differential equations in plasma physics and for exploring machine learning approaches to modelling heat transport in materials via neural operators, physics-informed neural networks, and inverse design.
 
