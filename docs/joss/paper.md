@@ -8,6 +8,7 @@ tags:
   - graph neural network
   - message passing neural network
   - neural operators
+  - inverse design
 authors:
   - name: Ned Thaddeus Taylor
     orcid: 0000-0002-9134-9712
@@ -27,7 +28,7 @@ affiliations:
    index: 1
  - name: 
    index: 2
-date: 30 March 2026
+date: 10 April 2026
 bibliography: paper.bib
 
 
@@ -72,8 +73,8 @@ By providing these capabilities within Fortran, `ATHENA` allows machine learning
 # State of the field
 
 Several libraries provide machine learning functionality within the Fortran ecosystem.
-The `neural-fortran` framework [@curcic2019parallel] provides an implementation of feed-forward and convolutional neural networks with support for parallel training.
-More recently, `FIATS` [@Rouson2025fiats] has utilised `pure` design procedures to optimise for parallel frameworks.
+The [`neural-fortran`](https://github.com/modern-fortran/neural-fortran) [@curcic2019parallel] provides an implementation of feed-forward and convolutional neural networks with support for parallel training.
+More recently, [`Fiats`](https://github.com/BerkeleyLab/fiats) [@Rouson2025fiats] has utilised `pure` design procedures to optimise for parallel frameworks.
 These libraries demonstrate the feasibility of implementing neural network frameworks in Fortran.
 However, their primary focus is typically on efficient implementations of conventional architectures or on inference within high-performance workflows.
 
@@ -93,7 +94,7 @@ New functionality can therefore be added through derived types and modular exten
 This design supports rapid experimentation with new architectures.
 For example, implementations of new graph-based layers, different neural operator functions, and custom physics-informed loss functions can be added as independent modules while maintaining compatibility with the existing training framework.
 
-Automatic differentiation is implemented within the library to enable gradient-based optimisation across arbitrary model architectures.
+Automatic differentiation is implemented within the library via use of the [`diffstruc`](https://github.com/nedtaylor/diffstruc) library to enable gradient-based optimisation across arbitrary model architectures.
 This can increase memory usage and computational cost, but it allows for flexible model design without requiring manual derivation of gradients.
 This functionality is particularly important for physics-informed neural networks, where derivatives of the model output with respect to its inputs must be evaluated as part of the training objective.
 
@@ -101,7 +102,7 @@ The framework supports a range of commonly used neural network components, inclu
 Optimisation algorithms include stochastic gradient descent, RMSProp, Adam, and AdaGrad.
 
 To support interoperability with external machine learning tools, `ATHENA` provides optional model serialisation using the Open Neural Network Exchange (ONNX) json-based format.
-Integration with experiment tracking tools such as Weights & Biases (through the external `wandb_fortran` library) further supports modern machine learning workflows within the Fortran environment.
+Integration with experiment tracking tools such as Weights & Biases (through the external [wandb_fortran](https://github.com/nedtaylor/wandb-fortran) library) further supports modern machine learning workflows within the Fortran environment.
 
 Overall, the design emphasises flexibility and research accessibility rather than maximal runtime performance, enabling the rapid development and testing of new machine learning approaches in scientific computing contexts.
 
@@ -117,7 +118,7 @@ One example is its integration into the `RAFFLE` structure prediction software [
 
 The framework is also being used as a platform for implementing physics-informed neural networks for solving partial differential equations in plasma physics and for exploring machine learning approaches to modelling heat transport in materials via neural operators, physics-informed neural networks, and inverse design.
 
-The project includes a growing collection of reproducible examples demonstrating these workflows, including implementations of message-passing neural networks for chemical systems and physics-informed neural networks solving Burgers’ equation.
+The project includes a growing collection of reproducible examples demonstrating these workflows, including implementations of message-passing neural networks for chemical systems, physics-informed neural networks solving Burgers’ equation, and neural operators for heat transport problems.
 
 By providing a flexible machine learning framework directly within the Fortran ecosystem, `ATHENA` enables researchers to incorporate modern neural network techniques into existing scientific software without requiring extensive language interoperability infrastructure.
 
