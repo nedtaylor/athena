@@ -129,11 +129,16 @@ Development of the `ATHENA` software involved both direct author implementation 
 Most of the core framework, including the training infrastructure, automatic differentiation system, and core layer implementations, was written directly by the authors.
 Some newer experimental layer types, including early implementations of neural operators and upcoming Kolmogorov–Arnold networks, were initially generated with assistance from generative AI tools and subsequently reviewed, tested, and refined by the authors.
 Implementation of ONNX json-format model export and import functionality has been supported by generative AI tools (particularly for graph and neural operator implementations), with all generated code manually reviewed and validated by the authors to ensure correctness and consistency with the library design.
+Development of unit tests and examples was also supported by generative AI tools, with all generated material manually reviewed and validated by the authors.
 
 Generative AI tools were also used to assist with drafting inline documentation and editing portions of the written documentation.
 All generated material was manually reviewed and validated by the authors to ensure correctness and consistency with the software implementation.
+Tools used for code generation and documentation include GitHub Copilot, OpenAI’s ChatGPT (GPT-5.3 and 5.4), and Anthropic’s Claude (Claude Sonnet 4.6 and Claude Opus 4.6).
+
 
 This manuscript was written by the authors with generative AI used only for editorial assistance.
+ChatGPT (GPT-5.3 and 5.4) was used to assist with editing the paper text.
+The authors confirm that they have reviewed and approved the final version of the manuscript and that they take full responsibility for the content of the publication.
 
 # Acknowledgements
 
