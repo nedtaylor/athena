@@ -51,7 +51,8 @@ The project aims to provide a flexible research platform that allows new neural 
 The growing use of machine learning in scientific computing has created demand for tools that integrate naturally with existing simulation software.
 While Python-based frameworks dominate the machine learning ecosystem, integrating them into large-scale Fortran simulation codes often requires external wrappers, inter-language interfaces, or separate training pipelines.
 
-`ATHENA` addresses this challenge by enabling neural network development directly within Fortran. This allows machine learning models to be embedded within existing simulation codes without requiring cross-language interoperability layers.
+`ATHENA` addresses this challenge by enabling neural network development directly within Fortran.
+This allows machine learning models to be embedded within existing simulation codes without requiring cross-language interoperability layers.
 The library is particularly aimed at researchers working with large Fortran codebases in fields such as materials science, plasma physics, and computational fluid dynamics.
 
 The software focuses on enabling experimentation with neural network architectures that are increasingly relevant in scientific machine learning, including:
