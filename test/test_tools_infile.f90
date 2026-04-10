@@ -6,7 +6,9 @@ program test_infile_tools
   integer :: found
   integer :: ivar, ivar_vec(3)
   real(real32) :: rvar, rvar_vec(3)
+  real(real32), allocatable :: rvar_alloc(:)
   logical :: lvar
+  logical :: stop_found
   character(len=1024) :: svar
   character(len=1024) :: buffer
   character(len=1024) :: keyword
@@ -46,11 +48,25 @@ program test_infile_tools
      success = .false.
   end if
 
+  buffer = 'test="quoted value"'
+  call assign_val(buffer, svar, found, trim(keyword))
+  if(trim(svar).ne."quoted value")then
+     write(0,*) "quoted string variable not set correctly"
+     success = .false.
+  end if
+
   buffer = "test=T"
   !! test logical
   call assign_val(buffer, lvar, found, trim(keyword))
   if(.not.lvar)then
      write(0,*) "logical variable not set correctly"
+     success = .false.
+  end if
+
+  buffer = "test=0"
+  call assign_val(buffer, lvar, found, trim(keyword))
+  if(lvar)then
+     write(0,*) "logical false variable not set correctly"
      success = .false.
   end if
 
@@ -91,6 +107,25 @@ program test_infile_tools
      success = .false.
   end if
 
+  buffer = "test=[1.5 2.5 3.5]"
+  call allocate_and_assign_vec(buffer, rvar_alloc, trim(keyword))
+  if(.not.allocated(rvar_alloc))then
+     write(0,*) "allocated real vector was not allocated"
+     success = .false.
+  elseif(size(rvar_alloc).ne.3 .or. &
+       any(abs(rvar_alloc-[1.5_real32,2.5_real32,3.5_real32]).gt.1.E-6))then
+     write(0,*) "allocated real vector not set correctly"
+     success = .false.
+  end if
+
+  buffer = "test: 4.5 5.5"
+  call allocate_and_assign_vec(buffer, rvar_alloc, trim(keyword), fs=':')
+  if(size(rvar_alloc).ne.2 .or. &
+       any(abs(rvar_alloc-[4.5_real32,5.5_real32]).gt.1.E-6))then
+     write(0,*) "allocated real vector custom separator failed"
+     success = .false.
+  end if
+
   !! test remove comments
   buffer = "keep this!comment"
   call rm_comments(buffer)
@@ -98,6 +133,57 @@ program test_infile_tools
      write(0,*) "remove_comment failed"
      success = .false.
   end if
+
+  buffer = "keep(alpha)beta#comment"
+  call rm_comments(buffer, iline=7)
+  if(trim(buffer).ne."keepbeta")then
+     write(0,*) "remove_comment bracket stripping failed"
+     success = .false.
+  end if
+
+  block
+    integer :: unit
+
+    open(newunit=unit, file='test_getline.tmp', &
+         status='replace', action='write')
+    write(unit, '(A)') 'first line'
+    write(unit, '(A)') 'TARGET = 42'
+    write(unit, '(A)') 'last line'
+    close(unit)
+
+    open(newunit=unit, file='test_getline.tmp', status='old', action='read')
+    call getline(unit, 'TARGET', buffer)
+    close(unit, status='delete')
+
+    if(trim(buffer).ne.'TARGET = 42')then
+       write(0,*) 'getline failed to locate expected line'
+       success = .false.
+    end if
+  end block
+
+  block
+    integer :: unit
+
+    logical :: stop_file_exists
+
+    open(newunit=unit, file='test_stopcar.tmp', &
+         status='replace', action='write')
+    write(unit, '(A)') '# ignored comment'
+    write(unit, '(A)') 'LSTOP = T'
+    close(unit)
+
+    stop_found = stop_check('test_stopcar.tmp')
+    if(.not.stop_found)then
+       write(0,*) 'stop_check failed to detect stop file'
+       success = .false.
+    end if
+
+    inquire(file='test_stopcar.tmp', exist=stop_file_exists)
+    if(stop_file_exists)then
+       write(0,*) 'stop_check did not delete stop file'
+       success = .false.
+    end if
+  end block
 
 
 !-------------------------------------------------------------------------------
@@ -180,15 +266,15 @@ program test_infile_tools
     ! First find a unit number that doesn't have an associated file
     block
       integer :: test_unit
-      logical :: file_exists
+      logical :: file_exists_local
 
       test_unit = 999
       write(line, '(A,I0)') 'fort.', test_unit
-      inquire(file=trim(line), exist=file_exists)
-      do while(file_exists)
+      inquire(file=trim(line), exist=file_exists_local)
+      do while(file_exists_local)
          write(line, '(A,I0)') 'fort.', test_unit
          test_unit = test_unit + 1
-         inquire(file=trim(line), exist=file_exists)
+         inquire(file=trim(line), exist=file_exists_local)
       end do
 
       call move(test_unit, 1, iostat=iostat_val, err_msg=err_msg_val)
@@ -198,10 +284,10 @@ program test_infile_tools
       end if
 
       ! Check if a fort.UNIT file was created and remove it
-      file_exists = .false.
+      file_exists_local = .false.
       write(line, '(A,I0)') 'fort.', test_unit
-      inquire(file=trim(line), exist=file_exists)
-      if(file_exists)then
+      inquire(file=trim(line), exist=file_exists_local)
+      if(file_exists_local)then
          open(newunit=unit, file=trim(line), status='old')
          close(unit, status='delete')
       end if
@@ -213,6 +299,8 @@ program test_infile_tools
     open(newunit=unit, file='test_move.tmp', status='old')
     close(unit, status='delete')
   end block
+
+  if(allocated(rvar_alloc)) deallocate(rvar_alloc)
 
 
 !-------------------------------------------------------------------------------

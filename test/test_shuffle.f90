@@ -15,6 +15,10 @@ program test_shuffle
   integer :: ilabel_shuffled(n)
   real :: rlabel_original(n)
   real :: rlabel_shuffled(n)
+  real :: rlabel_dim2_original(m)
+  real :: rlabel_dim2_shuffled(m)
+  integer :: shuffle_list_2d_rows(n)
+  integer :: shuffle_list_2d_cols(m)
 
   integer :: array_1d_original(n)
   integer :: array_1d_shuffled(n)
@@ -48,10 +52,11 @@ program test_shuffle
 !-------------------------------------------------------------------------------
   ilabel_original = (/ (i, i = 1, n) /)
   rlabel_original = (/ (i, i = 1, n) /)
+  rlabel_dim2_original = (/ (real(i), i = 1, m) /)
 
 
-!!!-----------------------------------------------------------------------------
-!!! 1D array shuffle tests
+!-------------------------------------------------------------------------------
+! 1D array shuffle tests
 !-------------------------------------------------------------------------------
 ! initialise the array
 !-------------------------------------------------------------------------------
@@ -89,8 +94,8 @@ program test_shuffle
   end if
 
 
-!!!-----------------------------------------------------------------------------
-!!! 2D array shuffle tests
+!-------------------------------------------------------------------------------
+! 2D array shuffle tests
 !-------------------------------------------------------------------------------
 ! initialise the array
 !-------------------------------------------------------------------------------
@@ -136,10 +141,56 @@ program test_shuffle
      end do
   end do
 
+  array_2d_shuffled = array_2d_original
+  rlabel_shuffled = rlabel_original
+  call shuffle(&
+       array_2d_shuffled, rlabel_shuffled, dim = 1, seed = 1, &
+       shuffle_list = shuffle_list_2d_rows)
 
-  !!!-----------------------------------------------------------------------------
-  !!! 3D integer array shuffle tests
-  !-------------------------------------------------------------------------------
+  if (all(abs(rlabel_shuffled - rlabel_original).lt.1.E-6)) then
+     write(*,*) '2D row labels are not shuffled'
+     success = .false.
+  end if
+  if (any(shuffle_list_2d_rows .lt. 1) .or. &
+       any(shuffle_list_2d_rows .gt. n)) then
+     write(*,*) '2D row shuffle_list contains invalid indices'
+     success = .false.
+  end if
+  do i = 1, n
+     if (any(abs(array_2d_shuffled(i, :) - &
+          array_2d_original(nint(rlabel_shuffled(i)), :)).gt.1.E-6)) then
+        write(*,*) '2D row data and label shuffle inconsistency'
+        success = .false.
+     end if
+  end do
+
+  array_2d_shuffled = array_2d_original
+  rlabel_dim2_shuffled = rlabel_dim2_original
+  call shuffle(&
+       array_2d_shuffled, rlabel_dim2_shuffled, dim = 2, seed = 2, &
+       shuffle_list = shuffle_list_2d_cols)
+
+  if (all(abs(rlabel_dim2_shuffled - rlabel_dim2_original).lt.1.E-6)) then
+     write(*,*) '2D column labels are not shuffled'
+     success = .false.
+  end if
+  if (any(shuffle_list_2d_cols .lt. 1) .or. &
+       any(shuffle_list_2d_cols .gt. m)) then
+     write(*,*) '2D column shuffle_list contains invalid indices'
+     success = .false.
+  end if
+  do j = 1, m
+     if (any(abs(array_2d_shuffled(:, j) - &
+          array_2d_original(:, nint(rlabel_dim2_shuffled(j)))).gt.1.E-6)) then
+        write(*,*) '2D column data and label shuffle inconsistency'
+        success = .false.
+     end if
+  end do
+
+
+!-------------------------------------------------------------------------------
+! 3D integer array shuffle tests
+!-------------------------------------------------------------------------------
 ! initialise the array
 !-------------------------------------------------------------------------------
   do i = 1, n
@@ -233,8 +284,8 @@ program test_shuffle
   end do
 
 
-!!!-----------------------------------------------------------------------------
-!!! 3D real array shuffle tests
+!-------------------------------------------------------------------------------
+! 3D real array shuffle tests
 !-------------------------------------------------------------------------------
 ! initialise the array
 !-------------------------------------------------------------------------------
@@ -288,8 +339,8 @@ program test_shuffle
   end do
 
 
-!!!-----------------------------------------------------------------------------
-!!! 4D array shuffle tests
+!-------------------------------------------------------------------------------
+! 4D array shuffle tests
 !-------------------------------------------------------------------------------
 ! initialise the array
 !-------------------------------------------------------------------------------
@@ -361,8 +412,8 @@ program test_shuffle
   end do
 
 
-!!!-----------------------------------------------------------------------------
-!!! 5D array shuffle tests
+!-------------------------------------------------------------------------------
+! 5D array shuffle tests
 !-------------------------------------------------------------------------------
 ! initialise the array
 !-------------------------------------------------------------------------------
