@@ -4,14 +4,23 @@ program test_split
 
   integer :: i, j, k, l, o
   integer :: itmp1
-  
+
   real :: left_size = 0.25
-  
+
   integer, parameter :: n = 100
   integer, parameter :: m = 3
   integer, parameter :: p = 3
   integer, parameter :: q = 3
   integer, parameter :: s = 3
+
+  real :: array_2d(n, m)
+  real, allocatable :: array_2d_left(:,:)
+  real, allocatable :: array_2d_right(:,:)
+  real :: rlabel_dim2(m)
+  real, allocatable :: rlabel_dim2_left(:)
+  real, allocatable :: rlabel_dim2_right(:)
+  integer :: split_list_n(n)
+  integer :: split_list_m(m)
 
   integer :: label(n)
   integer, allocatable :: label_left(:)
@@ -31,7 +40,7 @@ program test_split
   real, allocatable :: array_5d_right(:,:,:,:,:)
 
   logical :: success = .true.
-  
+
 
 !!!-----------------------------------------------------------------------------
 !!! 3D array shuffle tests
@@ -42,10 +51,41 @@ program test_split
      label(i) = i
      rlabel(i) = i
      do j = 1, m
+        array_2d(i, j) = i * m + j
+     end do
+     do j = 1, m
         do k = 1, p
            array_3d(i, j, k) = i * m * p + j * p + k
         end do
      end do
+  end do
+  rlabel_dim2 = (/ (real(j), j = 1, m) /)
+
+  call split(&
+       array_2d, rlabel_dim2, array_2d_left, array_2d_right, &
+       rlabel_dim2_left, rlabel_dim2_right, &
+       dim = 2, left_size = 1.E0 / 3.E0, shuffle = .true., seed = 1, &
+       split_list = split_list_m)
+
+  if (size(array_2d_left, 2) .ne. 1) then
+     write(*,*) '2D array left size is not correct'
+     success = .false.
+  end if
+  if (size(array_2d_left, 2) .ne. size(rlabel_dim2_left)) then
+     write(*,*) '2D array size and label size do not match'
+     success = .false.
+  end if
+  if (count(split_list_m .eq. 1) .ne. size(array_2d_left, 2) .or. &
+       count(split_list_m .eq. 2) .ne. size(array_2d_right, 2)) then
+     write(*,*) '2D split_list sizes do not match split arrays'
+     success = .false.
+  end if
+  do j = 1, size(array_2d_left, 2)
+     if (any(abs(array_2d_left(:, j) - &
+          array_2d(:, nint(rlabel_dim2_left(j)))).gt.1.E-6)) then
+        write(*,*) '2D data split is not correct'
+        success = .false.
+     end if
   end do
 
   !! split data
@@ -64,7 +104,7 @@ program test_split
      success = .false.
   end if
   if (size(array_3d_left,1) + size(array_3d_right,1) .ne. n .or. &
-   size(label_left,1) + size(label_right,1) .ne. n) then
+       size(label_left,1) + size(label_right,1) .ne. n) then
      write(*,*) '3D array label sizes do not add up to n'
      success = .false.
   end if
@@ -76,43 +116,74 @@ program test_split
      end if
   end do
 
+  call split(array_3d, label, array_3d_left, array_3d_right, &
+       label_left, label_right, dim = 1, left_size=left_size, &
+       shuffle = .true., seed = 2, split_list = split_list_n)
+  if (count(split_list_n .eq. 1) .ne. size(array_3d_left, 1) .or. &
+       count(split_list_n .eq. 2) .ne. size(array_3d_right, 1)) then
+     write(*,*) '3D integer split_list sizes do not match split arrays'
+     success = .false.
+  end if
+  do i = 1, size(array_3d_left, 1)
+     if (any(array_3d_left(i,:,:) .ne. array_3d(label_left(i),:,:))) then
+        write(*,*) '3D shuffled integer data split is not correct'
+        success = .false.
+     end if
+  end do
+
   !! split data
   call split(array_3d, rlabel, array_3d_left, array_3d_right, &
        rlabel_left, rlabel_right, &
        dim = 1, left_size=left_size, seed = 1)
 
-   itmp1 = nint(real(n) * 0.25)
-   !! check if the left array is the correct size
-   if (size(array_3d_left, 1) .ne. itmp1) then
-      write(*,*) '3D array left size is not correct'
-      success = .false.
-   end if
-   if (size(array_3d_left, 1) .ne. size(rlabel_left)) then
-      write(*,*) '3D array size and label size do not match'
-      success = .false.
-   end if
-   if (size(array_3d_left,1) + size(array_3d_right,1) .ne. n .or. &
-   size(rlabel_left,1) + size(rlabel_right,1) .ne. n) then
-      write(*,*) '3D array label sizes do not add up to n'
-      success = .false.
-   end if
+  itmp1 = nint(real(n) * 0.25)
+  !! check if the left array is the correct size
+  if (size(array_3d_left, 1) .ne. itmp1) then
+     write(*,*) '3D array left size is not correct'
+     success = .false.
+  end if
+  if (size(array_3d_left, 1) .ne. size(rlabel_left)) then
+     write(*,*) '3D array size and label size do not match'
+     success = .false.
+  end if
+  if (size(array_3d_left,1) + size(array_3d_right,1) .ne. n .or. &
+       size(rlabel_left,1) + size(rlabel_right,1) .ne. n) then
+     write(*,*) '3D array label sizes do not add up to n'
+     success = .false.
+  end if
 
-   do i = 1, size(array_3d_left, 1)
-      if (any(array_3d_left(i,:,:) .ne. &
-           array_3d(nint(rlabel_left(i)),:,:))) then
-         write(*,*) '3D data split is not correct'
-         success = .false.
-      end if
-   end do
+  do i = 1, size(array_3d_left, 1)
+     if (any(array_3d_left(i,:,:) .ne. &
+          array_3d(nint(rlabel_left(i)),:,:))) then
+        write(*,*) '3D data split is not correct'
+        success = .false.
+     end if
+  end do
+
+  call split(array_3d, rlabel, array_3d_left, array_3d_right, &
+       rlabel_left, rlabel_right, dim = 1, left_size=left_size, &
+       shuffle = .true., seed = 3, split_list = split_list_n)
+  if (count(split_list_n .eq. 1) .ne. size(array_3d_left, 1) .or. &
+       count(split_list_n .eq. 2) .ne. size(array_3d_right, 1)) then
+     write(*,*) '3D real split_list sizes do not match split arrays'
+     success = .false.
+  end if
+  do i = 1, size(array_3d_left, 1)
+     if (any(array_3d_left(i,:,:) .ne. &
+          array_3d(nint(rlabel_left(i)),:,:))) then
+        write(*,*) '3D shuffled real data split is not correct'
+        success = .false.
+     end if
+  end do
 
 !!!-----------------------------------------------------------------------------
 !!! 5D array shuffle tests
 !-------------------------------------------------------------------------------
 ! initialise array
 !-------------------------------------------------------------------------------
-    do i = 1, n
-      do j = 1, m
-         do k = 1, p
+  do i = 1, n
+     do j = 1, m
+        do k = 1, p
            do l = 1, q
               do o = 1, s
                  array_5d(i, j, k, l, o) = &
@@ -123,9 +194,9 @@ program test_split
                       o
               end do
            end do
-         end do
-      end do
-   end do
+        end do
+     end do
+  end do
 
   !! split data
   call split(array_5d, array_5d_left, array_5d_right, &
@@ -140,7 +211,7 @@ program test_split
 
 
   if (size(array_5d_left,1) + size(array_5d_right,1) .ne. n ) then !.or. &
-      !  size(label_left,1) + size(label_right,1) .ne. n) then
+     !  size(label_left,1) + size(label_right,1) .ne. n) then
      write(*,*) '5D array label sizes do not add up to n'
      success = .false.
   end if
@@ -159,6 +230,22 @@ program test_split
      if (any(abs(array_5d_left(i,:,:,:,:) - &
           array_5d(nint(rlabel_left(i)),:,:,:,:)) .gt. 1.E-6 ) ) then
         write(*,*) '5D data split is not correct'
+        success = .false.
+     end if
+  end do
+
+  call split(array_5d, rlabel, array_5d_left, array_5d_right, &
+       rlabel_left, rlabel_right, dim = 1, left_size=left_size, &
+       shuffle = .true., seed = 4, split_list = split_list_n)
+  if (count(split_list_n .eq. 1) .ne. size(array_5d_left, 1) .or. &
+       count(split_list_n .eq. 2) .ne. size(array_5d_right, 1)) then
+     write(*,*) '5D split_list sizes do not match split arrays'
+     success = .false.
+  end if
+  do i = 1, size(array_5d_left, 1)
+     if (any(abs(array_5d_left(i,:,:,:,:) - &
+          array_5d(nint(rlabel_left(i)),:,:,:,:)) .gt. 1.E-6 ) ) then
+        write(*,*) '5D shuffled data split is not correct'
         success = .false.
      end if
   end do
