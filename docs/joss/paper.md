@@ -39,9 +39,7 @@ bibliography: paper.bib
 Machine learning has become an important tool across computational science, including physics, chemistry, climate science, and materials modelling.
 Modern network architectures such as graph neural networks (GNNs), physics-informed neural networks (PINNs), and neural operators enable models that incorporate physical structure and constraints, allowing machine learning to be applied to scientific problems such as atomistic modelling, surrogate simulation, and partial differential equation (PDE) solving.
 
-Most widely used machine learning frameworks are implemented in Python.
-While these ecosystems support rapid development, they can be difficult to integrate directly into large scientific codes written in compiled languages.
-In many domains of computational science, particularly materials science and high-performance simulation, legacy and production codes remain predominantly written in Fortran.
+While Python-based machine learning frameworks dominate modern development due to their flexibility and speed, they are not easily embedded into large scientific codebases written in compiled languages. This mismatch is particularly significant in computational science, most notably materials science and high-performance simulation, where Fortran remains the primary language for legacy and production systems.
 
 `ATHENA` (Adaptive Training for High Efficiency Neural Network Applications) is a neural network framework implemented in modern Fortran.
 Since its initial release in 2024 [@Taylor2024athena], `ATHENA` has undergone significant expansion in both scope and capability, evolving from a library focused on conventional neural networks into a broader framework for scientific machine learning.
