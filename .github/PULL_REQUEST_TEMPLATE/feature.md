@@ -87,6 +87,7 @@ Details:
 * [ ] Code follows project style guidelines
 * [ ] Commit messages are clear
 * [ ] Branch rebased on latest `development`
+* [ ] If branch goal is singular, consider using squash merge to keep history clean
 
 ---
 
