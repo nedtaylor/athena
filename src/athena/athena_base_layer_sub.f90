@@ -132,13 +132,13 @@ contains
     attributes(2)%type = "float"
 
     attributes(3)%name = "scale"
-    write(fmt,'("(",I0,"(1X,I0))")') this%num_channels
+    write(fmt,'("(",I0,"(1X,F0.6))")') this%num_channels
     write(buffer,fmt) this%params(1)%val(1:this%num_channels,1)
     attributes(3)%val = trim(adjustl(buffer))
     attributes(3)%type = "float"
 
     attributes(4)%name = "B"
-    write(fmt,'("(",I0,"(1X,I0))")') this%num_channels
+    write(fmt,'("(",I0,"(1X,F0.6))")') this%num_channels
     write(buffer,fmt) this%params(1)%val(this%num_channels+1:2*this%num_channels,1)
     attributes(4)%val = trim(adjustl(buffer))
     attributes(4)%type = "float"

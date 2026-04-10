@@ -3005,6 +3005,7 @@ contains
     !! Error message
 
     num_samples = get_num_samples(this, input)
+    if(num_samples.le.0) return
     num_input_layers = size(this%root_vertices, 1)
     if(allocated(this%input_array))then
        do i = 1, size(this%input_array, 1)

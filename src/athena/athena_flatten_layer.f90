@@ -361,7 +361,7 @@ contains
     ! Set hyperparameters and initialise layer
     !---------------------------------------------------------------------------
     call this%set_hyperparams(input_rank = input_rank, verbose = verbose_)
-    call this%init(input_shape = input_shape)
+    if(allocated(input_shape)) call this%init(input_shape = input_shape)
 
 
     ! Check for end of layer card

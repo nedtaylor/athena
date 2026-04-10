@@ -1931,7 +1931,7 @@ contains
        if(trim(prefixes(i)) .eq. trim(prefix)) return
     end do
 
-    prefixes = [prefixes, trim(prefix)]
+    prefixes = [prefixes, prefix]
 
   end subroutine append_unique_onnx_expanded_prefix
 !###############################################################################
