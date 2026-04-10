@@ -16,12 +16,17 @@ authors:
   - name: Harry Mclean
     orcid: 0009-0001-8980-0156
     affiliation: "1"
+  - name: Artan Qerushi
+    orcid: 0000-0002-2528-1270
+    affiliation: "2"
   - name: Steven Paul Hepplestone
     orcid: 0000-0002-2528-1270
     affiliation: "1"
 affiliations:
  - name: Department of Physics and Astronomy, University of Exeter, United Kingdom, EX4 4QL
    index: 1
+ - name: 
+   index: 2
 date: 30 March 2026
 bibliography: paper.bib
 
@@ -89,12 +94,13 @@ This design supports rapid experimentation with new architectures.
 For example, implementations of new graph-based layers, different neural operator functions, and custom physics-informed loss functions can be added as independent modules while maintaining compatibility with the existing training framework.
 
 Automatic differentiation is implemented within the library to enable gradient-based optimisation across arbitrary model architectures.
+This can increase memory usage and computational cost, but it allows for flexible model design without requiring manual derivation of gradients.
 This functionality is particularly important for physics-informed neural networks, where derivatives of the model output with respect to its inputs must be evaluated as part of the training objective.
 
 The framework supports a range of commonly used neural network components, including dense layers, convolutional layers (1–3D), pooling layers, batch normalisation, and regularisation methods such as Dropout [@srivastava2014dropout] and DropBlock [@ghiasi2018dropblock].
 Optimisation algorithms include stochastic gradient descent, RMSProp, Adam, and AdaGrad.
 
-To support interoperability with external machine learning tools, `ATHENA` provides optional model serialisation using the Open Neural Network Exchange (ONNX) format.
+To support interoperability with external machine learning tools, `ATHENA` provides optional model serialisation using the Open Neural Network Exchange (ONNX) json-based format.
 Integration with experiment tracking tools such as Weights & Biases (through the external `wandb_fortran` library) further supports modern machine learning workflows within the Fortran environment.
 
 Overall, the design emphasises flexibility and research accessibility rather than maximal runtime performance, enabling the rapid development and testing of new machine learning approaches in scientific computing contexts.
@@ -109,7 +115,7 @@ The documentation is available online at https://athena-fortran.readthedocs.io, 
 `ATHENA` is actively used in ongoing computational science research projects.
 One example is its integration into the `RAFFLE` structure prediction software [@Taylor2025raffle], where graph neural networks are being developed to operate directly on atomistic structures within a Fortran-based workflow.
 
-The framework is also being used as a platform for implementing physics-informed neural networks for solving partial differential equations in plasma physics and for exploring machine learning approaches to modelling heat transport in materials.
+The framework is also being used as a platform for implementing physics-informed neural networks for solving partial differential equations in plasma physics and for exploring machine learning approaches to modelling heat transport in materials via neural operators, physics-informed neural networks, and inverse design.
 
 The project includes a growing collection of reproducible examples demonstrating these workflows, including implementations of message-passing neural networks for chemical systems and physics-informed neural networks solving Burgers’ equation.
 
@@ -121,6 +127,7 @@ Development of the `ATHENA` software involved both direct author implementation 
 
 Most of the core framework, including the training infrastructure, automatic differentiation system, and core layer implementations, was written directly by the authors.
 Some newer experimental layer types, including early implementations of neural operators and upcoming Kolmogorov–Arnold networks, were initially generated with assistance from generative AI tools and subsequently reviewed, tested, and refined by the authors.
+Implementation of ONNX json-format model export and import functionality has been supported by generative AI tools (particularly for graph and neural operator implementations), with all generated code manually reviewed and validated by the authors to ensure correctness and consistency with the library design.
 
 Generative AI tools were also used to assist with drafting inline documentation and editing portions of the written documentation.
 All generated material was manually reviewed and validated by the authors to ensure correctness and consistency with the software implementation.
@@ -129,11 +136,13 @@ This manuscript was written by the authors with generative AI used only for edit
 
 # Acknowledgements
 
-N.T.T and S.P.H thank the Leverhulme for funding via Grant No. RPG-2021-086.
 N.T.T. was supported by the Government Office for Science and the Royal Academy of Engineering under the UK Intelligence Community Postdoctoral Research Fellowships scheme (Grant No. ICRF2425-8-148).
 H.M. was supported by the EPSRC via Grant No. EPSRC-690010152.
 S.P.H. was supported by the MCC funding via Grant No. UKRI2710.
-Implementation of the graph and physics informed neural network features of the library have been supported and tested by Artan Qerushi.
-Implementation of the neural operators has been supported and tested by Harry Mclean.
+
+N.T.T. was the lead developer of the `ATHENA` software and heavily contributed to all aspects of the project, including conceptualisation, methodology, software development, validation, funding acquisition, supervision, project administration, and writing (original draft, review, and editing).
+H.M. contributed to the software development, conceptualisation, and validation (neural operators and inverse design), and writing (review and editing).
+S.P.H. contributed to funding acquisition, conceptualisation, and validation (neural operators and inverse design), and writing (review and editing).
+A.Q. contributed to the software development, conceptualisation, and validation (graph and physics informed neural network features), and writing (review and editing).
 
 # References
