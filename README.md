@@ -146,13 +146,14 @@ This runs a set of test programs (found within the test/ directory) to ensure th
 The library can also be installed using the Spack package manager. This can be achieved by running the following commands in the main directory:
 ```
 spack repo add .spack
-spack install athena
+spack install athena-fortran
 ```
 
 Currently, Spack compilation requires manual download of athena.
 
 > **_NOTE:_**
 There already exists an `athena` package directly on Spack, be aware that these are not related.
+This is why the package name for this library on Spack is `athena-fortran` instead of `athena`.
 
 
 

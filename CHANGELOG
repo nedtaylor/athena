@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## Changed
+- Renamed spack package from "athena" to "athena-fortran" to avoid conflicts with the existing "athena" package. Please update references as appropriate.
+
 ## [2.1.0] - 2026-04-09
 
 ### Added

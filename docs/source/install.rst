@@ -229,10 +229,11 @@ This can be achieved by running the following commands in the main directory:
 .. code-block:: bash
 
   spack repo add .spack
-  spack install athena
+  spack install athena-fortran
 
 Currently, Spack compilation requires manual download of ATHENA.
 NOTE: There already exists an athena package directly on Spack, be aware that these are not related.
+This is why the package name for this library on Spack is athena-fortran instead of athena.
 
 
 Testing the Installation
