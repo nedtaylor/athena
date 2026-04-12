@@ -418,6 +418,8 @@ contains
        expected_output = 1.E0 / ( 1.E0 + exp(-input) )
     case('softmax')
        expected_output = input
+    case('swish', 'silu')
+       expected_output = input / (1.E0 + exp(-input))
     case('tanh')
        expected_output = tanh(input)
     end select
@@ -475,6 +477,10 @@ contains
     case('softmax')
        expected_output = input
        expected_output = expected_output * (1.E0 - expected_output)
+    case('swish', 'silu')
+       expected_output = 1.E0 / (1.E0 + exp(-input))
+       expected_output = expected_output + &
+            input * expected_output * (1.E0 - expected_output)
     case('tanh')
        expected_output = tanh(input)
        expected_output = 1.E0 * &

@@ -108,6 +108,8 @@ contains
           activation = none_actv_type()
        case ("selu")
           activation = selu_actv_type()
+       case ("silu")
+          activation = swish_actv_type()
        case default
           if(present(error))then
              error = -1
@@ -157,6 +159,7 @@ contains
          onnx_create_actv_container('relu', create_from_onnx_relu_activation), &
          onnx_create_actv_container('selu', create_from_onnx_selu_activation), &
          onnx_create_actv_container('sigmoid', create_from_onnx_sigmoid_activation), &
+         onnx_create_actv_container('silu', create_from_onnx_swish_activation), &
          onnx_create_actv_container('softmax', create_from_onnx_softmax_activation), &
          onnx_create_actv_container('swish', create_from_onnx_swish_activation), &
          onnx_create_actv_container('tanh', create_from_onnx_tanh_activation) &
