@@ -52,17 +52,17 @@ program test_pad3d_layer
   )
 
   ! Check layer properties
-  if (.not. pad3d_layer%name .eq. 'pad3d') then
+  if(.not. pad3d_layer%name .eq. 'pad3d')then
      success = .false.
      write(0,*) 'pad3d layer has wrong name'
   end if
 
-  if (.not. pad3d_layer%type .eq. 'pad') then
+  if(.not. pad3d_layer%type .eq. 'pad')then
      success = .false.
      write(0,*) 'pad3d layer has wrong type'
   end if
 
-  if (any(pad3d_layer%input_shape .ne. [width, height, depth, channels])) then
+  if(any(pad3d_layer%input_shape .ne. [width, height, depth, channels]))then
      success = .false.
      write(0,*) 'pad3d layer has wrong input_shape'
   end if
@@ -70,8 +70,8 @@ program test_pad3d_layer
   expected_width = width + 2 * 1   ! padding[1] on both sides
   expected_height = height + 2 * 2 ! padding[2] on both sides
   expected_depth = depth + 2 * 1   ! padding[3] on both sides
-  if (any(pad3d_layer%output_shape .ne. &
-       [expected_width, expected_height, expected_depth, channels])) then
+  if(any(pad3d_layer%output_shape .ne. &
+       [expected_width, expected_height, expected_depth, channels]))then
      success = .false.
      write(0,*) 'pad3d layer has wrong output_shape'
      write(0,*) 'Expected:', &
@@ -79,12 +79,12 @@ program test_pad3d_layer
      write(0,*) 'Got:      ', pad3d_layer%output_shape
   end if
 
-  if (pad3d_layer%input_rank .ne. 4) then
+  if(pad3d_layer%input_rank .ne. 4)then
      success = .false.
      write(0,*) 'pad3d layer has wrong input_rank'
   end if
 
-  if (pad3d_layer%output_rank .ne. 4) then
+  if(pad3d_layer%output_rank .ne. 4)then
      success = .false.
      write(0,*) 'pad3d layer has wrong output_rank'
   end if
@@ -490,7 +490,7 @@ program test_pad3d_layer
        call pad3d_layer%extract_output(output_5d)
 
        ! For zero padding, check that padding is actually zero
-       if(test_paddings(i,1) > 0)then
+       if(test_paddings(i,1) .gt. 0)then
           if(any(abs(output_5d(1:test_paddings(i,1),:,:,:,:)) .gt. tol) .or. &
                any(abs(output_5d(expected_width-test_paddings(i,1)+1: &
                     expected_width,:,:,:,:)) .gt. tol))then
@@ -500,7 +500,7 @@ program test_pad3d_layer
           end if
        end if
 
-       if(test_paddings(i,2) > 0)then
+       if(test_paddings(i,2) .gt. 0)then
           if(any(abs(output_5d(:,1:test_paddings(i,2),:,:,:)) .gt. tol) .or. &
                any(abs(output_5d(:,expected_height-test_paddings(i,2)+1: &
                     expected_height,:,:,:)) .gt. tol))then
@@ -510,7 +510,7 @@ program test_pad3d_layer
           end if
        end if
 
-       if(test_paddings(i,3) > 0)then
+       if(test_paddings(i,3) .gt. 0)then
           if(any(abs(output_5d(:,:,1:test_paddings(i,3),:,:)) .gt. tol) .or. &
                any(abs(output_5d(:,:,expected_depth-test_paddings(i,3)+1: &
                     expected_depth,:,:)) .gt. tol))then
@@ -653,7 +653,7 @@ program test_pad3d_layer
 ! Check for any failed tests
 !-------------------------------------------------------------------------------
   write(*,*) "----------------------------------------"
-  if (success) then
+  if(success)then
      write(*,*) 'test_pad3d_layer passed all tests'
   else
      write(0,*) 'test_pad3d_layer failed one or more tests'

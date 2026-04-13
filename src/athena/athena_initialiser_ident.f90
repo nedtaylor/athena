@@ -108,7 +108,7 @@ contains
                         )
                    iprime(ndim) = iprime(ndim) * product(spacing(:ndim-1))
                    do j = ndim - 1, 1, -1
-                      if(sum(iprime(j+1:)).eq.0) then
+                      if(sum(iprime(j+1:)).eq.0)then
                          iprime(j) = 0
                       else
                          iprime(j) = &

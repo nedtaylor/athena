@@ -124,7 +124,7 @@ program test_avgpool2d_layer
               write(0,*) 'avgpool2d layer forward pass failed'
            end if
         else if( abs( output%val(i + (j-1)*output_width, 1) ) .gt. &
-             1.E-6 ) then
+             1.E-6 )then
            success = .false.
            write(0,*) 'avgpool2d layer forward pass failed'
         end if
@@ -173,7 +173,7 @@ program test_avgpool2d_layer
   output => pool_layer%output(1,1)
 
   !! check outputs have expected value
-  if (any(abs(output%val(:,1) - gradient%val(:,1)) .gt. tol)) then
+  if(any(abs(output%val(:,1) - gradient%val(:,1)) .gt. tol))then
      success = .false.
      write(*,*) 'avgpool2d layer forward pass failed'
      do i = 1, width*width
@@ -297,7 +297,7 @@ program test_avgpool2d_layer
   ! Check that read layer has correct properties
   select type(read_layer)
   type is (avgpool2d_layer_type)
-     if (.not. read_layer%name .eq. 'avgpool2d') then
+     if(.not. read_layer%name .eq. 'avgpool2d')then
         success = .false.
         write(0,*) 'read avgpool2d layer has wrong name'
      end if

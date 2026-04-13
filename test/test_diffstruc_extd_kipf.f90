@@ -31,7 +31,7 @@ program test_diffstruc_extd_kipf
   adj_ja(:,2) = [2, 0]
 
   output => kipf_propagate(vertex_features, adj_ia, adj_ja)
-  if(any(abs(output%val - vertex_features%val) > 1.e-6_real32))then
+  if(any(abs(output%val - vertex_features%val) .gt. 1.e-6_real32))then
      success = .false.
      write(0,*) 'kipf_propagate returned the wrong forward values'
   end if
@@ -39,7 +39,7 @@ program test_diffstruc_extd_kipf
   call output%grad_reverse(reset_graph=.true.)
 
   if(.not. associated(vertex_features%grad) .or. &
-       any(abs(vertex_features%grad%val - 1._real32) > 1.e-6_real32))then
+       any(abs(vertex_features%grad%val - 1._real32) .gt. 1.e-6_real32))then
      success = .false.
      write(0,*) 'kipf_propagate returned the wrong gradient'
   end if
@@ -71,13 +71,13 @@ program test_diffstruc_extd_kipf
   output%right_operand => helper_operand
 
   reverse_partial = output%get_partial_left(upstream_grad)
-  if(any(abs(reverse_partial%val - upstream_grad%val) > 1.e-6_real32))then
+  if(any(abs(reverse_partial%val - upstream_grad%val) .gt. 1.e-6_real32))then
      success = .false.
      write(0,*) 'kipf partial function returned wrong reverse values'
   end if
 
   forward_partial = reverse_partial%get_partial_left(second_upstream_grad)
-  if(any(abs(forward_partial%val - second_upstream_grad%val) > &
+  if(any(abs(forward_partial%val - second_upstream_grad%val) .gt. &
        1.e-6_real32))then
      success = .false.
      write(0,*) 'reverse kipf partial function returned wrong values'
@@ -85,7 +85,7 @@ program test_diffstruc_extd_kipf
 
   call reverse_partial%get_partial_left_val(second_upstream_grad%val, &
        partial_vals)
-  if(any(abs(partial_vals - second_upstream_grad%val) > 1.e-6_real32))then
+  if(any(abs(partial_vals - second_upstream_grad%val) .gt. 1.e-6_real32))then
      success = .false.
      write(0,*) 'reverse kipf partial value function returned wrong values'
   end if

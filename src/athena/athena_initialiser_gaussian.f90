@@ -47,7 +47,7 @@ contains
     type(gaussian_init_type) :: initialiser
     !! Gaussian initialiser object
 
-    if(present(name)) then
+    if(present(name))then
        initialiser%name = trim(adjustl(name))
     else
        initialiser%name = "gaussian"

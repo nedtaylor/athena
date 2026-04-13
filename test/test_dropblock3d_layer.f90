@@ -180,7 +180,7 @@ program test_dropblock3d_layer
   ! Check that read layer has correct properties
   select type(read_layer)
   type is (dropblock3d_layer_type)
-     if (.not. read_layer%name .eq. 'dropblock3d') then
+     if(.not. read_layer%name .eq. 'dropblock3d')then
         success = .false.
         write(0,*) 'read dropblock3d layer has wrong name'
      end if

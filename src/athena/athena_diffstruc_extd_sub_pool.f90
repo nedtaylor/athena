@@ -317,7 +317,7 @@ contains
 
     output%get_partial_left => get_partial_avgpool3d
     output%get_partial_left_val => get_partial_avgpool3d_val
-    if (input%requires_grad) then
+    if(input%requires_grad)then
        output%requires_grad = .true.
        output%is_forward = input%is_forward
        output%operation = 'avgpool3d'
@@ -508,7 +508,7 @@ contains
 
        ! Search remaining elements for max
        do p = 1, pool_size(1) - 1
-          if(this%left_operand%val(base_idx + p + 1, s) > pool_max) then
+          if(this%left_operand%val(base_idx + p + 1, s) .gt. pool_max)then
              pool_max = this%left_operand%val(base_idx + p + 1, s)
              max_idx = base_idx + p + 1
           end if
@@ -572,7 +572,7 @@ contains
           do i_step = 0, pool_size(1)-1
              if(i_step .eq. 0 .and. j_step .eq. 0) cycle  ! Already processed
              stride_idx = base_idx + i_step + j_step * input_h + 1
-             if(input%val(stride_idx, s) > pool_max) &
+             if(input%val(stride_idx, s) .gt. pool_max) &
                   pool_max = input%val(stride_idx, s)
           end do
        end do
@@ -655,11 +655,11 @@ contains
        ! Search remaining elements for max
        do j_step = 0, pool_size(2) - 1
           do i_step = 0, pool_size(1) - 1
-             if(i_step == 0 .and. j_step == 0) cycle  ! Already processed
+             if(i_step .eq. 0 .and. j_step .eq. 0) cycle  ! Already processed
              in_idx = base_idx + i_step + j_step * input_h + 1
              val_tmp = this%left_operand%val(in_idx, s)
 
-             if (val_tmp .gt. pool_max) then
+             if(val_tmp .gt. pool_max)then
                 pool_max = val_tmp
                 max_idx = in_idx
              end if
@@ -729,7 +729,7 @@ contains
        do k_step = 0, pool_size(3)-1
           do j_step = 0, pool_size(2)-1
              do i_step = 0, pool_size(1)-1
-                if(i_step == 0 .and. j_step == 0 .and. k_step == 0) cycle
+                if(i_step .eq. 0 .and. j_step .eq. 0 .and. k_step .eq. 0) cycle
                 if( &
                      input%val( &
                           stride_idx + i_step + &
@@ -754,7 +754,7 @@ contains
 
     output%get_partial_left => get_partial_maxpool3d
     output%get_partial_left_val => get_partial_maxpool3d_val
-    if (input%requires_grad) then
+    if(input%requires_grad)then
        output%requires_grad = .true.
        output%is_forward = input%is_forward
        output%operation = 'maxpool3d'
@@ -829,12 +829,12 @@ contains
        do k_step = 0, pool_size(3)-1
           do j_step = 0, pool_size(2)-1
              do i_step = 0, pool_size(1)-1
-                if(i_step == 0 .and. j_step == 0 .and. k_step == 0) cycle
+                if(i_step .eq. 0 .and. j_step .eq. 0 .and. k_step .eq. 0) cycle
                 in_idx = base_idx + i_step + j_step * input_h + &
                      k_step * input_hw + 1
                 val_tmp = this%left_operand%val(in_idx, s)
 
-                if (val_tmp .gt. pool_max) then
+                if(val_tmp .gt. pool_max)then
                    pool_max = val_tmp
                    max_idx = in_idx
                 end if

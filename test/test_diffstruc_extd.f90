@@ -25,7 +25,7 @@ program test_diffstruc_extd
 
   output => add_bias(input, bias, dim=2, dim_act_on_shape=.true.)
   if(any(abs(output%val(:,1) - [11._real32, 12._real32, 23._real32, &
-       24._real32, 35._real32, 36._real32]) > 1.e-6_real32))then
+       24._real32, 35._real32, 36._real32]) .gt. 1.e-6_real32))then
      success = .false.
      write(0,*) 'add_bias returned the wrong forward values'
   end if
@@ -33,13 +33,13 @@ program test_diffstruc_extd
   call output%grad_reverse(reset_graph=.true.)
 
   if(.not. associated(input%grad) .or. &
-       any(abs(input%grad%val(:,1) - 1._real32) > 1.e-6_real32))then
+       any(abs(input%grad%val(:,1) - 1._real32) .gt. 1.e-6_real32))then
      success = .false.
      write(0,*) 'add_bias returned the wrong input gradient'
   end if
 
   if(.not. associated(bias%grad) .or. &
-       any(abs(bias%grad%val(:,1) - 2._real32) > 1.e-6_real32))then
+       any(abs(bias%grad%val(:,1) - 2._real32) .gt. 1.e-6_real32))then
      success = .false.
      write(0,*) 'add_bias returned the wrong bias gradient'
   end if
@@ -66,7 +66,7 @@ program test_diffstruc_extd
      success = .false.
      write(0,*) 'conv1d returned the wrong output shape'
   end if
-  if(any(abs(output%val(:,1) - [5._real32, 8._real32, 11._real32]) > &
+  if(any(abs(output%val(:,1) - [5._real32, 8._real32, 11._real32]) .gt. &
        1.e-6_real32))then
      success = .false.
      write(0,*) 'conv1d returned the wrong forward values'
@@ -76,14 +76,14 @@ program test_diffstruc_extd
 
   if(.not. associated(input%grad) .or. &
        any(abs(input%grad%val(:,1) - [1._real32, 3._real32, 3._real32, &
-       2._real32]) > 1.e-6_real32))then
+            2._real32]) .gt. 1.e-6_real32))then
      success = .false.
      write(0,*) 'conv1d returned the wrong input gradient'
   end if
 
   if(.not. associated(kernel%grad) .or. &
-       any(abs(kernel%grad%val(:,1) - [6._real32, 9._real32]) > &
-       1.e-6_real32))then
+       any(abs(kernel%grad%val(:,1) - [6._real32, 9._real32]) .gt. &
+            1.e-6_real32))then
      success = .false.
      write(0,*) 'conv1d returned the wrong kernel gradient'
   end if
@@ -110,7 +110,7 @@ program test_diffstruc_extd
      success = .false.
      write(0,*) 'conv2d returned the wrong output shape'
   end if
-  if(abs(output%val(1,1) - 30._real32) > 1.e-6_real32)then
+  if(abs(output%val(1,1) - 30._real32) .gt. 1.e-6_real32)then
      success = .false.
      write(0,*) 'conv2d returned the wrong forward value'
   end if
@@ -119,14 +119,14 @@ program test_diffstruc_extd
 
   if(.not. associated(input%grad) .or. &
        any(abs(input%grad%val(:,1) - [4._real32, 3._real32, 2._real32, &
-       1._real32]) > 1.e-6_real32))then
+            1._real32]) .gt. 1.e-6_real32))then
      success = .false.
      write(0,*) 'conv2d returned the wrong input gradient'
   end if
 
   if(.not. associated(kernel%grad) .or. &
        any(abs(kernel%grad%val(:,1) - [1._real32, 2._real32, 3._real32, &
-       4._real32]) > 1.e-6_real32))then
+            4._real32]) .gt. 1.e-6_real32))then
      success = .false.
      write(0,*) 'conv2d returned the wrong kernel gradient'
   end if
@@ -155,7 +155,7 @@ program test_diffstruc_extd
      success = .false.
      write(0,*) 'conv3d returned the wrong output shape'
   end if
-  if(abs(output%val(1,1) - 204._real32) > 1.e-6_real32)then
+  if(abs(output%val(1,1) - 204._real32) .gt. 1.e-6_real32)then
      success = .false.
      write(0,*) 'conv3d returned the wrong forward value'
   end if
@@ -164,7 +164,7 @@ program test_diffstruc_extd
 
   if(.not. associated(input%grad) .or. &
        any(abs(input%grad%val(:,1) - [1._real32, 2._real32, 3._real32, &
-       4._real32, 5._real32, 6._real32, 7._real32, 8._real32]) > &
+            4._real32, 5._real32, 6._real32, 7._real32, 8._real32]) .gt. &
        1.e-6_real32))then
      success = .false.
      write(0,*) 'conv3d returned the wrong input gradient'
@@ -172,7 +172,7 @@ program test_diffstruc_extd
 
   if(.not. associated(kernel%grad) .or. &
        any(abs(kernel%grad%val(:,1) - [1._real32, 2._real32, 3._real32, &
-       4._real32, 5._real32, 6._real32, 7._real32, 8._real32]) > &
+            4._real32, 5._real32, 6._real32, 7._real32, 8._real32]) .gt. &
        1.e-6_real32))then
      success = .false.
      write(0,*) 'conv3d returned the wrong kernel gradient'

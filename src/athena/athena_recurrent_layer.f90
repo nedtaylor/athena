@@ -85,7 +85,7 @@ contains
     num_params = &
          this%hidden_size * this%input_size + &  ! W_ih
          this%hidden_size * this%hidden_size     ! W_hh
-    if(this%use_bias) then
+    if(this%use_bias)then
        num_params = num_params + 2 * this%hidden_size    ! b_h + b_o
     end if
 
@@ -719,7 +719,7 @@ contains
     ! Apply activation function to activation
     !---------------------------------------------------------------------------
     call this%output(1,1)%zero_grad()
-    if(trim(this%activation%name) .ne. "none") then
+    if(trim(this%activation%name) .ne. "none")then
        ptr => this%activation%apply(ptr)
     end if
     this%hidden_state => ptr

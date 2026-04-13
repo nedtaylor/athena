@@ -102,7 +102,7 @@ program test_batchnorm3d_layer
 
   !! check outputs all get normalised to zero
   write(*,*) "Checking output values..."
-  if (any(output_5d-beta.gt. tol)) then
+  if(any(output_5d-beta.gt. tol))then
      success = .false.
      write(0,*) 'batchnorm3d layer forward pass failed: &
           &output should all equal beta'
@@ -130,12 +130,12 @@ program test_batchnorm3d_layer
   do i = 1, num_channels
      mean = sum(output_5d(:,:,:,i,:))/(width**3*batch_size)
      std = sqrt(sum((output_5d(:,:,:,i,:) - mean)**2)/(width**3*batch_size))
-     if (abs(mean - beta) .gt. tol) then
+     if(abs(mean - beta) .gt. tol)then
         success = .false.
         write(0,*) 'batchnorm3d layer forward pass failed: &
              &mean should equal beta'
      end if
-     if (abs(std - gamma) .gt. tol) then
+     if(abs(std - gamma) .gt. tol)then
         success = .false.
         write(0,*) 'batchnorm3d layer forward pass failed: &
              &std should equal gamma'
@@ -166,12 +166,12 @@ program test_batchnorm3d_layer
         std = sqrt( &
              sum((input_5d(:,:,:,i,:) - mean)**2)/(width**3*batch_size) &
         )
-        if (abs(mean) .gt. tol) then
+        if(abs(mean) .gt. tol)then
            success = .false.
            write(0,*) 'batchnorm3d layer backward pass failed: &
                 &mean gradient should be zero'
         end if
-        if (abs(std) .gt. tol) then
+        if(abs(std) .gt. tol)then
            success = .false.
            write(0,*) 'batchnorm3d layer backward pass failed: &
                 &std gradient should equal gamma'
@@ -191,7 +191,7 @@ program test_batchnorm3d_layer
   class is(learnable_layer_type)
      !! check parameters
      num_params = bn_layer%get_num_params()
-     if (num_params .ne. 2 * num_channels)then
+     if(num_params .ne. 2 * num_channels)then
         write(0,*) 'batchnorm3d layer has wrong number of parameters'
         success = .false.
      end if
@@ -301,7 +301,7 @@ program test_batchnorm3d_layer
   ! Check that read layer has correct properties
   select type(read_layer)
   type is (batchnorm3d_layer_type)
-     if (.not. read_layer%name .eq. 'batchnorm3d') then
+     if(.not. read_layer%name .eq. 'batchnorm3d')then
         success = .false.
         write(0,*) 'read batchnorm3d layer has wrong name'
      end if

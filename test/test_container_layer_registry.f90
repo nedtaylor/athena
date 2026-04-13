@@ -31,7 +31,7 @@ program test_container_layer_registry
   call test_onnx_expanded_nop_registry(success)
   call test_onnx_expanded_gnn_registry(success)
 
-  if (success) then
+  if(success)then
      write(*,*) 'test_container_layer_registry passed all tests'
   else
      write(0,*) 'test_container_layer_registry failed one or more tests'
@@ -46,17 +46,17 @@ contains
 
     write(*,'("Testing layer reader registry")')
 
-    if (allocated(list_of_layer_types)) deallocate(list_of_layer_types)
+    if(allocated(list_of_layer_types)) deallocate(list_of_layer_types)
     call allocate_list_of_layer_types()
 
-    if (.not. allocated(list_of_layer_types)) then
+    if(.not. allocated(list_of_layer_types))then
        success = .false.
        write(0,*) 'layer reader registry was not allocated'
        return
     end if
 
-    if (.not. has_reader_name('reshape') .or. &
-         .not. has_reader_name('flatten')) then
+    if(.not. has_reader_name('reshape') .or. &
+         .not. has_reader_name('flatten'))then
        success = .false.
        write(0,*) 'layer reader registry is missing expected built-in entries'
     end if
@@ -66,12 +66,12 @@ contains
          read_layer_container(name='dummy', read_ptr=read_dummy_layer) &
     ])
 
-    if (size(list_of_layer_types) /= 2 * baseline_size + 1) then
+    if(size(list_of_layer_types) .ne. 2 * baseline_size + 1)then
        success = .false.
        write(0,*) 'layer reader registry appended the wrong number of entries'
     end if
-    if (trim(list_of_layer_types(size(list_of_layer_types))%name) /= &
-         'dummy') then
+    if(trim(list_of_layer_types(size(list_of_layer_types))%name) .ne. &
+         'dummy')then
        success = .false.
        write(0,*) 'layer reader registry did not append the custom entry'
     end if
@@ -83,13 +83,13 @@ contains
 
     write(*,'("Testing ONNX layer creator registry")')
 
-    if (allocated(list_of_onnx_layer_creators)) then
+    if(allocated(list_of_onnx_layer_creators))then
        deallocate(list_of_onnx_layer_creators)
     end if
     call allocate_list_of_onnx_layer_creators()
 
-    if (.not. has_onnx_op_type('Flatten') .or. &
-         .not. has_onnx_op_type('Selu')) then
+    if(.not. has_onnx_op_type('Flatten') .or. &
+         .not. has_onnx_op_type('Selu'))then
        success = .false.
        write(0,*) 'ONNX layer creator registry is missing expected '
        write(0,*) 'built-in entries'
@@ -101,13 +101,13 @@ contains
               op_type='Dummy', create_ptr=create_dummy_onnx_layer) &
     ])
 
-    if (size(list_of_onnx_layer_creators) /= 2 * baseline_size + 1) then
+    if(size(list_of_onnx_layer_creators) .ne. 2 * baseline_size + 1)then
        success = .false.
        write(0,*) 'ONNX layer creator registry appended the wrong '
        write(0,*) 'number of entries'
     end if
-    if (trim(list_of_onnx_layer_creators( &
-         size(list_of_onnx_layer_creators))%op_type) /= 'Dummy') then
+    if(trim(list_of_onnx_layer_creators( &
+         size(list_of_onnx_layer_creators))%op_type) .ne. 'Dummy')then
        success = .false.
        write(0,*) 'ONNX layer creator registry did not append the custom entry'
     end if
@@ -119,13 +119,13 @@ contains
 
     write(*,'("Testing ONNX meta-layer registry")')
 
-    if (allocated(list_of_onnx_meta_layer_creators)) then
+    if(allocated(list_of_onnx_meta_layer_creators))then
        deallocate(list_of_onnx_meta_layer_creators)
     end if
     call allocate_list_of_onnx_meta_layer_creators()
 
-    if (.not. has_meta_subtype('kipf') .or. &
-         .not. has_meta_subtype('dynamic_lno')) then
+    if(.not. has_meta_subtype('kipf') .or. &
+         .not. has_meta_subtype('dynamic_lno'))then
        success = .false.
        write(0,*) 'ONNX meta-layer registry is missing expected built-in entries'
     end if
@@ -137,13 +137,15 @@ contains
               create_ptr=create_dummy_meta_layer) &
     ])
 
-    if (size(list_of_onnx_meta_layer_creators) /= 2 * baseline_size + 1) then
+    if(size(list_of_onnx_meta_layer_creators) .ne. 2 * baseline_size + 1)then
        success = .false.
        write(0,*) 'ONNX meta-layer registry appended the wrong number of entries'
     end if
-    if (trim(list_of_onnx_meta_layer_creators( &
-         size(list_of_onnx_meta_layer_creators))%layer_subtype) /= &
-         'dummy_meta') then
+    if( &
+         trim(list_of_onnx_meta_layer_creators( &
+              size(list_of_onnx_meta_layer_creators))%layer_subtype &
+         ) .ne. 'dummy_meta' &
+     )then
        success = .false.
        write(0,*) 'ONNX meta-layer registry did not append the custom entry'
     end if
@@ -155,13 +157,13 @@ contains
 
     write(*,'("Testing ONNX expanded NOP registry")')
 
-    if (allocated(list_of_onnx_expanded_nop_layer_creators)) then
+    if(allocated(list_of_onnx_expanded_nop_layer_creators))then
        deallocate(list_of_onnx_expanded_nop_layer_creators)
     end if
     call allocate_list_of_onnx_expanded_nop_layer_creators()
 
-    if (.not. has_nop_subtype('dynamic_lno') .or. &
-         .not. has_nop_subtype('spectral_filter')) then
+    if(.not. has_nop_subtype('dynamic_lno') .or. &
+         .not. has_nop_subtype('spectral_filter'))then
        success = .false.
        write(0,*) 'ONNX expanded NOP registry is missing expected '
        write(0,*) 'built-in entries'
@@ -175,15 +177,17 @@ contains
               build_ptr=build_dummy_expanded_nop) &
     ])
 
-    if (size(list_of_onnx_expanded_nop_layer_creators) /= &
-         2 * baseline_size + 1) then
+    if(size(list_of_onnx_expanded_nop_layer_creators) .ne. &
+         2 * baseline_size + 1)then
        success = .false.
        write(0,*) 'ONNX expanded NOP registry appended the wrong '
        write(0,*) 'number of entries'
     end if
-    if (trim(list_of_onnx_expanded_nop_layer_creators( &
-         size(list_of_onnx_expanded_nop_layer_creators))%nop_subtype) /= &
-         'dummy_nop') then
+    if( &
+         trim(list_of_onnx_expanded_nop_layer_creators( &
+              size(list_of_onnx_expanded_nop_layer_creators))%nop_subtype &
+         ) .ne. 'dummy_nop' &
+     )then
        success = .false.
        write(0,*) 'ONNX expanded NOP registry did not append the custom entry'
     end if
@@ -195,13 +199,13 @@ contains
 
     write(*,'("Testing ONNX expanded GNN registry")')
 
-    if (allocated(list_of_onnx_expanded_gnn_layer_creators)) then
+    if(allocated(list_of_onnx_expanded_gnn_layer_creators))then
        deallocate(list_of_onnx_expanded_gnn_layer_creators)
     end if
     call allocate_list_of_onnx_expanded_gnn_layer_creators()
 
-    if (.not. has_gnn_subtype('kipf') .or. &
-         .not. has_gnn_subtype('duvenaud')) then
+    if(.not. has_gnn_subtype('kipf') .or. &
+         .not. has_gnn_subtype('duvenaud'))then
        success = .false.
        write(0,*) 'ONNX expanded GNN registry is missing expected '
        write(0,*) 'built-in entries'
@@ -215,15 +219,17 @@ contains
               build_ptr=build_dummy_expanded_gnn) &
     ])
 
-    if (size(list_of_onnx_expanded_gnn_layer_creators) /= &
-         2 * baseline_size + 1) then
+    if(size(list_of_onnx_expanded_gnn_layer_creators) .ne. &
+         2 * baseline_size + 1)then
        success = .false.
        write(0,*) 'ONNX expanded GNN registry appended the wrong '
        write(0,*) 'number of entries'
     end if
-    if (trim(list_of_onnx_expanded_gnn_layer_creators( &
-         size(list_of_onnx_expanded_gnn_layer_creators))%gnn_subtype) /= &
-         'dummy_gnn') then
+    if( &
+         trim(list_of_onnx_expanded_gnn_layer_creators( &
+              size(list_of_onnx_expanded_gnn_layer_creators))%gnn_subtype &
+         ) .ne. 'dummy_gnn' &
+     )then
        success = .false.
        write(0,*) 'ONNX expanded GNN registry did not append the custom entry'
     end if
@@ -235,7 +241,7 @@ contains
 
     has_reader_name = .false.
     do i = 1, size(list_of_layer_types)
-       if (trim(list_of_layer_types(i)%name) == trim(name)) then
+       if(trim(list_of_layer_types(i)%name) .eq. trim(name))then
           has_reader_name = .true.
           return
        end if
@@ -248,7 +254,7 @@ contains
 
     has_onnx_op_type = .false.
     do i = 1, size(list_of_onnx_layer_creators)
-       if (trim(list_of_onnx_layer_creators(i)%op_type) == trim(op_type)) then
+       if(trim(list_of_onnx_layer_creators(i)%op_type) .eq. trim(op_type))then
           has_onnx_op_type = .true.
           return
        end if
@@ -261,8 +267,8 @@ contains
 
     has_meta_subtype = .false.
     do i = 1, size(list_of_onnx_meta_layer_creators)
-       if (trim(list_of_onnx_meta_layer_creators(i)%layer_subtype) == &
-            trim(subtype)) then
+       if(trim(list_of_onnx_meta_layer_creators(i)%layer_subtype) .eq. &
+            trim(subtype))then
           has_meta_subtype = .true.
           return
        end if
@@ -275,8 +281,8 @@ contains
 
     has_nop_subtype = .false.
     do i = 1, size(list_of_onnx_expanded_nop_layer_creators)
-       if (trim(list_of_onnx_expanded_nop_layer_creators(i)%nop_subtype) == &
-            trim(subtype)) then
+       if(trim(list_of_onnx_expanded_nop_layer_creators(i)%nop_subtype) .eq. &
+            trim(subtype))then
           has_nop_subtype = .true.
           return
        end if
@@ -289,8 +295,8 @@ contains
 
     has_gnn_subtype = .false.
     do i = 1, size(list_of_onnx_expanded_gnn_layer_creators)
-       if (trim(list_of_onnx_expanded_gnn_layer_creators(i)%gnn_subtype) == &
-            trim(subtype)) then
+       if(trim(list_of_onnx_expanded_gnn_layer_creators(i)%gnn_subtype) .eq. &
+            trim(subtype))then
           has_gnn_subtype = .true.
           return
        end if
@@ -332,7 +338,7 @@ contains
     type(onnx_node_type), intent(in) :: nodes(:)
     integer, intent(in) :: num_nodes
 
-    classify_dummy_expanded_nop = trim(prefix) == 'dummy'
+    classify_dummy_expanded_nop = trim(prefix) .eq. 'dummy'
   end function classify_dummy_expanded_nop
 
   function build_dummy_expanded_nop( &
@@ -352,7 +358,7 @@ contains
     type(onnx_node_type), intent(in) :: nodes(:)
     integer, intent(in) :: num_nodes
 
-    classify_dummy_expanded_gnn = trim(prefix) == 'dummy'
+    classify_dummy_expanded_gnn = trim(prefix) .eq. 'dummy'
   end function classify_dummy_expanded_gnn
 
   function build_dummy_expanded_gnn( &

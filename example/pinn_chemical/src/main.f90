@@ -233,7 +233,7 @@ program pinn_chemical_example
         call loss%grad_reverse(reset_graph=.true.)
         call network%update()
         ! have it print every 10 batch steps
-        if(mod(s/batch_size,10) == 0) then
+        if(mod(s/batch_size,10) .eq. 0)then
            write(*,'("Epoch: ", I0, "/", I0, " Batch: ", I0, " Loss: ", F8.6)') &
                 i, num_epochs, s/batch_size + 1, sum(loss%val(1,:))/real(batch_size)
         end if

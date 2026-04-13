@@ -213,7 +213,7 @@ contains
        jdx_e(i) = size(data,dim=i)
        idx_s(i) = 1
        idx_e(i) = size(data,dim=i)
-       if(i.eq.dim) then
+       if(i.eq.dim)then
           t_size(i,2) = 1
        else
           t_size(i,2) = size(data,dim=i)
@@ -306,7 +306,7 @@ contains
        jdx_e(i) = size(data,dim=i)
        idx_s(i) = 1
        idx_e(i) = size(data,dim=i)
-       if(i.eq.dim) then
+       if(i.eq.dim)then
           t_size(i,2) = 1
        else
           t_size(i,2) = size(data,dim=i)
@@ -401,7 +401,7 @@ contains
        jdx_e(i) = size(data,dim=i)
        idx_s(i) = 1
        idx_e(i) = size(data,dim=i)
-       if(i.eq.dim) then
+       if(i.eq.dim)then
           t_size(i,2) = 1
        else
           t_size(i,2) = size(data,dim=i)
@@ -501,7 +501,7 @@ contains
        jdx_e(i) = size(data,dim=i)
        idx_s(i) = 1
        idx_e(i) = size(data,dim=i)
-       if(i.eq.dim) then
+       if(i.eq.dim)then
           t_size(i,2) = 1
        else
           t_size(i,2) = size(data,dim=i)
@@ -616,7 +616,7 @@ contains
        jdx_e(i) = size(data,dim=i)
        idx_s(i) = 1
        idx_e(i) = size(data,dim=i)
-       if(i.eq.dim) then
+       if(i.eq.dim)then
           t_size(i,2) = 1
        else
           t_size(i,2) = size(data,dim=i)
@@ -711,7 +711,7 @@ contains
        jdx_e(i) = size(data,dim=i)
        idx_s(i) = 1
        idx_e(i) = size(data,dim=i)
-       if(i.eq.dim) then
+       if(i.eq.dim)then
           t_size(i,2) = 1
        else
           t_size(i,2) = size(data,dim=i)
@@ -812,7 +812,7 @@ contains
        jdx_e(i) = size(data,dim=i)
        idx_s(i) = 1
        idx_e(i) = size(data,dim=i)
-       if(i.eq.dim) then
+       if(i.eq.dim)then
           t_size(i,2) = 1
        else
           t_size(i,2) = size(data,dim=i)
@@ -914,7 +914,7 @@ contains
        jdx_e(i) = size(data,dim=i)
        idx_s(i) = 1
        idx_e(i) = size(data,dim=i)
-       if(i.eq.dim) then
+       if(i.eq.dim)then
           t_size(i,2) = 1
        else
           t_size(i,2) = size(data,dim=i)
@@ -1021,7 +1021,7 @@ contains
        jdx_e(i) = size(data,dim=i)
        idx_s(i) = 1
        idx_e(i) = size(data,dim=i)
-       if(i.eq.dim) then
+       if(i.eq.dim)then
           t_size(i,2) = 1
        else
           t_size(i,2) = size(data,dim=i)
@@ -1139,7 +1139,7 @@ contains
        jdx_e(i) = size(data,dim=i)
        idx_s(i) = 1
        idx_e(i) = size(data,dim=i)
-       if(i.eq.dim) then
+       if(i.eq.dim)then
           t_size(i,2) = 1
        else
           t_size(i,2) = size(data,dim=i)
@@ -1335,7 +1335,7 @@ contains
     !---------------------------------------------------------------------------
     indices_l_loop: do i=1,size(data,dim)
        if(any(indices_r.eq.i)) cycle indices_l_loop
-       if(allocated(indices_l)) then
+       if(allocated(indices_l))then
           indices_l = [indices_l(:), i]
        else
           indices_l = [i]
@@ -1490,7 +1490,7 @@ contains
     if(present(split_list)) split_list = 2
     indices_l_loop: do i=1,size(data,dim)
        if(any(indices_r.eq.i)) cycle indices_l_loop
-       if(allocated(indices_l)) then
+       if(allocated(indices_l))then
           indices_l = [indices_l(:), i]
        else
           indices_l = [i]
@@ -1645,7 +1645,7 @@ contains
     if(present(split_list)) split_list = 2
     indices_l_loop: do i=1,size(data,dim)
        if(any(indices_r.eq.i)) cycle indices_l_loop
-       if(allocated(indices_l)) then
+       if(allocated(indices_l))then
           indices_l = [indices_l(:), i]
        else
           indices_l = [i]
@@ -1803,7 +1803,7 @@ contains
     if(present(split_list)) split_list = 2
     indices_l_loop: do i=1,size(data,dim)
        if(any(indices_r.eq.i)) cycle indices_l_loop
-       if(allocated(indices_l)) then
+       if(allocated(indices_l))then
           indices_l = [indices_l(:), i]
        else
           indices_l = [i]
@@ -1963,7 +1963,7 @@ contains
     if(present(split_list)) split_list = 2
     indices_l_loop: do i=1,size(data,dim)
        if(any(indices_r.eq.i)) cycle indices_l_loop
-       if(allocated(indices_l)) then
+       if(allocated(indices_l))then
           indices_l = [indices_l(:), i]
        else
           indices_l = [i]
@@ -2150,7 +2150,7 @@ contains
 
     ndim = rank(data)
 #if defined(GFORTRAN)
-    if(ndim.ne.rank(data_padded)) then
+    if(ndim.ne.rank(data_padded))then
        call stop_program("data and data_padded are not the same rank")
        return
     end if

@@ -51,37 +51,37 @@ program test_pad2d_layer
   )
 
   ! Check layer properties
-  if (.not. pad2d_layer%name .eq. 'pad2d') then
+  if(.not. pad2d_layer%name .eq. 'pad2d')then
      success = .false.
      write(0,*) 'pad2d layer has wrong name'
   end if
 
-  if (.not. pad2d_layer%type .eq. 'pad') then
+  if(.not. pad2d_layer%type .eq. 'pad')then
      success = .false.
      write(0,*) 'pad2d layer has wrong type'
   end if
 
-  if (any(pad2d_layer%input_shape .ne. [width, height, channels])) then
+  if(any(pad2d_layer%input_shape .ne. [width, height, channels]))then
      success = .false.
      write(0,*) 'pad2d layer has wrong input_shape'
   end if
 
   expected_width = width + 2 * 1   ! padding[1] on both sides
   expected_height = height + 2 * 2 ! padding[2] on both sides
-  if (any(pad2d_layer%output_shape .ne. &
-       [expected_width, expected_height, channels])) then
+  if(any(pad2d_layer%output_shape .ne. &
+       [expected_width, expected_height, channels]))then
      success = .false.
      write(0,*) 'pad2d layer has wrong output_shape'
      write(0,*) 'Expected:', [expected_width, expected_height, channels]
      write(0,*) 'Got:      ', pad2d_layer%output_shape
   end if
 
-  if (pad2d_layer%input_rank .ne. 3) then
+  if(pad2d_layer%input_rank .ne. 3)then
      success = .false.
      write(0,*) 'pad2d layer has wrong input_rank'
   end if
 
-  if (pad2d_layer%output_rank .ne. 3) then
+  if(pad2d_layer%output_rank .ne. 3)then
      success = .false.
      write(0,*) 'pad2d layer has wrong output_rank'
   end if
@@ -578,8 +578,8 @@ program test_pad2d_layer
        expected_height = height + 2 * test_paddings(i,2)
 
        ! Check output shape
-       if (any(pad2d_layer%output_shape .ne. &
-            [expected_width, expected_height, channels])) then
+       if(any(pad2d_layer%output_shape .ne. &
+            [expected_width, expected_height, channels]))then
           success = .false.
           write(0,*) 'pad2d layer output shape incorrect for padding size:', &
                test_paddings(i,:)
@@ -595,20 +595,20 @@ program test_pad2d_layer
        call pad2d_layer%extract_output(output_4d)
 
        ! For zero padding, check that padding is actually zero
-       if (test_paddings(i,1) > 0) then
-          if (any(abs(output_4d(1:test_paddings(i,1),:,:,:)) .gt. tol) .or. &
+       if(test_paddings(i,1) .gt. 0)then
+          if(any(abs(output_4d(1:test_paddings(i,1),:,:,:)) .gt. tol) .or. &
                any(abs(output_4d(expected_width-test_paddings(i,1)+1: &
-                    expected_width,:,:,:)) .gt. tol)) then
+                    expected_width,:,:,:)) .gt. tol))then
              success = .false.
              write(0,*) 'pad2d layer width zero padding incorrect for size:', &
                   test_paddings(i,1)
           end if
        end if
 
-       if (test_paddings(i,2) > 0) then
-          if (any(abs(output_4d(:,1:test_paddings(i,2),:,:)) .gt. tol) .or. &
+       if(test_paddings(i,2) .gt. 0)then
+          if(any(abs(output_4d(:,1:test_paddings(i,2),:,:)) .gt. tol) .or. &
                any(abs(output_4d(:,expected_height-test_paddings(i,2)+1: &
-                    expected_height,:,:)) .gt. tol)) then
+                    expected_height,:,:)) .gt. tol))then
              success = .false.
              write(0,*) 'pad2d layer height zero padding incorrect for size:', &
                   test_paddings(i,2)
@@ -649,8 +649,8 @@ program test_pad2d_layer
   expected_width = width + 2
   expected_height = height + 2
   call input(1,1)%extract(input_4d)
-  if (any(abs(output_4d(2:expected_width-1, 2:expected_height-1, 1, 1) - &
-       input_4d(:,:,1,1)) .gt. tol)) then
+  if(any(abs(output_4d(2:expected_width-1, 2:expected_height-1, 1, 1) - &
+       input_4d(:,:,1,1)) .gt. tol))then
      success = .false.
      write(0,*) 'pad2d layer symmetric padding center incorrect'
   end if
@@ -695,7 +695,7 @@ program test_pad2d_layer
   ! Check that read layer has correct properties
   select type(read_layer)
   type is (pad2d_layer_type)
-     if (.not. read_layer%name .eq. 'pad2d') then
+     if(.not. read_layer%name .eq. 'pad2d')then
         success = .false.
         write(0,*) 'read pad2d layer has wrong name'
      end if
@@ -713,7 +713,7 @@ program test_pad2d_layer
 ! Check for any failed tests
 !-------------------------------------------------------------------------------
   write(*,*) "----------------------------------------"
-  if (success) then
+  if(success)then
      write(*,*) 'test_pad2d_layer passed all tests'
   else
      write(0,*) 'test_pad2d_layer failed one or more tests'

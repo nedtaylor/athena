@@ -78,7 +78,7 @@ program custom_train_example
      loss => loss_method%compute(output, y)
      call loss%grad_reverse(reset_graph=.true.)
      call network%update()
-     if(mod(i,10) == 0) write(*,'("epoch ",I4,":",2(3X,F8.6))') i, output(1,1)%val
+     if(mod(i,10) .eq. 0) write(*,'("epoch ",I4,":",2(3X,F8.6))') i, output(1,1)%val
      if(all(abs(output(1,1)%val - y(1,1)%val) .lt. 1.E-5_real32)) exit
   end do
   if(i.le.num_epochs)then

@@ -191,7 +191,7 @@ contains
        jdx_e(i) = size(arr,dim=i)
        idx_s(i) = 1
        idx_e(i) = size(arr,dim=i)
-       if(i.eq.dim) then
+       if(i.eq.dim)then
           t_size(i,2) = 1
        else
           t_size(i,2) = size(arr,dim=i)
@@ -259,7 +259,7 @@ contains
        jdx_e(i) = size(arr,dim=i)
        idx_s(i) = 1
        idx_e(i) = size(arr,dim=i)
-       if(i.eq.dim) then
+       if(i.eq.dim)then
           t_size(i,2) = 1
        else
           t_size(i,2) = size(arr,dim=i)
@@ -332,7 +332,7 @@ contains
        jdx_e(i) = size(arr,dim=i)
        idx_s(i) = 1
        idx_e(i) = size(arr,dim=i)
-       if(i.eq.dim) then
+       if(i.eq.dim)then
           t_size(i,2) = 1
        else
           t_size(i,2) = size(arr,dim=i)
@@ -416,7 +416,7 @@ contains
        jdx_e(i) = size(arr,dim=i)
        idx_s(i) = 1
        idx_e(i) = size(arr,dim=i)
-       if(i.eq.dim) then
+       if(i.eq.dim)then
           t_size(i,2) = 1
        else
           t_size(i,2) = size(arr,dim=i)
@@ -496,7 +496,7 @@ contains
        jdx_e(i) = size(arr,dim=i)
        idx_s(i) = 1
        idx_e(i) = size(arr,dim=i)
-       if(i.eq.dim) then
+       if(i.eq.dim)then
           t_size(i,2) = 1
        else
           t_size(i,2) = size(arr,dim=i)
@@ -586,7 +586,7 @@ contains
        jdx_e(i) = size(arr,dim=i)
        idx_s(i) = 1
        idx_e(i) = size(arr,dim=i)
-       if(i.eq.dim) then
+       if(i.eq.dim)then
           t_size(i,2) = 1
        else
           t_size(i,2) = size(arr,dim=i)
@@ -744,7 +744,7 @@ contains
     !! get list of indices for left split
     indices_l_loop: do i=1,size(data,dim)
        if(any(indices_r.eq.i)) cycle indices_l_loop
-       if(allocated(indices_l)) then
+       if(allocated(indices_l))then
           indices_l = [indices_l(:), i]
        else
           indices_l = [i]
@@ -859,7 +859,7 @@ contains
     if(present(split_list)) split_list = 2
     indices_l_loop: do i=1,size(data,dim)
        if(any(indices_r.eq.i)) cycle indices_l_loop
-       if(allocated(indices_l)) then
+       if(allocated(indices_l))then
           indices_l = [indices_l(:), i]
        else
           indices_l = [i]

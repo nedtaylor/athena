@@ -177,7 +177,7 @@ program test_dropout_layer
   ! Check that read layer has correct properties
   select type(read_layer)
   type is (dropout_layer_type)
-     if (.not. read_layer%name .eq. 'dropout') then
+     if(.not. read_layer%name .eq. 'dropout')then
         success = .false.
         write(0,*) 'read dropout layer has wrong name'
      end if

@@ -188,7 +188,7 @@ program test_dropblock2d_layer
   ! Check that read layer has correct properties
   select type(read_layer)
   type is (dropblock2d_layer_type)
-     if (.not. read_layer%name .eq. 'dropblock2d') then
+     if(.not. read_layer%name .eq. 'dropblock2d')then
         success = .false.
         write(0,*) 'read dropblock2d layer has wrong name'
      end if

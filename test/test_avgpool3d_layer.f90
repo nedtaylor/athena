@@ -131,7 +131,7 @@ program test_avgpool3d_layer
               end if
            else if( abs( output%val(&
                 i + (j-1)*output_width + &
-                (k-1)*output_width*output_width, 1) ) .gt. 1.E-6 ) then
+                (k-1)*output_width*output_width, 1) ) .gt. 1.E-6 )then
               success = .false.
               write(*,*) 'avgpool3d layer forward pass failed, zero expected'
            end if
@@ -190,7 +190,7 @@ program test_avgpool3d_layer
   output => pool_layer%output(1,1)
 
   !! check outputs have expected value
-  if (any(abs(output%val(:,1) - gradient%val(:,1)) .gt. tol)) then
+  if(any(abs(output%val(:,1) - gradient%val(:,1)) .gt. tol))then
      success = .false.
      write(*,*) 'avgpool3d layer forward pass failed'
      do i = 1, width*width*width
@@ -313,7 +313,7 @@ program test_avgpool3d_layer
   ! Check that read layer has correct properties
   select type(read_layer)
   type is (avgpool3d_layer_type)
-     if (.not. read_layer%name .eq. 'avgpool3d') then
+     if(.not. read_layer%name .eq. 'avgpool3d')then
         success = .false.
         write(0,*) 'read avgpool3d layer has wrong name'
      end if

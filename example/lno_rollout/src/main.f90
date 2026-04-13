@@ -167,7 +167,7 @@ program lno_rollout
            network%expected_array = tgt
            ptr1 => network%loss_eval(1, 1)
            ptr2 => ptr1%duplicate_graph()
-           if(step_idx .eq. 1) then
+           if(step_idx .eq. 1)then
               loss => ptr2
            else
               loss => loss + ptr2
@@ -258,7 +258,7 @@ contains
 
     coeff_table = 0.0_real32
     open(newunit=unit_local, file=path, status='old', action='read', iostat=ios)
-    if (ios .ne. 0) then
+    if(ios .ne. 0)then
        write(*,'(A)') 'Failed to open coefficient file: '//trim(path)
        stop 1
     end if
@@ -267,20 +267,20 @@ contains
     row_idx = 0
     do
        read(unit_local, '(A)', iostat=ios) line
-       if (ios .ne. 0) exit
-       if (len_trim(line) == 0) cycle
-       if (line(1:1) == '#') cycle
+       if(ios .ne. 0) exit
+       if(len_trim(line) .eq. 0) cycle
+       if(line(1:1) .eq. '#') cycle
        read(line, *, iostat=ios) sample_id, c1, c2, c3
-       if (ios .ne. 0) cycle
+       if(ios .ne. 0) cycle
        row_idx = row_idx + 1
-       if (row_idx > size(coeff_table, 2)) exit
+       if(row_idx .gt. size(coeff_table, 2)) exit
        coeff_table(1, row_idx) = c1
        coeff_table(2, row_idx) = c2
        coeff_table(3, row_idx) = c3
     end do
     close(unit_local)
 
-    if (row_idx < size(coeff_table, 2)) then
+    if(row_idx .lt. size(coeff_table, 2))then
        write(*,'(A,I0,A,I0)') 'Coefficient rows loaded: ', row_idx, &
             ' expected: ', size(coeff_table, 2)
        stop 1
@@ -503,7 +503,7 @@ contains
     end do
 
     ! Fill bias terms if enabled.
-    if (layer%use_bias) then
+    if(layer%use_bias)then
        do out_idx = 1, layer%num_outputs
           layer%params(2)%val(out_idx, 1) = next_init_value(state, scale_in)
        end do
@@ -541,7 +541,7 @@ contains
     end do
 
     ! b: bias from LCG
-    if (layer%use_bias) then
+    if(layer%use_bias)then
        do out_idx = 1, layer%num_outputs
           layer%params(4)%val(out_idx, 1) = next_init_value(state, scale_in)
        end do
@@ -594,15 +594,15 @@ contains
     integer :: unit_local, ios, idx
 
     inquire(file=path, exist=file_exists)
-    if (.not. file_exists) return
+    if(.not. file_exists) return
 
     open(newunit=unit_local, file=path, status='old', action='read', iostat=ios)
-    if (ios .ne. 0) return
+    if(ios .ne. 0) return
 
     ! Replace in-memory final state only when a full vector is readable.
     do idx = 1, size(final_state)
        read(unit_local, *, iostat=ios) final_state(idx)
-       if (ios .ne. 0) then
+       if(ios .ne. 0)then
           close(unit_local)
           return
        end if

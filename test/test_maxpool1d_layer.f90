@@ -115,7 +115,7 @@ program test_maxpool1d_layer
            success = .false.
            write(*,*) 'maxpool1d layer forward pass failed'
         end if
-     else if(abs(output%val(i, 1)) .gt. 1.E-6) then
+     else if(abs(output%val(i, 1)) .gt. 1.E-6)then
         success = .false.
         write(*,*) 'maxpool1d layer forward pass failed'
      end if
@@ -134,7 +134,7 @@ program test_maxpool1d_layer
   do c = 1, num_channels
      do i = 1, output_width
         do ip1 = (i-1) * stride + 1, (i-1) * stride + pool
-           if(ip1.eq. max_loc) then
+           if(ip1.eq. max_loc)then
               di_compare(1,1)%val(ip1 + (c-1)*width,1) = &
                    di_compare(1,1)%val(ip1 + (c-1)*width,1) + gradient%val(i,1)
            end if
@@ -255,7 +255,7 @@ program test_maxpool1d_layer
   ! Check that read layer has correct properties
   select type(read_layer)
   type is (maxpool1d_layer_type)
-     if (.not. read_layer%name .eq. 'maxpool1d') then
+     if(.not. read_layer%name .eq. 'maxpool1d')then
         success = .false.
         write(0,*) 'read maxpool1d layer has wrong name'
      end if

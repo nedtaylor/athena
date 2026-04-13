@@ -45,7 +45,7 @@ contains
 
     !! Compute the accuracy
     do concurrent(s=1:size(expected,2))
-       if (maxloc(expected(:,s),dim=1).eq.maxloc(predicted(:,s),dim=1)) then
+       if(maxloc(expected(:,s),dim=1).eq.maxloc(predicted(:,s),dim=1))then
           output(s) = 1._real32
        else
           output(s) = 0._real32

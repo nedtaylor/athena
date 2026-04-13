@@ -121,7 +121,7 @@ program test_maxpool2d_layer
               success = .false.
               write(*,*) 'maxpool2d layer forward pass failed'
            end if
-        else if(abs(output%val(i + (j-1)*output_width, 1)) .gt. 1.E-6) then
+        else if(abs(output%val(i + (j-1)*output_width, 1)) .gt. 1.E-6)then
            success = .false.
            write(*,*) 'maxpool2d layer forward pass failed'
         end if
@@ -173,7 +173,7 @@ program test_maxpool2d_layer
 !         ip1 = (i-1) * stride + 1
 !         ip2 = (i-1) * stride + pool
 !         do k = ip1, ip2
-!            if(k.eq. max_loc) then
+!            if(k.eq. max_loc)then
 !               di_compare(1,1)%val(k + (j-1)*width,1) = &
 !                    di_compare(1,1)%val(k + (j-1)*width,1) + gradient%val(i,1)
 !            end if
@@ -312,7 +312,7 @@ program test_maxpool2d_layer
   ! Check that read layer has correct properties
   select type(read_layer)
   type is (maxpool2d_layer_type)
-     if (.not. read_layer%name .eq. 'maxpool2d') then
+     if(.not. read_layer%name .eq. 'maxpool2d')then
         success = .false.
         write(0,*) 'read maxpool2d layer has wrong name'
      end if

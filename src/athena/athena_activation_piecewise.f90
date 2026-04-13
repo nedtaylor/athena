@@ -62,7 +62,7 @@ contains
     if(present(gradient)) activation%gradient = gradient
     if(present(limit)) activation%limit = limit
 
-    if(present(attributes)) then
+    if(present(attributes))then
        call activation%apply_attributes(attributes)
     end if
 
@@ -132,7 +132,7 @@ contains
        case("limit")
           read(attributes(i)%val,*) this%limit
        case("name")
-          if(trim(attributes(i)%val) .ne. trim(this%name)) then
+          if(trim(attributes(i)%val) .ne. trim(this%name))then
              call print_warning( &
                   'Piecewise activation: name attribute "' // &
                   trim(attributes(i)%val) // &
