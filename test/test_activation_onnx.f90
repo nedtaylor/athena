@@ -73,8 +73,8 @@ program test_activation_onnx
   output => activation%apply(input)
   expected_negative = (exp(-1._real32) - 1._real32) * &
        1.7_real32 * 1.05_real32 * 1.5_real32
-  if(abs(output%val(1,1) - expected_negative) > 1.e-5_real32 .or. &
-       abs(output%val(2,1) - 3.15_real32) > 1.e-6_real32)then
+  if(abs(output%val(1,1) - expected_negative) .gt. 1.e-5_real32 .or. &
+       abs(output%val(2,1) - 3.15_real32) .gt. 1.e-6_real32)then
      success = .false.
      write(0,*) 'SELU activation returned the wrong forward values'
   end if
@@ -83,8 +83,8 @@ program test_activation_onnx
   expected_negative_grad = exp(-1._real32) * &
        1.7_real32 * 1.05_real32 * 1.5_real32
   if(.not. associated(input%grad) .or. &
-       abs(input%grad%val(1,1) - expected_negative_grad) > 1.e-5_real32 &
-       .or. abs(input%grad%val(2,1) - 1.575_real32) > 1.e-6_real32)then
+       abs(input%grad%val(1,1) - expected_negative_grad) .gt. 1.e-5_real32 &
+       .or. abs(input%grad%val(2,1) - 1.575_real32) .gt. 1.e-6_real32)then
      success = .false.
      write(0,*) 'SELU activation returned the wrong backward values'
   end if
@@ -97,9 +97,9 @@ program test_activation_onnx
 
   select type (activation)
   type is (selu_actv_type)
-     if(abs(activation%scale - 1.5_real32) > 1.e-6_real32 .or. &
-          abs(activation%alpha - 1.7_real32) > 1.e-6_real32 .or. &
-          abs(activation%lambda - 1.05_real32) > 1.e-6_real32)then
+     if(abs(activation%scale - 1.5_real32) .gt. 1.e-6_real32 .or. &
+          abs(activation%alpha - 1.7_real32) .gt. 1.e-6_real32 .or. &
+          abs(activation%lambda - 1.05_real32) .gt. 1.e-6_real32)then
         success = .false.
         write(0,*) 'SELU activation did not retain imported attributes'
      end if

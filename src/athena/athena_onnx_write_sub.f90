@@ -471,7 +471,7 @@ contains
        graph_outputs(1)%name = 'output'
        graph_outputs(1)%elem_type = 1
        if(allocated(graph_outputs(1)%dims)) deallocate(graph_outputs(1)%dims)
-       if(allocated(graph_outputs(1)%dim_params)) then
+       if(allocated(graph_outputs(1)%dim_params))then
           deallocate(graph_outputs(1)%dim_params)
        end if
        allocate(graph_outputs(1)%dims(2))

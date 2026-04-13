@@ -62,7 +62,7 @@ contains
        activation%apply_scaling = .true.
     end if
 
-    if(present(attributes)) then
+    if(present(attributes))then
        call activation%apply_attributes(attributes)
     end if
 
@@ -126,7 +126,7 @@ contains
              this%apply_scaling = .false.
           end if
        case("name")
-          if(trim(attributes(i)%val) .ne. trim(this%name)) then
+          if(trim(attributes(i)%val) .ne. trim(this%name))then
              call print_warning( &
                   'Tanh activation: name attribute "' // &
                   trim(attributes(i)%val) // &

@@ -40,7 +40,7 @@ contains
     ! Initialise input shape
     !---------------------------------------------------------------------------
     if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
-    if(.not.allocated(this%orig_bound)) then
+    if(.not.allocated(this%orig_bound))then
        allocate(this%orig_bound(2,this%input_rank-1))
        allocate(this%dest_bound(2,this%input_rank-1))
     end if

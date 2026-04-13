@@ -74,7 +74,7 @@ contains
     implicit none
     class(container_layer_type), intent(inout) :: this
 
-    if (allocated(this%layer)) deallocate(this%layer)
+    if(allocated(this%layer)) deallocate(this%layer)
 
   end subroutine finalise_container_layer
 

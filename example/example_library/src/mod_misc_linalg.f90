@@ -375,7 +375,7 @@ contains
 
     angle = acos( dot_product(vec1,vec2)/&
          ( modu(vec1) * modu(vec2) ))
-    if (isnan(angle)) angle = 0._real32
+    if(isnan(angle)) angle = 0._real32
 
     return
   end function get_angle_from_vectors
@@ -464,7 +464,7 @@ contains
           l=i;i=j;j=k;k=l
        end do
        i=2;j=1;k=3;scale=-scale
-       if(scale>=0._real32) scale_neg = .false.
+       if(scale.ge.0._real32) scale_neg = .false.
     end do
 
     return
@@ -593,7 +593,7 @@ contains
     real(real32), dimension(n,n), intent(in) :: a
     real(real32), dimension(n-1, n-1) :: tmp
 
-    if(n.eq.1) then
+    if(n.eq.1)then
        res = a(1,1)
     else
        res = 0
@@ -759,11 +759,11 @@ contains
     overlap = 0._real32
 
     !! check for overlap
-    if (separation .ge. radius_1 + radius_2) return
+    if(separation .ge. radius_1 + radius_2) return
 
     !! check for completely enclosed sphere
-    if ( separation + radius_1 .le. radius_2 .or. &
-         separation + radius_2 .le. radius_1) then
+    if( separation + radius_1 .le. radius_2 .or. &
+         separation + radius_2 .le. radius_1)then
        overlap = (4._real32/3._real32) * pi * &
             min(radius_1, radius_2) ** 3._real32
        return
@@ -851,7 +851,7 @@ contains
     !  P(2,1)=qX(2)**2 ;P(2,2)=qX(2)   ;P(2,3)=1.0;
     !  P(3,2)=qX(3)**2 ;P(3,2)=qX(3)   ;P(3,3)=1.0;
 
-    if(any(qX.lt.1.D-5)) then
+    if(any(qX.lt.1.D-5))then
        loc=minloc(abs(qX),dim=1)
        tmpqY=funcY
        tmpP=P
@@ -997,7 +997,7 @@ contains
     else
        pwr = 2._real32
     end if
-    if(present(tol)) then
+    if(present(tol))then
        utol = tol
     else
        utol = 8._real32
@@ -1714,7 +1714,7 @@ contains
 
     ! the shortest diagonal means those two associated points are in every single
     ! tetrahedron in a box.
-    if (ishort.eq.1)then ! 1 - 8
+    if(ishort.eq.1)then ! 1 - 8
        tet(1,:,:) = transpose(reshape( [0,0,0, 1,0,0, 1,1,0, 1,1,1], (/3,4/) ))
        tet(2,:,:) = transpose(reshape( [0,0,0, 1,0,0, 1,0,1, 1,1,1], (/3,4/) ))
        tet(3,:,:) = transpose(reshape( [0,0,0, 0,1,0, 1,1,0, 1,1,1], (/3,4/) ))

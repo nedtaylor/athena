@@ -123,7 +123,7 @@ contains
     !! W&B run display name (optional)
 
     this%wandb_project = trim(project)
-    if (present(name)) then
+    if(present(name))then
        this%wandb_run_name = trim(name)
        call wandb_init(project=project, name=name)
     else

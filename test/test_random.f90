@@ -16,7 +16,7 @@ program test_random
   !! test with seed and num_seed
   call random_setup(seed, restart=.false., &
        already_initialised=already_initialised)
-  if(already_initialised) then
+  if(already_initialised)then
      write(*,*) "Random_setup did not set already_initialised to .false."
      success = .false.
   end if
@@ -24,7 +24,7 @@ program test_random
   !! check seed properly set
   allocate(seed_check(num_seed))
   call random_seed(get=seed_check)
-  if (any(seed .ne. seed_check)) then
+  if(any(seed .ne. seed_check))then
      write(*,*) "Error: seed is not as expected."
      write(*,*) "Actual: ", seed_check
      write(*,*) "Expected: ", seed
@@ -34,7 +34,7 @@ program test_random
   !! test without restart
   call random_setup(seed, restart=.false., &
        already_initialised=already_initialised)
-  if(.not.already_initialised) then
+  if(.not.already_initialised)then
      write(*,*) "Random_setup did not set already_initialised to .true."
      success = .false.
   end if

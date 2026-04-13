@@ -121,11 +121,11 @@ contains
     integer :: new_size
 
     this%val = value
-    if(.not.allocated(this%history)) then
+    if(.not.allocated(this%history))then
        allocate(this%history(this%window_width), source = -huge(1._real32))
        this%history(this%window_width) = value
        this%num_entries = 0
-    elseif(this%num_entries .lt. this%window_width) then
+    elseif(this%num_entries .lt. this%window_width)then
        this%history(this%num_entries) = value
     else
        this%history = [ this%history, value ]
@@ -157,7 +157,7 @@ contains
 
     converged = 0
     window_width = min(this%window_width, this%num_entries)
-    if(window_width .le. 0) then
+    if(window_width .le. 0)then
        call stop_program("Window width is zero or negative")
        return
     end if

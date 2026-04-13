@@ -88,7 +88,7 @@ contains
     call require(all(shape(actual).eq.shape(expected)), &
          trim(message)//' (shape mismatch)', success)
     if(all(shape(actual).eq.shape(expected)))then
-       call require(all(abs(actual - expected) < network_input_dispatch_tol), &
+       call require(all(abs(actual - expected) .lt. network_input_dispatch_tol), &
             message, success)
     end if
   end subroutine require_close_2d

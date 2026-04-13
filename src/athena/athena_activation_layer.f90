@@ -247,12 +247,12 @@ contains
        call stop_program("Warning: Activation layer input and output ranks differ")
        return
     end if
-    if(this%input_rank.lt.1) then
+    if(this%input_rank.lt.1)then
        write(*,*) "Error: Activation layer input rank must be at least 1"
        call stop_program("Invalid activation layer input rank")
        return
     end if
-    if(this%output_rank.lt.1) then
+    if(this%output_rank.lt.1)then
        write(*,*) "Error: Activation layer output rank must be at least 1"
        call stop_program("Invalid activation layer output rank")
        return

@@ -591,7 +591,7 @@ contains
     integer :: i, start_idx, end_idx
     !! Loop indices
 
-    if(.not.allocated(this%params)) then
+    if(.not.allocated(this%params))then
        call stop_program("set_params: params not allocated")
        return
     end if
@@ -628,7 +628,7 @@ contains
     integer :: i, start_idx, end_idx
     !! Loop indices
 
-    if(.not.allocated(this%params)) then
+    if(.not.allocated(this%params))then
        return
     end if
     start_idx = 0
@@ -636,7 +636,7 @@ contains
     do i = 1, size(this%params)
        start_idx = end_idx + 1
        end_idx = start_idx + size(this%params(i)%val,1) - 1
-       if(.not.associated(this%params(i)%grad)) then
+       if(.not.associated(this%params(i)%grad))then
           gradients(start_idx:end_idx) = 0._real32
        else
           gradients(start_idx:end_idx) = this%params(i)%grad%val(:,1)
@@ -672,14 +672,14 @@ contains
     select rank(gradients)
     rank(0)
        do i = 1, size(this%params)
-          if(.not.associated(this%params(i)%grad)) then
+          if(.not.associated(this%params(i)%grad))then
              this%params(i)%grad => this%params(i)%create_result()
           end if
           this%params(i)%grad%val(:,1) = gradients
        end do
     rank(1)
        do i = 1, size(this%params)
-          if(.not.associated(this%params(i)%grad)) then
+          if(.not.associated(this%params(i)%grad))then
              this%params(i)%grad => this%params(i)%create_result()
           end if
           start_idx = end_idx + 1

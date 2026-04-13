@@ -130,7 +130,7 @@ contains
        case("threshold")
           read(attributes(i)%val,*) this%threshold
        case("name")
-          if(trim(attributes(i)%val) .ne. trim(this%name)) then
+          if(trim(attributes(i)%val) .ne. trim(this%name))then
              call print_warning( &
                   'ReLU activation: name attribute "' // &
                   trim(attributes(i)%val) // &

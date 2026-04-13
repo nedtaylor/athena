@@ -2056,7 +2056,7 @@ contains
        end do
 
        if(index(op_type_name, 'Pool', back=.true.) .eq. &
-            len_trim(op_type_name) - 3) then
+            len_trim(op_type_name) - 3)then
           n_kernel_dims = 0
           if(allocated(nodes(i)%attributes))then
              do j = 1, size(nodes(i)%attributes)

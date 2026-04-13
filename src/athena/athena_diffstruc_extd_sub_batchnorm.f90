@@ -73,7 +73,7 @@ contains
        var = sum( (input%val((c-1) * num_elements+1:c*num_elements,:) - mu) ** 2 ) / &
             norm
 
-       if(momentum .gt. 1.E-8_real32) then
+       if(momentum .gt. 1.E-8_real32)then
           output%mean(c) = momentum * mean(c) + (1._real32 - momentum) * mu
           output%variance(c) = momentum * variance(c) + (1._real32 - momentum) * var
        else
@@ -92,7 +92,7 @@ contains
     output%get_partial_left_val => get_partial_batchnorm_left_val
     output%get_partial_right => get_partial_batchnorm_right
     output%get_partial_right_val => get_partial_batchnorm_right_val
-    if(input%requires_grad .or. params%requires_grad) then
+    if(input%requires_grad .or. params%requires_grad)then
        output%requires_grad = .true.
        output%is_forward = input%is_forward .or. params%is_forward
        output%operation = 'batchnorm'

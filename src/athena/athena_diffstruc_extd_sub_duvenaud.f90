@@ -47,7 +47,7 @@ contains
     c%get_partial_right => get_partial_duvenaud_propagate_right
     c%get_partial_left_val => get_partial_duvenaud_propagate_left_val
     c%get_partial_right_val => get_partial_duvenaud_propagate_right_val
-    if(vertex_features%requires_grad .or. edge_features%requires_grad) then
+    if(vertex_features%requires_grad .or. edge_features%requires_grad)then
        c%requires_grad = .true.
        c%is_forward = vertex_features%is_forward .or. edge_features%is_forward
        c%operation = 'duvenaud_propagate'
@@ -215,7 +215,7 @@ contains
     c%get_partial_right => get_partial_duvenaud_update
     c%get_partial_left_val => get_partial_duvenaud_update_weight_val
     c%get_partial_right_val => get_partial_duvenaud_update_val
-    if(a%requires_grad .or. weight%requires_grad) then
+    if(a%requires_grad .or. weight%requires_grad)then
        c%requires_grad = .true.
        c%is_forward = a%is_forward .or. weight%is_forward
        c%operation = 'duvenaud_update'

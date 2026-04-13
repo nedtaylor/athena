@@ -54,13 +54,13 @@ program test_concat_layer
   call layer%output(1,1)%grad_reverse(reset_graph=.true.)
 
   if(.not. associated(input_a(1,1)%grad) .or. &
-       any(abs(input_a(1,1)%grad%val(:,1) - 1._real32) > 1.e-6_real32))then
+       any(abs(input_a(1,1)%grad%val(:,1) - 1._real32) .gt. 1.e-6_real32))then
      success = .false.
      write(0,*) 'concat layer returned the wrong gradient for the first input'
   end if
 
   if(.not. associated(input_b(1,1)%grad) .or. &
-       any(abs(input_b(1,1)%grad%val(:,1) - 1._real32) > 1.e-6_real32))then
+       any(abs(input_b(1,1)%grad%val(:,1) - 1._real32) .gt. 1.e-6_real32))then
      success = .false.
      write(0,*) 'concat layer returned the wrong gradient for the second input'
   end if

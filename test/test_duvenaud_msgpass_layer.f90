@@ -171,7 +171,7 @@ program test_duvenaud_msgpass_layer
   ! Check that read layer has correct properties
   select type(read_layer)
   type is (duvenaud_msgpass_layer_type)
-     if (.not. read_layer%name .eq. 'duvenaud') then
+     if(.not. read_layer%name .eq. 'duvenaud')then
         success = .false.
         write(0,*) 'read duvenaud layer has wrong name'
      end if

@@ -99,7 +99,7 @@ program inverse_design_example
      call loss%grad_reverse()
      call network%update()
 
-     if (mod(i, 5000) == 0) then
+     if(mod(i, 5000) .eq. 0)then
         write(*,'(I10, F15.8)') i, sum(loss%val)
      end if
 
@@ -241,7 +241,7 @@ contains
           cx_grad = 0._real32
        end if
 
-       if (step .le. 5 .or. mod(step, 500) == 0) then
+       if(step .le. 5 .or. mod(step, 500) .eq. 0)then
           write(*,'(A,I5,A,F10.6,A,ES12.4,A,ES12.4)') &
                "  step=",step, &
                " x=",cx(1,1)%val(1,1), &
