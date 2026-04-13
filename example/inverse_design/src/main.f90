@@ -94,7 +94,16 @@ program inverse_design_example
 
      call network%set_batch_size(1)
      call network%forward(x)
+#ifdef __INTEL_COMPILER
+     if(.not.allocated(network%expected_array))then
+        allocate(network%expected_array(1,1))
+     else
+        call network%expected_array(1,1)%deallocate()
+     end if
+     call network%expected_array(1,1)%allocate(source=y_array(1,1))
+#else
      network%expected_array = y_array
+#endif
      loss => network%loss_eval(1, 1)
      call loss%grad_reverse()
      call network%update()
@@ -227,7 +236,16 @@ contains
        call network%model(root_id)%layer%output(1,1)%set_requires_grad(.true.)
 
        ! compute loss via network's loss function
+#ifdef __INTEL_COMPILER
+       if(.not.allocated(network%expected_array))then
+          allocate(network%expected_array(1,1))
+       else
+          call network%expected_array(1,1)%deallocate()
+       end if
+       call network%expected_array(1,1)%allocate(source=cy(1,1))
+#else
        network%expected_array = cy
+#endif
        closs => network%loss_eval(1, 1)
 
        ! backward pass

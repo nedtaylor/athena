@@ -54,7 +54,7 @@ program orthogonal_attention_heat
   type(array_type), pointer :: loss
 
   integer :: i, m, n, epoch
-  real(real32) :: mse, dx
+  real(real32) :: mse, dx, train_mse
 
 
   !-----------------------------------------------------------------------------
@@ -157,15 +157,26 @@ program orthogonal_attention_heat
 
   do epoch = 1, num_epochs
      ! -- Train on all samples one by one --
+     train_mse = 0.0_real32
      do n = 1, N_train
         inp(1,1)%val(:,1) = x_train(:, n)
         tgt(1,1)%val(:,1) = y_train(:, n)
 
         call network%set_batch_size(1)
         call network%forward(inp)
+#ifdef __INTEL_COMPILER
+        if(.not.allocated(network%expected_array))then
+           allocate(network%expected_array(1,1))
+        else
+           call network%expected_array(1,1)%deallocate()
+        end if
+        call network%expected_array(1,1)%allocate(source=tgt(1,1))
+#else
         network%expected_array = tgt
+#endif
         call network%reset_gradients()
         loss => network%loss_eval(1, 1)
+        train_mse = train_mse + loss%val(1,1)
         call loss%grad_reverse()
         call network%update()
      end do
@@ -179,7 +190,7 @@ program orthogonal_attention_heat
         end do
         mse = mse / real(N_test, real32)
 
-        write(*,'(I5,3X,ES10.3,3X,ES10.3)') epoch, 0.0_real32, mse
+        write(*,'(I5,3X,ES10.3,3X,ES10.3)') epoch, train_mse, mse
      end if
   end do
 
