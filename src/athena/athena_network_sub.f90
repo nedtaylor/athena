@@ -3836,7 +3836,9 @@ contains
 
        ! Print epoch summary results
        !------------------------------------------------------------------------
-       if(verbose_.eq.0)then
+       if(use_validation.and.verbose_.ge.0)then
+          write(6,'("epoch=",I0,A)') this%epoch, trim(val_str)
+       elseif(verbose_.eq.0)then
           loss_str = format_training_real( &
                this%metrics(1)%val, print_precision_, scientific_print_ &
           )
@@ -3853,8 +3855,6 @@ contains
                     this%optimiser%learning_rate, this%optimiser%iter &
                ), &
                trim(loss_str), trim(accuracy_str), trim(val_str)
-       else if(use_validation)then
-          write(6,'("epoch=",I0,A)') this%epoch, trim(val_str)
        end if
 
 
