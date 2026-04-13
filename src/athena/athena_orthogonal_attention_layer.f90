@@ -46,8 +46,8 @@ module athena__orthogonal_attention_layer
   use athena__base_layer, only: learnable_layer_type, base_layer_type
   use athena__misc_types, only: base_actv_type, base_init_type, &
        onnx_attribute_type
-  use diffstruc, only: array_type, matmul, operator(+), operator(*)
-  use athena__diffstruc_extd, only: ono_encode, ono_decode
+  use diffstruc, only: array_type, matmul, operator(+), operator(*), tanh
+  use athena__diffstruc_extd, only: ono_encode, ono_decode, softmax
   implicit none
 
 
@@ -810,16 +810,26 @@ contains
     !! Forward propagation for the Orthogonal Attention layer
     !!
     !! Computes:
-    !!   Q = W_Q @ u                     [k, batch]
-    !!   K = W_K @ u                     [k, batch]
-    !!   attn = Q * K                    [k, batch]  (per-basis attention scores)
+    !!   Q = W_Q @ u                                          [k, batch]
+    !!   K = W_K @ u                                          [k, batch]
     !!
-    !!   spectral = Q(B)^T @ u           [k, batch]  (project to spectral, B-tracked)
-    !!   modulated = attn * spectral     [k, batch]  (modulate spectral coefficients)
-    !!   decoded = Q(B) @ modulated      [n_in, batch]  (decode, B-tracked)
+    !!   scores = tanh( (Q * K) / sqrt(k) )                   [k, batch]
+    !!            bounded per-basis interaction scores
     !!
-    !!   attn_out = W_V @ decoded        [n_out, batch]
-    !!   bypass   = W @ u               [n_out, batch]
+    !!   attn = softmax(scores, dim=1)                        [k, batch]
+    !!          normalised attention weights across basis modes
+    !!
+    !!   spectral = Q(B)^T @ u                                [k, batch]
+    !!              project input to orthogonal spectral basis
+    !!
+    !!   modulated = spectral + attn * spectral               [k, batch]
+    !!               residual spectral modulation
+    !!
+    !!   decoded = Q(B) @ modulated                           [n_in, batch]
+    !!             decode modulated spectral representation
+    !!
+    !!   attn_out = W_V @ decoded                             [n_out, batch]
+    !!   bypass   = W @ u                                     [n_out, batch]
     !!
     !!   v = sigma( attn_out + bypass + b )
     implicit none
@@ -840,6 +850,8 @@ contains
 
     integer :: n, nb
     !! Input size and basis count
+    real(real32) :: scale
+    !! Precomputed scaling factor for attention scores
 
 
     n = this%num_inputs
@@ -847,11 +859,25 @@ contains
 
 
     !---------------------------------------------------------------------------
+    ! Scaling (critical for stability)
+    !---------------------------------------------------------------------------
+    scale = 1.0_real32 / sqrt(real(this%key_dim, kind=real32))
+
+
+    !---------------------------------------------------------------------------
     ! Attention scores from Q and K projections
     !---------------------------------------------------------------------------
     ptr_Q => matmul(this%params(1), input(1,1))    ! W_Q @ u: [k, batch]
     ptr_K => matmul(this%params(2), input(1,1))    ! W_K @ u: [k, batch]
-    ptr_coeff => ptr_Q * ptr_K                     ! element-wise: [k, batch]
+
+
+    !---------------------------------------------------------------------------
+    ! Stable interaction (bounded instead of raw product)
+    !---------------------------------------------------------------------------
+    ptr_coeff => ptr_Q * ptr_K * scale             ! scaled interaction
+    ptr_coeff => tanh(ptr_coeff)                   ! bound to [-1, 1]
+    ptr_coeff => softmax(ptr_coeff, 1)             ! [k, batch], sum_k = 1
+
 
     !---------------------------------------------------------------------------
     ! Spectral pathway: modulate spectral coefficients by attention scores
