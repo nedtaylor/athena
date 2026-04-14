@@ -508,7 +508,7 @@ contains
 
   end subroutine set_input_real
 !-------------------------------------------------------------------------------
-  subroutine set_input_graph(this, input)
+  subroutine set_input_graph(this, input, input_requires_grad)
     !! Set input values for an input layer
     implicit none
 
@@ -517,8 +517,13 @@ contains
     !! Instance of the input layer
     type(graph_type), dimension(:), intent(in) :: input
     !! Input data
+    logical, intent(in), optional :: input_requires_grad
+    !! Boolean whether the input requires gradient. Default is .false.
 
     integer :: s
+    logical :: input_requires_grad_ = .false.
+
+    if(present(input_requires_grad)) input_requires_grad_ = input_requires_grad
 
     if(allocated(this%output))then
        if(any(shape(this%output).ne.[2,size(input)]))then
@@ -538,7 +543,7 @@ contains
             ] &
        )
        call this%output(1,s)%zero_grad()
-       call this%output(1,s)%set_requires_grad(.false.)
+       call this%output(1,s)%set_requires_grad(input_requires_grad_)
        call this%output(1,s)%set( input(s)%vertex_features )
        this%output(1,s)%is_temporary = .false.
        if(input(s)%num_edge_features.le.0) cycle
@@ -548,7 +553,7 @@ contains
             ] &
        )
        call this%output(2,s)%zero_grad()
-       call this%output(2,s)%set_requires_grad(.false.)
+       call this%output(2,s)%set_requires_grad(input_requires_grad_)
        call this%output(2,s)%set( input(s)%edge_features )
        this%output(2,s)%is_temporary = .false.
     end do

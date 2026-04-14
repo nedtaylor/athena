@@ -2636,7 +2636,7 @@ contains
 
 
 !###############################################################################
-  module subroutine forward_generic2d(this, input)
+  module subroutine forward_generic2d(this, input, input_requires_grad)
     !! Forward pass for array derived type input
     implicit none
 
@@ -2645,6 +2645,8 @@ contains
     !! Instance of network
     class(*), dimension(:,:), intent(in) :: input
     !! Input
+    logical, intent(in), optional :: input_requires_grad
+    !! Boolean whether the input requires gradient. Default is .false.
 
     ! Local variables
     integer :: l, i, j, vertex_idx, layer_id, parent_id
@@ -2654,6 +2656,11 @@ contains
     type(array_type), pointer :: input_ptr(:,:) => null()
     type(array_ptr_type), dimension(:), allocatable :: input_list
     logical :: use_precomp
+    logical :: input_requires_grad_
+
+   
+    input_requires_grad_ = .false.
+    if(present(input_requires_grad)) input_requires_grad_ = input_requires_grad
 
 
     select type(input)
@@ -2687,12 +2694,12 @@ contains
           class is(input_layer_type)
              select type(input)
              type is(graph_type)
-                call layer%set_input_graph( [ input(layer%index, :) ] )
+                call layer%set_input_graph( [ input(layer%index, :) ], input_requires_grad_ )
                 cycle
              class is(array_type)
                 call layer%forward(input(layer%index:layer%index,:))
                 do concurrent(i=1:size(layer%output,1), j=1:size(layer%output,2))
-                   call layer%output(i,j)%set_requires_grad(.false.)
+                   call layer%output(i,j)%set_requires_grad(input_requires_grad_)
                 end do
                 cycle
              type is(real(real32))
@@ -2700,7 +2707,7 @@ contains
                 call input_ptr(1,1)%allocate(shape(input))
                 call input_ptr(1,1)%set(input)
                 call layer%forward(input_ptr)
-                call layer%output(1,1)%set_requires_grad(.false.)
+                call layer%output(1,1)%set_requires_grad(input_requires_grad_)
                 deallocate(input_ptr)
                 input_ptr => null()
                 cycle
@@ -4938,7 +4945,7 @@ contains
     do step = 1, steps
 
        ! Forward pass with current x
-       call this%forward(x_opt)
+       call this%forward(x_opt, input_requires_grad=.true.)
 
        ! Enable gradient tracking on the input layer output
        if(this%use_graph_input)then

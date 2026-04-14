@@ -10,10 +10,11 @@ module my_network_module
 
 contains
 
-  subroutine my_forward(this, input)
+  subroutine my_forward(this, input, input_requires_grad)
     implicit none
     class(my_network_type), intent(inout), target :: this
     class(*), dimension(:,:), intent(in) :: input
+    logical, intent(in), optional :: input_requires_grad
     type(array_type), pointer :: ptr(:,:)
 
     ! Example forward pass implementation

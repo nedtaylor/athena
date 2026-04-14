@@ -761,12 +761,14 @@ module athena__network
      end function loss_eval
 
      !! Interface for forward pass
-     module subroutine forward_generic2d(this, input)
+     module subroutine forward_generic2d(this, input, input_requires_grad)
        !! Forward pass for generic 2D input
        class(network_type), intent(inout), target :: this
        !! Instance of the network
        class(*), dimension(:,:), intent(in) :: input
        !! Input data
+       logical, intent(in), optional :: input_requires_grad
+       !! Boolean whether the input requires gradient. Default is .false.
      end subroutine forward_generic2d
 
      module function forward_eval(this, input) result(output)
