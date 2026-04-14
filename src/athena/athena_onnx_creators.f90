@@ -1630,17 +1630,17 @@ contains
 
     ! Local variables
     integer :: i
-    character(128) :: check_prefix
+    character(128) :: cluster_prefix
     logical :: has_reducesum, has_clip, has_div
 
     has_reducesum = .false.
     has_clip = .false.
     has_div = .false.
-    write(check_prefix, '(A,"_t")') trim(prefix)
+    write(cluster_prefix, '(A,"_")') trim(prefix)
 
     do i = 1, num_nodes
        if(index(trim(nodes(i)%name), &
-            trim(check_prefix)) .ne. 1) cycle
+            trim(cluster_prefix)) .ne. 1) cycle
        select case(trim(nodes(i)%op_type))
        case('ReduceSum')
           has_reducesum = .true.
@@ -1730,19 +1730,21 @@ contains
     write(init_name, '(A,"_t1_min_deg")') trim(prefix)
     idx = find_initialiser_by_name( &
          trim(init_name), inits, num_inits)
-    if(idx .gt. 0 .and. allocated(inits(idx)%data))then
-       min_deg = nint(inits(idx)%data(1))
-    else
-       min_deg = 1
+    min_deg = 1
+    if(idx .gt. 0)then
+       if(allocated(inits(idx)%data))then
+          min_deg = nint(inits(idx)%data(1))
+       end if
     end if
 
     write(init_name, '(A,"_t1_max_deg")') trim(prefix)
     idx = find_initialiser_by_name( &
          trim(init_name), inits, num_inits)
-    if(idx .gt. 0 .and. allocated(inits(idx)%data))then
-       max_deg = nint(inits(idx)%data(1))
-    else
-       max_deg = min_deg + num_deg - 1
+    max_deg = min_deg + num_deg - 1
+    if(idx .gt. 0)then
+       if(allocated(inits(idx)%data))then
+          max_deg = nint(inits(idx)%data(1))
+       end if
     end if
 
     ! Determine ne from graph inputs via the rename

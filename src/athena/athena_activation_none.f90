@@ -52,7 +52,7 @@ contains
 
 
     call activation%reset()
-    if(present(attributes)) then
+    if(present(attributes))then
        call activation%apply_attributes(attributes)
     end if
 
@@ -109,7 +109,7 @@ contains
     do i=1, size(attributes,dim=1)
        select case(trim(attributes(i)%name))
        case("name")
-          if(trim(attributes(i)%val) .ne. trim(this%name)) then
+          if(trim(attributes(i)%val) .ne. trim(this%name))then
              call print_warning( &
                   'None activation: name attribute "' // &
                   trim(attributes(i)%val) // &

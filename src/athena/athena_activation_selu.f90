@@ -147,7 +147,7 @@ contains
        case("lambda")
           read(attributes(i)%val,*) this%lambda
        case("name")
-          if(trim(attributes(i)%val) .ne. trim(this%name)) then
+          if(trim(attributes(i)%val) .ne. trim(this%name))then
              call print_warning( &
                   'SELU activation: name attribute "' // &
                   trim(attributes(i)%val) // &

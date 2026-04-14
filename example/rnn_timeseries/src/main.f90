@@ -148,7 +148,7 @@ program rnn_timeseries_example
                 (output_ptr - y_array(1,1))**2
         end if
      end do
-     if(n.eq.1 .or. mod(n, 200) == 0) write(*,*) n, loss%val(1,1)
+     if(n.eq.1 .or. mod(n, 200) .eq. 0) write(*,*) n, loss%val(1,1)
      call loss%grad_reverse()
      call network%update()
      loss => null()

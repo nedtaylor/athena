@@ -257,12 +257,12 @@ contains
          deallocate(this%num_vertex_features)
     if(allocated(this%num_edge_features)) &
          deallocate(this%num_edge_features)
-    if(size(num_vertex_features, 1) .eq. 1) then
+    if(size(num_vertex_features, 1) .eq. 1)then
        allocate( &
             this%num_vertex_features(0:num_time_steps), &
             source = num_vertex_features(1) &
        )
-    elseif(size(num_vertex_features, 1) .eq. num_time_steps + 1) then
+    elseif(size(num_vertex_features, 1) .eq. num_time_steps + 1)then
        allocate( &
             this%num_vertex_features(0:this%num_time_steps), &
             source = num_vertex_features &

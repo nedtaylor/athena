@@ -232,7 +232,7 @@ program test_recurrent_layer
     ! Check that read layer has correct properties
     select type(read_layer)
     type is (recurrent_layer_type)
-       if (.not. read_layer%name .eq. 'recu') then
+       if(.not. read_layer%name .eq. 'recu')then
           success = .false.
           write(0,*) 'read recurrent layer has wrong name'
        end if

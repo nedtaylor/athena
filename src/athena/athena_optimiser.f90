@@ -326,7 +326,7 @@ contains
     if(present(learning_rate)) optimiser%learning_rate = learning_rate
 
     ! Initialise learning rate decay
-    if(present(lr_decay)) then
+    if(present(lr_decay))then
        if(allocated(optimiser%lr_decay)) deallocate(optimiser%lr_decay)
        allocate(optimiser%lr_decay, source = lr_decay)
     else
@@ -334,7 +334,7 @@ contains
     end if
 
     ! Initialise gradients
-    if(present(num_params)) then
+    if(present(num_params))then
        num_params_ = num_params
     else
        num_params_ = 1
@@ -590,7 +590,7 @@ contains
     if(present(momentum)) optimiser%momentum = momentum
 
     ! Initialise learning rate decay
-    if(present(lr_decay)) then
+    if(present(lr_decay))then
        if(allocated(optimiser%lr_decay)) deallocate(optimiser%lr_decay)
        allocate(optimiser%lr_decay, source = lr_decay)
     else
@@ -601,7 +601,7 @@ contains
     if(present(nesterov)) optimiser%nesterov = nesterov
 
     ! Initialise gradients
-    if(present(num_params)) then
+    if(present(num_params))then
        num_params_ = num_params
     else
        num_params_ = 1
@@ -726,7 +726,7 @@ contains
     if(present(learning_rate)) optimiser%learning_rate = learning_rate
 
     ! Initialise learning rate decay
-    if(present(lr_decay)) then
+    if(present(lr_decay))then
        if(allocated(optimiser%lr_decay)) deallocate(optimiser%lr_decay)
        allocate(optimiser%lr_decay, source = lr_decay)
     else
@@ -738,7 +738,7 @@ contains
     if(present(epsilon)) optimiser%epsilon = epsilon
 
     ! Initialise gradients
-    if(present(num_params)) then
+    if(present(num_params))then
        num_params_ = num_params
     else
        num_params_ = 1
@@ -854,7 +854,7 @@ contains
     if(present(learning_rate)) optimiser%learning_rate = learning_rate
 
     ! Initialise learning rate decay
-    if(present(lr_decay)) then
+    if(present(lr_decay))then
        if(allocated(optimiser%lr_decay)) deallocate(optimiser%lr_decay)
        allocate(optimiser%lr_decay, source = lr_decay)
     else
@@ -865,7 +865,7 @@ contains
     if(present(epsilon)) optimiser%epsilon = epsilon
 
     ! Initialise gradients
-    if(present(num_params)) then
+    if(present(num_params))then
        num_params_ = num_params
     else
        num_params_ = 1
@@ -979,7 +979,7 @@ contains
     if(present(learning_rate)) optimiser%learning_rate = learning_rate
 
     ! Initialise learning rate decay
-    if(present(lr_decay)) then
+    if(present(lr_decay))then
        if(allocated(optimiser%lr_decay)) deallocate(optimiser%lr_decay)
        allocate(optimiser%lr_decay, source = lr_decay)
     else
@@ -992,7 +992,7 @@ contains
     if(present(epsilon)) optimiser%epsilon = epsilon
 
     ! Initialise gradients
-    if(present(num_params)) then
+    if(present(num_params))then
        num_params_ = num_params
     else
        num_params_ = 1
@@ -1062,7 +1062,7 @@ contains
     associate( &
          m_hat => this%m / bias_correction1, &
          v_hat => this%v / bias_correction2 )
-       if(this%regularisation .and. allocated(this%regulariser)) then
+       if(this%regularisation .and. allocated(this%regulariser))then
           select type(regulariser => this%regulariser)
           type is (l2_regulariser_type)
              select case(regulariser%decoupled)

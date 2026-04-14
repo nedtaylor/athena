@@ -369,7 +369,8 @@ contains
     !! Verbosity level
 
     if(present(verbose)) verbose_ = verbose
-    allocate(layer, source=add_layer_type(input_layer_ids=[0,0]))
+    allocate(layer, source=add_layer_type( &
+         input_layer_ids=[0,0], input_rank=1))
     call layer%read(unit, verbose=verbose_)
 
   end function read_add_layer

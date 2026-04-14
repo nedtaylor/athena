@@ -1,4 +1,5 @@
 program test_initialisers
+  use coreutils, only: real32
   use athena, only: &
        full_layer_type, &
        conv2d_layer_type, &
@@ -6,6 +7,7 @@ program test_initialisers
        base_layer_type
   use athena__misc_types, only: base_init_type
   use athena__initialiser, only: initialiser_setup, get_default_initialiser
+  use athena__initialiser_data, only: data_init_type
   implicit none
 
   class(base_init_type), allocatable :: initialiser_var
@@ -142,6 +144,43 @@ program test_initialisers
         write(0,*) 'conv layer is not of type conv2d_layer_type'
      end select
   end do
+
+
+!-------------------------------------------------------------------------------
+! check data initialiser preserves rank-2, rank-4, and rank-5 tensors
+!-------------------------------------------------------------------------------
+  data_initialiser_checks: block
+    type(data_init_type) :: data_initialiser
+    real(real32) :: data_2d(2,2), data_4d(2,2,1,2), data_5d(2,1,1,1,2)
+    real(real32) :: init_2d(2,2), init_4d(2,2,1,2), init_5d(2,1,1,1,2)
+
+    data_2d = reshape( &
+         [1._real32, 2._real32, 3._real32, 4._real32], &
+         shape(data_2d) &
+    )
+    data_initialiser = data_init_type(data_2d)
+    call data_initialiser%initialise(init_2d)
+    if(any(abs(init_2d - data_2d).gt.1.e-6_real32))then
+       success = .false.
+       write(0,*) 'data initialiser failed for rank-2 input'
+    end if
+
+    data_4d = reshape([(real(i, real32), i=1, size(data_4d))], shape(data_4d))
+    data_initialiser = data_init_type(data_4d)
+    call data_initialiser%initialise(init_4d)
+    if(any(abs(init_4d - data_4d).gt.1.e-6_real32))then
+       success = .false.
+       write(0,*) 'data initialiser failed for rank-4 input'
+    end if
+
+    data_5d = reshape([(real(i, real32), i=1, size(data_5d))], shape(data_5d))
+    data_initialiser = data_init_type(data_5d)
+    call data_initialiser%initialise(init_5d)
+    if(any(abs(init_5d - data_5d).gt.1.e-6_real32))then
+       success = .false.
+       write(0,*) 'data initialiser failed for rank-5 input'
+    end if
+  end block data_initialiser_checks
 
 
 !-------------------------------------------------------------------------------

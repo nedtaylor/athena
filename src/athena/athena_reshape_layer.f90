@@ -263,6 +263,8 @@ contains
     !! Input shape
     character(256) :: buffer, tag, err_msg
     !! Buffer, tag, and error message
+    character(256) :: value_str
+    !! Temporary scalar value buffer
 
 
     ! Initialise optional arguments
@@ -298,6 +300,9 @@ contains
        ! Read parameters from save file
        !------------------------------------------------------------------------
        select case(trim(tag))
+       case("INPUT_RANK")
+          value_str = get_val(buffer)
+          read(value_str, *) input_rank
        case("INPUT_SHAPE")
           itmp1 = icount(get_val(buffer))
           allocate(input_shape(itmp1), source=0)

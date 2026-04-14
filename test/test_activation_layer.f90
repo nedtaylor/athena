@@ -7,7 +7,7 @@ program test_activation_layer
   use athena__activation_linear, only: linear_actv_type
   use athena__activation_swish, only: swish_actv_type
   use athena__misc_types, only: base_actv_type
-  use diffstruc, only: array_type, operator(-)
+   use diffstruc, only: array_type
   implicit none
 
   type(actv_layer_type), target :: actv_layer
@@ -22,7 +22,7 @@ program test_activation_layer
 
   ! Test data for different ranks
   type(array_type) :: input(1,1)
-  type(array_type), pointer :: output, loss
+   type(array_type), pointer :: output
 
   integer :: i, j, k, l, m
   integer :: unit
@@ -123,10 +123,13 @@ program test_activation_layer
 ! Test 1D backward pass with ReLU
 !-------------------------------------------------------------------------------
   ! Initialise gradient
-  loss => output - 1._real32
+  allocate(output%grad)
+  call output%grad%allocate( &
+     array_shape=[output%shape, size(output%val, 2)], &
+     source=1._real32)
 
   ! Run backward pass
-  call loss%grad_reverse()
+  call output%grad_reverse()
 
   ! Check ReLU derivative (should be 0 for negative inputs, 1 for positive)
   if(associated(input(1,1)%grad))then
@@ -142,7 +145,6 @@ program test_activation_layer
   end if
   call actv_layer%output(1,1)%nullify_graph()
   call input(1,1)%deallocate()
-  deallocate(loss)
 
 
 !-------------------------------------------------------------------------------
@@ -183,8 +185,11 @@ program test_activation_layer
   end if
 
   ! Test backward pass
-  loss => output - 1._real32
-  call loss%grad_reverse()
+  allocate(output%grad)
+  call output%grad%allocate( &
+     array_shape=[output%shape, size(output%val, 2)], &
+     source=1._real32)
+  call output%grad_reverse()
 
   ! Check that backward pass produces reasonable values
   if(associated(input(1,1)%grad))then
@@ -200,7 +205,6 @@ program test_activation_layer
   end if
   call actv_layer%output(1,1)%nullify_graph()
   call input(1,1)%deallocate()
-  deallocate(loss)
 
 
 !-------------------------------------------------------------------------------

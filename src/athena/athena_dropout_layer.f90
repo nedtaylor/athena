@@ -227,7 +227,7 @@ contains
     !---------------------------------------------------------------------------
     allocate(mask_real(size(this%mask,1), size(this%mask,2)))
     call random_number(mask_real)  !  Generate random values in [0..1]
-    this%mask = mask_real > this%rate
+    this%mask = mask_real .gt. this%rate
 
     this%idx = 0
 

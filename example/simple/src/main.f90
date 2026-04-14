@@ -94,7 +94,7 @@ program simple
      call network%update()
 
      prediction = network%predict(input=x)
-     if (mod(n, 50) == 0) write(*,'(I7,2(1X,F9.6))') n, prediction
+     if(mod(n, 50) .eq. 0) write(*,'(I7,2(1X,F9.6))') n, prediction
 
   end do
 

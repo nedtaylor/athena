@@ -290,6 +290,7 @@ contains
     if(any(shape(predicted).gt.1))then
        do s = 1, size(predicted,2)
           do i = 1, size(predicted,1)
+             if(i.eq.1 .and. s.eq.1) cycle
              if(.not.predicted(i,s)%allocated .or. &
                   .not.expected(i,s)%allocated) cycle
              ptr => mean(-expected(i,s) * log(predicted(i,s) + this%epsilon), dim=2)
@@ -331,6 +332,7 @@ contains
     if(any(shape(predicted).gt.1))then
        do s = 1, size(predicted,2)
           do i = 1, size(predicted,1)
+             if(i.eq.1 .and. s.eq.1) cycle
              if(.not.predicted(i,s)%allocated .or. &
                   .not.expected(i,s)%allocated) cycle
              ptr => mean( sum( &
@@ -372,6 +374,7 @@ contains
     if(any(shape(predicted).gt.1))then
        do s = 1, size(predicted,2)
           do i = 1, size(predicted,1)
+             if(i.eq.1 .and. s.eq.1) cycle
              if(.not.predicted(i,s)%allocated .or. &
                   .not.expected(i,s)%allocated) cycle
              ptr => mean( abs( predicted(i,s) - expected(i,s) ) ) / &
@@ -413,6 +416,7 @@ contains
     if(any(shape(predicted).gt.1))then
        do s = 1, size(predicted,2)
           do i = 1, size(predicted,1)
+             if(i.eq.1 .and. s.eq.1) cycle
              if(.not.predicted(i,s)%allocated .or. &
                   .not.expected(i,s)%allocated) cycle
              ptr => mean( squared( predicted(i,s) - expected(i,s) ) ) / &
@@ -453,6 +457,7 @@ contains
     if(any(shape(predicted).gt.1))then
        do s = 1, size(predicted,2)
           do i = 1, size(predicted,1)
+             if(i.eq.1 .and. s.eq.1) cycle
              if(.not.predicted(i,s)%allocated .or. &
                   .not.expected(i,s)%allocated) cycle
              ptr => mean(-log(expected(i,s) - predicted(i,s) + this%epsilon) )
@@ -493,6 +498,7 @@ contains
     if(any(shape(predicted).gt.1))then
        do s = 1, size(predicted,2)
           do i = 1, size(predicted,1)
+             if(i.eq.1 .and. s.eq.1) cycle
              if(.not.predicted(i,s)%allocated .or. &
                   .not.expected(i,s)%allocated) cycle
              ptr => predicted(i,s) - expected(i,s)

@@ -61,7 +61,7 @@ contains
     integer :: i
     logical, intent(inout) :: success
 
-    if (size(actual) .ne. size(expected)) then
+    if(size(actual) .ne. size(expected))then
        write(0,*) "Gradient size not expected"
        success = .false.
     end if
@@ -69,7 +69,7 @@ contains
     write(*,*) actual, expected
     do i = 1, size(actual)
        diff = abs(actual(i) - expected(i))
-       if (diff .gt. 1.E-6) then
+       if(diff .gt. 1.E-6)then
           write(0,*) "gradients not as expected"
           write(0,*) "Index: ", i
           write(0,*) "Actual: ", actual(i)

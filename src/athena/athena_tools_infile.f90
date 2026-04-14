@@ -114,7 +114,7 @@ contains
 
     if(present(keyword)) buffer = buffer(index(buffer, keyword):)
     if(scan(buffer, fs_) .ne. 0) buffer2 = get_val(buffer, fs_)
-    if(trim(adjustl(buffer2)) .ne. '') then
+    if(trim(adjustl(buffer2)) .ne. '')then
        found = found + 1
        read(buffer2, *) variable
     end if
@@ -152,9 +152,9 @@ contains
 
     if(present(keyword)) buffer = buffer(index(buffer, keyword):)
     if(scan(buffer, fs_) .ne. 0) buffer2 = get_val(buffer, fs_)
-    if(trim(adjustl(buffer2)) .ne. '') then
+    if(trim(adjustl(buffer2)) .ne. '')then
        found = found + 1
-       if(icount(buffer2) == 1 .and. icount(buffer2) .ne. size(variable)) then
+       if(icount(buffer2) .eq. 1 .and. icount(buffer2) .ne. size(variable))then
           read(buffer2, *) variable(1)
           variable = variable(1)
        else
@@ -193,7 +193,7 @@ contains
 
     if(present(keyword)) buffer = buffer(index(buffer, keyword):)
     if(scan(buffer, fs_) .ne. 0) buffer2 = get_val(buffer, fs_)
-    if(trim(adjustl(buffer2)) .ne. '') then
+    if(trim(adjustl(buffer2)) .ne. '')then
        found = found + 1
        read(buffer2, *) variable
     end if
@@ -231,9 +231,9 @@ contains
 
     if(present(keyword)) buffer = buffer(index(buffer, keyword):)
     if(scan(buffer, fs_) .ne. 0) buffer2 = get_val(buffer, fs_)
-    if(trim(adjustl(buffer2)) .ne. '') then
+    if(trim(adjustl(buffer2)) .ne. '')then
        found = found + 1
-       if(icount(buffer2) == 1 .and. icount(buffer2) .ne. size(variable)) then
+       if(icount(buffer2) .eq. 1 .and. icount(buffer2) .ne. size(variable))then
           read(buffer2, *) variable(1)
           variable = variable(1)
        else
@@ -279,16 +279,16 @@ contains
        buffer2 = buffer
     end if
     buffer2 = adjustl(buffer2)
-    if(any(index(buffer2,open_brackets).eq.1)) then
+    if(any(index(buffer2,open_brackets).eq.1))then
        do i = 1, size(open_brackets)
-          if(index(buffer2, open_brackets(i)) .eq. 1) then
+          if(index(buffer2, open_brackets(i)) .eq. 1)then
              buffer2 = buffer2(2:)
           end if
        end do
     end if
-    if(any(index(trim(buffer2),close_brackets).eq.len(trim(buffer2)))) then
+    if(any(index(trim(buffer2),close_brackets).eq.len(trim(buffer2))))then
        do i = 1, size(close_brackets)
-          if(index(trim(buffer2), close_brackets(i)) .eq. len(trim(buffer2))) then
+          if(index(trim(buffer2), close_brackets(i)) .eq. len(trim(buffer2)))then
              buffer2 = buffer2(:len(trim(buffer2))-1)
           end if
        end do
@@ -376,20 +376,20 @@ contains
 
     if(present(keyword)) buffer = buffer(index(buffer, keyword):)
     if(scan(buffer, fs_) .ne. 0) buffer2 = get_val(buffer, fs_)
-    if(trim(adjustl(buffer2)) .ne. '') then
+    if(trim(adjustl(buffer2)) .ne. '')then
        found = found + 1
        if( &
             index(buffer2, "T") .ne. 0 .or. &
             index(buffer2, "t") .ne. 0 .or. &
             index(buffer2, "1") .ne. 0 &
-       ) then
+       )then
           variable = .TRUE.
        end if
        if( &
             index(buffer2, "F") .ne. 0 .or. &
             index(buffer2, "f") .ne. 0 .or. &
             index(buffer2, "0") .ne. 0 &
-       ) then
+       )then
           variable = .FALSE.
        end if
     end if
@@ -420,7 +420,7 @@ contains
     do while(scan(buffer, '(') .ne. 0 .or. scan(buffer, ')') .ne. 0)
        lbracket = scan(buffer, '(', back = .true.)
        rbracket = scan(buffer(lbracket:), ')')
-       if(lbracket == 0 .or. rbracket == 0) then
+       if(lbracket .eq. 0 .or. rbracket .eq. 0)then
           write(6, '(A,I0)') &
                ' NOTE: a bracketing error was encountered on line ', iline_
           buffer = ""
@@ -459,7 +459,7 @@ contains
     output = .false.
     !! Check if file exists
     inquire(file = trim(file_), exist = lfound)
-    if(lfound) then
+    if(lfound)then
        itmp1 = 0
        open(unit = unit, file = trim(file_))
        !! Read line-by-line
@@ -467,7 +467,7 @@ contains
           read(unit, '(A)', iostat = Reason) buffer
           if(Reason .ne. 0) exit
           call rm_comments(buffer)
-          if(trim(buffer) == "") cycle
+          if(trim(buffer) .eq. "") cycle
           tagname = trim(adjustl(buffer))
           if(scan(buffer, "=") .ne. 0) &
                tagname = trim(tagname(:scan(tagname, "=") - 1))
@@ -477,7 +477,7 @@ contains
              exit
           case("LABORT")
              call assignL(buffer, output, itmp1)
-             if(output) then
+             if(output)then
                 close(unit, status = 'delete')
                 stop "LABORT ENCOUNTERED IN STOP FILE (" // trim(file_) // ")"
              end if
@@ -518,7 +518,7 @@ contains
     if(present(err_msg)) err_msg = ""
     if(change.eq.0) return
     inquire(unit = unit, iostat = iostat_, opened = opened)
-    if(iostat_ .ne. 0) then
+    if(iostat_ .ne. 0)then
        write(err_msg_, '(A,I0)') &
             'Cannot move in file, unit ', unit
        if(present(iostat)) iostat = iostat_
@@ -528,7 +528,7 @@ contains
           call stop_program(err_msg_)
        end if
        return
-    elseif( .not.opened) then
+    elseif( .not.opened)then
        write(err_msg_, '(A,I0)') &
             'File is not opened, unit ', unit
        if(present(iostat)) iostat = 44
@@ -542,7 +542,7 @@ contains
     if(change.gt.0)then
        do i = 1, change
           read(unit, '(A)', iostat = iostat_)
-          if(iostat_ .ne. 0) then
+          if(iostat_ .ne. 0)then
              write(err_msg_, '(A,I0)') &
                   'Cannot move forward in file, unit ', unit
              if(present(iostat)) iostat = iostat_
@@ -557,7 +557,7 @@ contains
     else
        do i = 1, abs(change)
           backspace(unit)
-          if(iostat .ne. 0) then
+          if(iostat .ne. 0)then
              write(err_msg_, '(A,I0)') &
                   'Cannot move backward in file, unit ', unit
              if(present(iostat)) iostat = iostat_

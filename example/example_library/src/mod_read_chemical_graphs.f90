@@ -35,11 +35,11 @@ contains
             iomsg = iomsg,  &
             advance = 'no',  &
             size = size_read ) buffer
-       if (is_iostat_eor(iostat)) then
+       if(is_iostat_eor(iostat))then
           line = line // buffer(:size_read)
           iostat = 0
           exit
-       else if (iostat == 0) then
+       else if(iostat .eq. 0)then
           line = line // buffer
        else
           exit
@@ -80,7 +80,7 @@ contains
     graph%num_edge_features = 1
     length = len(line)
     do
-       if (index(line(pos_i:), 'graph') .eq. 0) exit
+       if(index(line(pos_i:), 'graph') .eq. 0) exit
        if(num_samples.gt.10) exit
        write(*,*) "pos_i: ", pos_i
 

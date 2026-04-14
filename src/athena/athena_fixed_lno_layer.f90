@@ -394,7 +394,7 @@ contains
     this%encoder_basis%is_temporary = .false.
 
     do j = 1, this%num_inputs
-       if(this%num_inputs .gt. 1) then
+       if(this%num_inputs .gt. 1)then
           t = real(j-1, real32) / real(this%num_inputs-1, real32)
        else
           t = 0.0_real32
@@ -423,7 +423,7 @@ contains
     do k = 1, this%num_modes
        s = real(k, real32) * pi
        do i = 1, this%num_outputs
-          if(this%num_outputs .gt. 1) then
+          if(this%num_outputs .gt. 1)then
              t = real(i-1, real32) / real(this%num_outputs-1, real32)
           else
              t = 0.0_real32
@@ -726,7 +726,7 @@ contains
     ! Apply activation
     !---------------------------------------------------------------------------
     call this%output(1,1)%zero_grad()
-    if(trim(this%activation%name) .eq. "none") then
+    if(trim(this%activation%name) .eq. "none")then
        call this%output(1,1)%assign_and_deallocate_source(ptr)
     else
        call this%z(1)%zero_grad()
@@ -939,7 +939,7 @@ contains
     n = this%num_modes * this%num_inputs
     allocate(e_data(n))
     do j = 1, this%num_inputs
-       if(this%num_inputs .gt. 1) then
+       if(this%num_inputs .gt. 1)then
           t = real(j - 1, real32) / real(this%num_inputs - 1, real32)
        else
           t = 0.0_real32
@@ -960,7 +960,7 @@ contains
     do k = 1, this%num_modes
        s = real(k, real32) * pi
        do j = 1, this%num_outputs
-          if(this%num_outputs .gt. 1) then
+          if(this%num_outputs .gt. 1)then
              t = real(j - 1, real32) / real(this%num_outputs - 1, real32)
           else
              t = 0.0_real32

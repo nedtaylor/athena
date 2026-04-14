@@ -902,7 +902,7 @@ contains
 
     ! Apply activation
     call this%output(1,1)%zero_grad()
-    if(trim(this%activation%name) .eq. "none") then
+    if(trim(this%activation%name) .eq. "none")then
        call this%output(1,1)%assign_and_deallocate_source(ptr)
     else
        call this%z(1)%zero_grad()

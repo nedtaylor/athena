@@ -56,6 +56,7 @@ contains
   subroutine emit_nop_output_tail(prefix, activation_name, is_last_layer, &
        input_name, nodes, num_nodes, final_output)
     !! Emit the common transpose and optional activation at the end of a NOP.
+    use coreutils, only: to_camel_case
     implicit none
 
     character(*), intent(in) :: prefix, activation_name, input_name
@@ -66,6 +67,8 @@ contains
 
     character(4096) :: perm_attr
     character(128) :: transpose_output
+    character(128) :: activation_op, activation_node
+    character(4096) :: activation_attr
 
     perm_attr = '        "attribute": [{"name": "perm", "ints": ' // &
          '["1", "0"], "type": "INTS"}]'
@@ -82,13 +85,24 @@ contains
          in1=trim(input_name))
 
     if(trim(activation_name) .ne. 'none')then
+       activation_op = to_camel_case( &
+            trim(adjustl(activation_name)), &
+            capitalise_first_letter = .true.)
+       activation_attr = ''
+       if(trim(activation_name) .eq. 'leaky_relu')then
+          activation_op = 'LeakyRelu'
+          activation_attr = '        "attribute": [{"name": "alpha", ' // &
+               '"f": 0.01, "type": "FLOAT"}]'
+       end if
        if(is_last_layer)then
           final_output = 'output'
        else
-          write(final_output, '("/",A,"/Relu_output_0")') trim(prefix)
+          write(final_output, '("/",A,"/",A,"_output_0")') &
+               trim(prefix), trim(activation_op)
        end if
-       call emit_node('Relu', '/' // trim(prefix) // '/Relu', &
-            trim(final_output), '', nodes, num_nodes, &
+       activation_node = '/' // trim(prefix) // '/' // trim(activation_op)
+       call emit_node(trim(activation_op), trim(activation_node), &
+            trim(final_output), trim(activation_attr), nodes, num_nodes, &
             in1=trim(transpose_output))
     else
        final_output = transpose_output
@@ -425,6 +439,7 @@ contains
        result(name)
     !! Reconstruct the activation name from the tail of an expanded-ONNX NOP
     !! cluster.
+    use athena__onnx_utils, only: onnx_to_athena_activation
     implicit none
 
     ! Arguments
@@ -436,14 +451,21 @@ contains
     !! Number of valid node entries
     character(64) :: name
     !! Reconstructed ATHENA activation name
+    integer :: i
+    character(128) :: cluster_prefix
 
-    if(find_onnx_expanded_node_by_suffix(nodes, num_nodes, prefix, 'Relu') &
-         .gt. 0) &
-    then
-       name = 'relu'
-    else
-       name = 'none'
-    end if
+    write(cluster_prefix, '("/",A,"/")') trim(prefix)
+    name = 'none'
+
+    do i = 1, num_nodes
+       if(index(trim(nodes(i)%name), trim(cluster_prefix)) .ne. 1) cycle
+       select case(trim(nodes(i)%op_type))
+       case('Relu', 'LeakyRelu', 'Sigmoid', 'Softmax', 'Tanh', 'Selu', &
+            'Swish')
+          name = onnx_to_athena_activation(trim(nodes(i)%op_type))
+          return
+       end select
+    end do
 
   end function detect_onnx_expanded_nop_activation
 !###############################################################################

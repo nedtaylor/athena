@@ -132,7 +132,7 @@ program test_maxpool3d_layer
               end if
            else if( abs( output%val(&
                 i + (j-1)*output_width + &
-                (k-1)*output_width*output_width, 1) ) .gt. 1.E-6 ) then
+                (k-1)*output_width*output_width, 1) ) .gt. 1.E-6 )then
               success = .false.
               write(*,*) 'maxpool3d layer forward pass failed'
            end if
@@ -303,7 +303,7 @@ program test_maxpool3d_layer
   ! Check that read layer has correct properties
   select type(read_layer)
   type is (maxpool3d_layer_type)
-     if (.not. read_layer%name .eq. 'maxpool3d') then
+     if(.not. read_layer%name .eq. 'maxpool3d')then
         success = .false.
         write(0,*) 'read maxpool3d layer has wrong name'
      end if
