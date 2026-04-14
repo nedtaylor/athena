@@ -19,36 +19,61 @@ Orthogonal Attention Layer
   )
 
 
-The ``orthogonal_attention_layer_type`` derived type provides an orthogonal attention layer.
-It uses a learned low-rank orthonormal basis to build an efficient global projection, then combines that with a local bypass:
+The ``orthogonal_attention_layer_type`` derived type provides a stabilised orthogonal attention layer.
+It uses a learned low-rank orthonormal basis to construct a global spectral representation, applies
+normalised per-mode attention in that basis, and combines this with a local bypass:
 
 .. math::
 
    \mathbf{v} = \sigma\left(\text{Attn}(\mathbf{u}) + \mathbf{W}\,\mathbf{u} + \mathbf{b}\right)
 
-where the attention operation is defined as:
+The attention operation is defined in three stages: projection to an orthogonal basis, stable
+attention weighting, and reconstruction:
 
 .. math::
 
-   \mathrm{Attn}(\mathbf{u})
-   =
-   \mathbf{\Phi}
-   \left(\mathbf{\Phi}^T \mathbf{W}_Q \mathbf{u}\right)
-   \left(\mathbf{\Phi}^T \mathbf{W}_K \mathbf{u}\right)^T
-   \mathbf{W}_V \mathbf{u}.
+   \mathbf{c} = \mathbf{\Phi}^T \mathbf{u}
+   \quad \in \mathbb{R}^{k}
 
-and:
+.. math::
+
+   \mathbf{q} = \mathbf{W}_Q \mathbf{u}, \qquad
+   \mathbf{k} = \mathbf{W}_K \mathbf{u}
+
+.. math::
+
+   \mathbf{a} = \mathrm{softmax}\!\left(
+   \tanh\!\left(
+   \frac{\mathbf{q} \odot \mathbf{k}}{\sqrt{d_k}}
+   \right)
+   \right)
+   \quad \in \mathbb{R}^{k}
+
+.. math::
+
+   \tilde{\mathbf{c}} = \mathbf{c} + \mathbf{a} \odot \mathbf{c}
+
+.. math::
+
+   \text{Attn}(\mathbf{u}) =
+   \mathbf{W}_V \left( \mathbf{\Phi} \tilde{\mathbf{c}} \right)
+
+where:
 
 * :math:`\mathbf{u} \in \mathbb{R}^{n_{in}}` is the input sampled on a grid
 * :math:`\mathbf{\Phi} \in \mathbb{R}^{n_{in} \times k}` is the learned orthonormal basis obtained from basis weights :math:`\mathbf{B}`
-* :math:`\mathbf{W}_Q \in \mathbb{R}^{d_k \times n_{in}}` and :math:`\mathbf{W}_K \in \mathbb{R}^{d_k \times n_{in}}` are the query and key projection weights
+* :math:`\mathbf{c}` are spectral coefficients in the orthogonal basis
+* :math:`\mathbf{W}_Q, \mathbf{W}_K \in \mathbb{R}^{d_k \times n_{in}}` are the query and key projection weights
+* :math:`\mathbf{a} \in \mathbb{R}^{k}` are normalised per-basis attention weights
 * :math:`\mathbf{W}_V \in \mathbb{R}^{n_{out} \times n_{in}}` is the value projection matrix
 * :math:`\mathbf{W} \in \mathbb{R}^{n_{out} \times n_{in}}` is the local bypass matrix
 * :math:`\mathbf{b} \in \mathbb{R}^{n_{out}}` is the bias vector when ``use_bias=.true.``
 * :math:`k` is ``num_basis`` and :math:`d_k` is ``key_dim``
+* :math:`\odot` denotes element-wise multiplication
 * :math:`\sigma` is the activation function
 
-The current implementation exposes the full orthogonal-attention parameter set, but evaluates the attention path as an orthogonal basis projection :math:`\mathbf{\Phi}\mathbf{\Phi}^T\mathbf{u}` followed by a value projection and local bypass.
+This formulation differs from a standard dot-product attention mechanism in that attention is applied directly to orthogonal spectral coefficients rather than pairwise token interactions.
+The use of bounded interactions (:math:`\tanh`) and softmax normalisation ensures numerical stability, while the residual spectral update preserves information across basis modes.
 
 Arguments
 ---------
