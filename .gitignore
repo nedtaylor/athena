@@ -39,6 +39,7 @@ example/bin/
 example/obj/
 DPython_test/
 settings.json
+.actrc
 docs/_build/
 .local-pre-commit-config.yaml
 example/*/data/*.txt
