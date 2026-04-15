@@ -48,7 +48,7 @@ athena is distributed with the following directories:
 |  _docs/_    |  Compilable documentation |
 |  _example/_ |  A set of example programs utilising the athena library |
 |  _src/_ |      Source code  |
-|  _tools/_ |    Additional shell script tools for automating learning  |
+|  _tools/_ |    Environment setup script for Weights \& Biases and GitHub Action scripts for CI |
 |  _test/_  |    A set of test programs to check functionality of the library works after compilation |
 
 
@@ -73,7 +73,9 @@ The athena library can be obtained from the git repository. Use the following co
 The library has the following dependencies:
 - A Fortran compiler (compatible with Fortran 2018 or later)
 - [fpm](https://github.com/fortran-lang/fpm) (>= 0.13.0), [CMake](https://cmake.org), or [Spack](https://github.com/spack/spack) for building the library
+- The [coreutils](https://github.com/coreutils/coreutils) Fortran library (basic utilities)
 - The [graphstruc](https://github.com/nedtaylor/graphstruc) Fortran library (for handing graph structures through derived types)
+- The [diffstruc](https://github.com/nedtaylor/diffstruc) Fortran library (for automatic differentiation capabilities)
 
 The library has been developed and tested using the following compilers:
 - gfortran -- gcc 15.2.0
@@ -293,33 +295,35 @@ Files
 
 All files with the __sub_ suffix are the implementations of interfaces defined within the corresponding filename without the suffix.
 
+Below is a non-exhaustive list of the files contained within the repository, and their descriptions. For a full list of files, refer to the repository.
+
 |Source file | Description|
 |-----------|------------|
 |_src/athena.f90_                      | the module file that imports all necessary user-accessible procedures  |
-|_src/lib/athena_accuracy.f90_            | accuracy calculation procedures |
-|_src/lib/athena_activation.f90_          | generic node activation (aka transfer) setup  |
-|_src/lib/athena_activation__[_NAME_]_.f90_   | [_NAME_] activation method  |
-|_src/lib/athena_base_layer.f90_          | abstract layer construct type  |
-|_src/lib/athena_clipper.f90_             | gradient clipping procedures |
-|_src/lib/athena_container.f90_           | layer container construct for handling multiple layers in a network  |
-|_src/lib/athena_diffstruc_extd.f90       | extensions of [diffstruc](https://github.com/nedtaylor/diffstruc) providing more automatic differentiation operations |
-|_src/lib/athena__[_NAME_]__layer.f90_    | [_NAME_] layer-type  |
-|_src/lib/athena_initialiser.f90_         | generic kernel (and bias) initialiser setup  |
-|_src/lib/athena_initialiser__[_NAME_]_.f90_  | [_NAME_] kernel initialisation method  |
-|_src/lib/athena_io_utils.f90_            | input/output printing procedures |
-|_src/lib/athena_loss.f90_                | loss and corresponding derivatives calculation procedures |
-|_src/lib/athena_lr_decay.f90_            | learning rate decay procedures |
-|_src/lib/athena_metrics.f90_             | training convergence metric derived type and procedures  |
-|_src/lib/athena_misc_ml.f90_             | miscellaneous machine learning procedures  |
-|_src/lib/athena_misc_types.f90_          | neural network-associated derived types  |
+|_src/athena/athena_accuracy.f90_            | accuracy calculation procedures |
+|_src/athena/athena_activation.f90_          | generic node activation (aka transfer) setup  |
+|_src/athena/athena_activation__[_NAME_]_.f90_   | [_NAME_] activation method  |
+|_src/athena/athena_base_layer.f90_          | abstract layer construct type  |
+|_src/athena/athena_clipper.f90_             | gradient clipping procedures |
+|_src/athena/athena_container.f90_           | layer container construct for handling multiple layers in a network  |
+|_src/athena/athena_diffstruc_extd.f90       | extensions of [diffstruc](https://github.com/nedtaylor/diffstruc) providing more automatic differentiation operations |
+|_src/athena/athena__[_NAME_]__layer.f90_    | [_NAME_] layer-type  |
+|_src/athena/athena_initialiser.f90_         | generic kernel (and bias) initialiser setup  |
+|_src/athena/athena_initialiser__[_NAME_]_.f90_  | [_NAME_] kernel initialisation method  |
+|_src/athena/athena_io_utils.f90_            | input/output printing procedures |
+|_src/athena/athena_loss.f90_                | loss and corresponding derivatives calculation procedures |
+|_src/athena/athena_lr_decay.f90_            | learning rate decay procedures |
+|_src/athena/athena_metrics.f90_             | training convergence metric derived type and procedures  |
+|_src/athena/athena_misc_ml.f90_             | miscellaneous machine learning procedures  |
+|_src/athena/athena_misc_types.f90_          | neural network-associated derived types  |
 |_srcs/lib/athena_network.f90_            | neural network derived type and procedures  |
-|_src/lib/athena_normalisation.f90_       | data normalisation procedures  |
-|_src/lib/athena_onnx.f90_                | procedures for interoperability with other neural network libraries |
-|_src/lib/athena_optimiser.f90_           | learning optimisation derived type and procedures  |
-|_src/lib/athena_random.f90_              | random number procedures  |
-|_src/lib/athena_regulariser.f90_         | regularisation procedures  |
-|_src/lib/athena_tools_infile.f90_        | tools to read input files  |
-|_src/lib/athena_wandb.F90_               | optional integration with the Weights and Biases machine learning platform  |
+|_src/athena/athena_normalisation.f90_       | data normalisation procedures  |
+|_src/athena/athena_onnx.f90_                | procedures for interoperability with other neural network libraries |
+|_src/athena/athena_optimiser.f90_           | learning optimisation derived type and procedures  |
+|_src/athena/athena_random.f90_              | random number procedures  |
+|_src/athena/athena_regulariser.f90_         | regularisation procedures  |
+|_src/athena/athena_tools_infile.f90_        | tools to read input files  |
+|_src/athena/athena_wandb.F90_               | optional integration with the Weights and Biases machine learning platform  |
 
 
 
@@ -333,9 +337,10 @@ All files with the __sub_ suffix are the implementations of interfaces defined w
 |_LICENSE_                          | licence of athena code |
 |_README.md_                        | a readme file with a brief description of the code and files  |
 |_cmake/CodeCoverage.cmake_         | [cmake-modules](https://github.com/rpavlik/cmake-modules) file to automate unit test coverage reporting|
+|_cmake/CPM.cmake_              | [cmake-modules](https://gitlab.com/external-packages/cpm.cmake) file to automate git dependency management |
 |_example/example_library_          | Utility library shared between the examples |
 |_example/__[_NAME_]__/expected_output.txt_   | expected output from executing [_NAME_] example program  |
 |_example/__[_NAME_]__/test_job.in_           | input file for [_NAME_] example program  |
 |_example/__[_NAME_]__/src_                   | source directory for [_NAME_] example program  |
-|_test/test__[_NAME_]__.f90_           | [_NAME_] test program to check library expected functionality |
+|_test/test__[_NAME_]_.f90_           | [_NAME_] test program to check library expected functionality |
 |_tools/coverage_badge.py_          | script to extract code coverage percentage from GitHub Action |
