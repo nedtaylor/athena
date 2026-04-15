@@ -111,7 +111,7 @@ The documentation is available online at https://athena-fortran.readthedocs.io, 
 # Research impact statement
 
 `ATHENA` is actively used in ongoing computational science research projects.
-One example is its integration into the [`RAFFLE`](https://github.com/ExeQuantCode/RAFFLE) structure prediction software [@Taylor2025raffle], where graph neural networks are being developed to perform inverse design of materials with target properties.
+One example is the [`RAFFLE`](https://github.com/ExeQuantCode/RAFFLE) structure prediction software [@Taylor2025raffle], where the library is being extended to utilise graph neural operators to perform inverse design of material interfaces using known local structural features.
 
 The framework is also being used as a platform for implementing physics-informed neural networks for solving partial differential equations in plasma physics and for exploring machine learning approaches to modelling heat transport in materials via neural operators, physics-informed neural networks, and inverse design.
 
