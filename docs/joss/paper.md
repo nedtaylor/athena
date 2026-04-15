@@ -18,16 +18,12 @@ authors:
     orcid: 0009-0001-8980-0156
     affiliation: "1"
   - name: Artan Qerushi
-    orcid: 0000-0002-2528-1270
-    affiliation: "2"
   - name: Steven Paul Hepplestone
     orcid: 0000-0002-2528-1270
     affiliation: "1"
 affiliations:
  - name: Department of Physics and Astronomy, University of Exeter, United Kingdom, EX4 4QL
    index: 1
- - name: 
-   index: 2
 date: 10 April 2026
 bibliography: paper.bib
 
