@@ -40,11 +40,19 @@ jobs:
           fetch-depth: 1
           submodules: false
 
-      - name: Install BLAS/LAPACK system libraries
+      - name: Install BLAS/LAPACK system libraries (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
         shell: bash
         run: |
           sudo apt-get update
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y libblas-dev liblapack-dev
+
+      - name: Install BLAS/LAPACK system libraries (macOS)
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        run: |
+          brew update
+          brew install openblas
 
       - name: Install compiler + tools (apt)
         if: github.actor == 'nektos/act'
