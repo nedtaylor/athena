@@ -61,7 +61,8 @@ jobs:
           # 1. Spack needs to know about the compiler setup-fortran just installed
           # The compiler is usually available in the environment variables set by setup-fortran
           # We force Spack to scan the environment/paths to find it
-          spack compiler find --scope=user
+          spack compiler find --scope user
+          spack compiler find
 
           spack compiler add $(which gfortran)
 
