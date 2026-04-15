@@ -5,7 +5,6 @@ on:
     branches:
       - main
       - development
-      - 'releases/**'
     paths:
       - ".github/workflows/fpm_examples.yml"
       - "fpm.toml"
@@ -27,28 +26,41 @@ concurrency:
 
 jobs:
   build-and-test-fpm-example:
-    if: github.actor != 'nektos/act'
     name: Run examples in debug mode
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        toolchain:
-        - {compiler: gcc, version: 15}
+        compiler: [gcc]
+        version: [15]
     steps:
     - name: checkout repo
       uses: actions/checkout@v4
 
-    - name: Install gfortran via apt
+    - name: Setup compiler toolchain
+      uses: fortran-lang/setup-fortran@v1
+      id: setup-fortran
+      with:
+        compiler: ${{ matrix.compiler }}
+        version: ${{ matrix.version }}
+
+    - name: Normalise compiler environment
       shell: bash
       run: |
         sudo apt-get update
         sudo DEBIAN_FRONTEND=noninteractive apt-get install -y software-properties-common
         sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
         sudo apt-get update
-        sudo DEBIAN_FRONTEND=noninteractive apt-get install -y gcc-15 gfortran-15 unzip libblas-dev liblapack-dev
-        sudo update-alternatives --install /usr/bin/gfortran gfortran /usr/bin/gfortran-15 150
-        echo "FC=$(command -v gfortran-15)" >> $GITHUB_ENV
+        sudo DEBIAN_FRONTEND=noninteractive apt-get install -y unzip libblas-dev liblapack-dev
+
+        compiler="${FC:-${{ steps.setup-fortran.outputs.fc }}}"
+        if [ -z "$compiler" ]; then
+          echo "Fortran compiler was not configured" >&2
+          exit 1
+        fi
+
+        echo "FC=$compiler" >> "$GITHUB_ENV"
+        echo "FPM_FC=$compiler" >> "$GITHUB_ENV"
 
     # ----------------------------------------------------
     - uses: fortran-lang/setup-fpm@v7
@@ -68,7 +80,17 @@ jobs:
         fi
 
         unzip -o "$mnist_dir/MNIST_txt.zip" -d "$mnist_dir"
+        echo "MNIST dataset is available at $mnist_dir"
+        echo "MNIST dataset is available at $mnist_input_dir"
         sed -i "s|^[[:space:]]*dataset_dir = .*| dataset_dir = \"$mnist_input_dir\"|" example/mnist/test_job.in
+
+        # cat the modified test_job.in to verify the change
+        echo "Modified test_job.in:"
+        cat example/mnist/test_job.in
+
+        # ls the mnist_input_dir to verify the files are there
+        echo "Contents of $mnist_input_dir:"
+        ls -l "$mnist_input_dir"
 
     - name: Run examples
       shell: bash -l {0}
