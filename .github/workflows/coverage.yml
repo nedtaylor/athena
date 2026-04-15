@@ -165,7 +165,7 @@ jobs:
           echo "value=$coverage_percentage" >> $GITHUB_OUTPUT
 
       - name: Create coverage badge
-        if: ${{ github.actor != 'nektos/act' && (github.ref_name == 'main' || github.ref_name == 'coverage-action') }}
+        if: ${{ github.actor != 'nektos/act' && (github.ref_name == 'main' || github.ref_name == 'development' || github.ref_name == 'coverage-action') }}
         continue-on-error: true
         uses: schneegans/dynamic-badges-action@v1.8.0
         with:
@@ -185,7 +185,7 @@ jobs:
           path: './build/coverage-ci/coverage/'
 
   deploy:
-    if: ${{ github.actor != 'nektos/act' && (github.ref_name == 'main' || github.ref_name == 'coverage-action') }}
+    if: ${{ github.actor != 'nektos/act' && github.ref_name == 'main' }}
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
