@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Changed
 - Renamed spack package from "athena" to "athena-fortran" to avoid conflicts with the existing "athena" package. Please update references as appropriate
 - Added silu as an alternate name for swish activation function and updated documentation accordingly
+- Changed spack package to use cmake build system
 
 ## Removed
 - Removed TODO file and associated references
