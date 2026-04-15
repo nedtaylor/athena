@@ -31,7 +31,7 @@ def h3style_role(name, rawtext, text, lineno, inliner, options={}, content=[]):
 
 def setup(app):
     roles.register_local_role('h3style', h3style_role)
-    #app.connect("builder-inited", run_ford)
+    app.connect("builder-inited", run_ford)
 
 # -- Project information
 
