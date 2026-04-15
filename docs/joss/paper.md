@@ -18,13 +18,14 @@ authors:
     orcid: 0009-0001-8980-0156
     affiliation: "1"
   - name: Artan Qerushi
+    affiliation: "2"
   - name: Steven Paul Hepplestone
     orcid: 0000-0002-2528-1270
     affiliation: "1"
 affiliations:
  - name: Department of Physics and Astronomy, University of Exeter, United Kingdom, EX4 4QL
    index: 1
-date: 10 April 2026
+date: 15 April 2026
 bibliography: paper.bib
 
 
@@ -62,6 +63,7 @@ The software focuses on enabling experimentation with network architectures that
 - Physics-informed neural networks for solving PDEs
 - Neural operators for learning mappings between functional spaces
 - Inverse design for optimising input parameters to achieve desired outputs
+- Multi-input and multi-output architectures for complex scientific problems
 
 By providing these capabilities within Fortran, `ATHENA` allows machine learning models to be developed and deployed directly inside scientific simulation workflows.
 
@@ -101,7 +103,7 @@ Integration with experiment tracking tools such as Weights & Biases (through the
 
 Overall, the design emphasises flexibility and research accessibility rather than maximal runtime performance, enabling the rapid development and testing of new machine learning approaches in scientific computing contexts.
 
-All these features are designed to be easily extended, allowing users to add new layer types, activation functions, optimisers, and other components as needed.
+All these features are designed to be easily extended, allowing users to add new layer types, activation functions, optimisers, and other components as needed, whilst maintaining compatibility with the core training and automatic differentiation infrastructure.
 
 The library contains a comprehensive documentation and a range of examples, which are designed to demonstrate the capabilities of the library and provide a starting point for users to implement their own models.
 The documentation is available online at https://athena-fortran.readthedocs.io, and the source code is available on GitHub at https://github.com/nedtaylor/athena.
