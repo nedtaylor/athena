@@ -12,7 +12,7 @@
 
 by Ned Thaddeus Taylor
 
-ATHENA (Adaptive Training for High Efficiency Neural network Applications) is a Fortran library for developing and handling neural networks (with a focus on convolutional neural networks).
+ATHENA (Adaptive Training for High Efficiency Neural network Applications) is a Fortran library for developing, training, and deploying neural networks.
 
 > **_NOTE:_**
 Starting with version 2.0.0, release tags follow the `vX.Y.Z` convention for consistency across projects such as diffstruc and graphstruc.
@@ -21,10 +21,10 @@ Internal version numbers remain `X.Y.Z`.
 ## Statement of need
 
 The athena library leverages Fortran's strong support of array arithmatics, and its compatibility with parallel and high-performance computing resources.
-Additionally, there exist many improvements made available since Fortran 95, specifically in Fortran 2018 (Reid 2018) (and ones in Fortran 2023), as well as continued development by the Fortran Standards committee.
+Additionally, there exist many improvements made available since Fortran 95, specifically in Fortran 2018 [(Reid 2018)](#references) (and ones in Fortran 2023), as well as continued development by the Fortran Standards committee.
 All of this provides a clear incentive to develop further libraries and frameworks focused on providing machine learning capabilities to the Fortran community.
 
-While existing Fortran-based libraries, such as neural-fortran (Curcic 2019), address many aspects of neural networks,
+While existing Fortran-based libraries, such as neural-fortran [(Curcic 2019)](#references), address many aspects of neural networks,
 athena provides implementation of some well-known features not currently available within other libraries; these features include batchnormalisation, regularisation layers (such as dropout and dropblock), and average pooling layers.
 Additionally, the library provides support for 1, 2, and 3D input data for most features currently implemented; this includes 1, 2, and 3D data for convolutional layers.
 The athena library also supports many convolutional techniques, including various data padding types, and stride.
@@ -63,9 +63,10 @@ Setup
 -----
 
 The athena library can be obtained from the git repository. Use the following commands to get started:
-```
-  git clone https://github.com/nedtaylor/athena.git
-  cd athena
+
+```bash
+git clone https://github.com/nedtaylor/athena.git
+cd athena
 ```
 
 ### Dependencies
@@ -95,21 +96,24 @@ The library has also been tested with and found to support the following librari
 The library is set up to work with the Fortran Package Manager (fpm).
 
 Run the following command in the repository main directory:
-```
-  fpm build --profile release
+
+```bash
+fpm build --profile release
 ```
 
 To build with the built-in Weights & Biases integration enabled, use the `wandb` feature:
-```
-  source tools/setup_wf_env.sh
-  fpm build --features wandb
+
+```bash
+source tools/setup_wf_env.sh
+fpm build --features wandb
 ```
 
 #### Testing with fpm
 
 To check whether ATHENA has installed correctly and that the compilation works as expected, the following command can be run:
-```
-  fpm test --profile release
+
+```bash
+fpm test --profile release
 ```
 
 This runs a set of test programs (found within the test/ directory) to ensure the expected output occurs when layers and networks are set up.
@@ -117,27 +121,33 @@ This runs a set of test programs (found within the test/ directory) to ensure th
 ### Building with cmake
 
 Run the following commands in the directory containing _CMakeLists.txt_:
+
+```bash
+mkdir build
+cd build
+cmake [-DCMAKE_BUILD_TYPE="Release"] ..
+make install
 ```
-  mkdir build
-  cd build
-  cmake [-DCMAKE_BUILD_TYPE="Release"] ..
-  make install
-```
+
 This will build the library in the build/ directory. All library files will then be found in:
+
+```bash
+${HOME}/.local/athena
 ```
-  ${HOME}/.local/athena
-```
+
 Inside this directory, the following files will be generated:
-```
-  include/athena.mod
-  lib/libathena.a
+
+```bash
+include/athena.mod
+lib/libathena.a
 ```
 
 #### Testing with cmake
 
 To check whether ATHENA has installed correctly and that the compilation works as expected, the following command can be run:
-```
-  ctest
+
+```bash
+ctest
 ```
 
 This runs a set of test programs (found within the test/ directory) to ensure the expected output occurs when layers and networks are set up.
@@ -146,7 +156,8 @@ This runs a set of test programs (found within the test/ directory) to ensure th
 ### Building with Spack
 
 The library can also be installed using the Spack package manager. This can be achieved by running the following commands in the main directory:
-```
+
+```bash
 spack repo add .spack
 spack install athena-fortran
 ```
@@ -176,33 +187,37 @@ For the mnist examples, the MNIST dataset must be downloaded. By default, the da
 #### Running examples using fpm
 
 Using fpm, the examples are built alongside the library. To list all available examples, use:
-```
-  fpm run --example --list
+
+```bash
+fpm run --example --list
 ```
 
 To run a particular example, execute the following command:
 
-```
-  fpm run --example [NAME] --profile release
+```bash
+fpm run --example [NAME] --profile release
 ```
 
 where [_NAME_] is the name of the example found in the list.
 
 For built-in W&B examples (`wandb_sine`, `wandb_network_sine`, `wandb_sweep`, `wandb_pinn_burgers`), enable the `wandb` feature:
-```
-  source tools/setup_wf_env.sh
-  fpm run --example wandb_sine --features wandb
+
+```bash
+source tools/setup_wf_env.sh
+fpm run --example wandb_sine --features wandb
 ```
 
 
 #### Running examples manually
 
 To compile and run the examples, run the following commands in the directory containing _CMakeLists.txt_:
+
+```bash
+cd example/mnist
+make build optim [FC=FORTRAN-COMPILER]
+./bin/athena_test -f test_job.in
 ```
-  cd example/mnist
-  make build optim [FC=FORTRAN-COMPILER]
-  ./bin/athena_test -f test_job.in
-```
+
 After the example program is compiled, the following directories will also exist:
 
 | Directory | Description |
@@ -242,25 +257,24 @@ API documentation can be generated using FORD (Fortran Documenter).
 To do so, follow the installation guide on the [FORD website](https://forddocs.readthedocs.io/en/stable/) to ensure FORD is installed.
 Once FORD is installed, run the following command in the root directory of the git repository:
 
-```
-  ford ford.md
+```bash
+ford ford.md
 ```
 
 How-to
 -------
 To call/reference the athena library in a program, include the following use statement at the beginning of the necessary Fortran file:
 
-  use athena
 
-During compilation, include the following flags in the compilation (gfortran) command:
+```fortran
+  use athena
 ```
+During compilation, include the following flags in the compilation (gfortran) command:
+
+```bash
 -I${HOME}/.local/athena/include -L${HOME}/.local/athena/lib -lathena
 ```
 
-
-Developers
-----------
-- Ned Thaddeus Taylor
 
 Contributing
 ------------
