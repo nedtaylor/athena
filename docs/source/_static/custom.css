@@ -37,3 +37,9 @@ p.rubric > .h3 {
     color: inherit !important;
     font-family: inherit !important;
 }
+
+.content-icon-container .github-this-page svg {
+    color: inherit;
+    height: 1.25rem;
+    width: 1.25rem;
+}

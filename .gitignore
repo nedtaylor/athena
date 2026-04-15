@@ -22,6 +22,7 @@ doc/html/
 *.json
 mod/
 __pycache__/
+_build/
 wandb/
 *.err
 tools/D_*
