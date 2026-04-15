@@ -25,54 +25,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build-and-test-local:
-    if: github.actor == 'nektos/act'
-    name: Build and test locally (${{ matrix.build_type }})
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        build_type: [Release, Debug]
-    steps:
-      - name: checkout repo
-        uses: actions/checkout@v6
-
-      - name: Install compiler + tools (apt)
-        shell: bash
-        run: |
-          sudo apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y software-properties-common
-          sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
-          sudo apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y cmake gcc-15 gfortran-15 gcovr libblas-dev liblapack-dev
-          sudo update-alternatives --install /usr/bin/gfortran gfortran /usr/bin/gfortran-15 150
-
-          echo "FC=$(command -v gfortran-15)" >> $GITHUB_ENV
-          echo "GCOV=$(command -v gcov-15 || command -v gcov)" >> $GITHUB_ENV
-
-      - name: Build and test
-        shell: bash -l {0}
-        run: |
-          build_dir="$GITHUB_WORKSPACE/build/cmake-act-${{ matrix.build_type }}"
-          jobs=$(nproc)
-
-          echo "Build type: ${{ matrix.build_type }}"
-          "$FC" --version
-          cmake --version
-
-          cmake \
-            -S "$GITHUB_WORKSPACE" \
-            -B "$build_dir" \
-            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-            -DCMAKE_Fortran_COMPILER="$FC" \
-            -DGCOV_PATH="${GCOV:-$(command -v gcov)}"
-
-          cmake --build "$build_dir" --parallel "$jobs"
-          cmake --install "$build_dir"
-          ctest --test-dir "$build_dir" --output-on-failure
-
-  build-and-test-hosted:
-    if: github.actor != 'nektos/act'
+  build-and-test:
     name: Build and test (${{ matrix.os }}, ${{ matrix.build_type }}, gcc-15)
     runs-on: ${{ matrix.os }}
     strategy:
@@ -82,27 +35,52 @@ jobs:
         build_type: [Release, Debug]
     steps:
       - name: checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          submodules: false
 
-      - name: Install runner dependencies (Ubuntu)
-        if: matrix.os == 'ubuntu-latest'
+      - name: Install BLAS/LAPACK system libraries
         shell: bash
         run: |
           sudo apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y gcovr libblas-dev liblapack-dev
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y libblas-dev liblapack-dev
+
+      - name: Install compiler + tools (apt)
+        if: github.actor == 'nektos/act'
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y software-properties-common
+          sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y cmake gcc-15 gfortran-15
+          sudo update-alternatives --install /usr/bin/gfortran gfortran /usr/bin/gfortran-15 150
+
+          echo "FC=$(command -v gfortran-15)" >> $GITHUB_ENV
+          echo "GCOV=$(command -v gcov-15 || command -v gcov)" >> $GITHUB_ENV
+
+      - name: Install runner dependencies (Ubuntu)
+        if: matrix.os == 'ubuntu-latest' || github.actor == 'nektos/act'
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y gcovr
 
       - name: Install runner dependencies (macOS)
-        if: matrix.os == 'macos-latest'
+        if: matrix.os == 'macos-latest' && github.actor != 'nektos/act'
         shell: bash
         run: |
           brew install gcovr
 
       - name: Setup CMake
+        if: github.actor != 'nektos/act'
         uses: jwlawson/actions-setup-cmake@v2.0.1
         with:
           cmake-version: '3.24.x'
 
       - name: Setup Fortran compiler
+        if: github.actor != 'nektos/act'
         uses: fortran-lang/setup-fortran@v1
         id: setup-fortran
         with:
@@ -110,6 +88,7 @@ jobs:
           version: 15
 
       - name: Normalise compiler environment
+        if: github.actor != 'nektos/act'
         shell: bash
         run: |
           compiler="${FC:-${{ steps.setup-fortran.outputs.fc }}}"
