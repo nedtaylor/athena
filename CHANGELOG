@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Added
 - Added additional unit tests to increase code coverage
+- Added GitHub button to readthedocs for easy navigation
 
 ## Fixed
 - Fixed GitHub Actions workflows for code coverage
@@ -23,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Renamed spack package from "athena" to "athena-fortran" to avoid conflicts with the existing "athena" package. Please update references as appropriate
 - Added silu as an alternate name for swish activation function and updated documentation accordingly
 - Changed spack package to use cmake build system
+- Changed readthedocs theme to "furo" for better aesthetics
 
 ## Removed
 - Removed TODO file and associated references
