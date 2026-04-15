@@ -1882,7 +1882,7 @@ contains
        if(present(mode_store)) mode_store(l) = this%model(l)%layer%inference
        this%model(l)%layer%inference = .false.
        if(present(layer_indices))then
-          if(any(layer_indices.eq.l)) then
+          if(any(layer_indices.eq.l))then
              this%model(l)%layer%inference = .false.
           end if
        else
@@ -1914,7 +1914,7 @@ contains
     do l = 1, this%num_layers
        if(present(mode_store)) mode_store(l) = this%model(l)%layer%inference
        if(present(layer_indices))then
-          if(any(layer_indices.eq.l)) then
+          if(any(layer_indices.eq.l))then
              this%model(l)%layer%inference = .true.
           end if
        else
@@ -1940,7 +1940,7 @@ contains
     !! Loop index
 
     if(.not.allocated(this%model)) return
-    if(size(mode_store) .ne. this%num_layers) then
+    if(size(mode_store) .ne. this%num_layers)then
        call stop_program("mode_store size does not match number of layers")
        return
     end if
@@ -3005,6 +3005,7 @@ contains
     !! Error message
 
     num_samples = get_num_samples(this, input)
+    if(num_samples.le.0) return
     num_input_layers = size(this%root_vertices, 1)
     if(allocated(this%input_array))then
        do i = 1, size(this%input_array, 1)
@@ -3836,7 +3837,9 @@ contains
 
        ! Print epoch summary results
        !------------------------------------------------------------------------
-       if(verbose_.eq.0)then
+       if(use_validation.and.verbose_.ge.0)then
+          write(6,'("epoch=",I0,A)') this%epoch, trim(val_str)
+       elseif(verbose_.eq.0)then
           loss_str = format_training_real( &
                this%metrics(1)%val, print_precision_, scientific_print_ &
           )
@@ -3853,8 +3856,6 @@ contains
                     this%optimiser%learning_rate, this%optimiser%iter &
                ), &
                trim(loss_str), trim(accuracy_str), trim(val_str)
-       else if(use_validation)then
-          write(6,'("epoch=",I0,A)') this%epoch, trim(val_str)
        end if
 
 
@@ -4690,7 +4691,7 @@ contains
           ! Get parameter count
           layer_params = layer%get_num_params()
           total_params = total_params + layer_params
-          if(layer_params > 0)then
+          if(layer_params .gt. 0)then
              write(param_str, '(I0)') layer_params
           else
              param_str = '0'

@@ -52,7 +52,7 @@ program test_msgpass_network
     )
 
     ! Check network has correct number of layers (input + msgpass)
-    if(kipf_network%num_layers .ne. 2) then
+    if(kipf_network%num_layers .ne. 2)then
        success = .false.
        write(0,*) 'Kipf network has wrong number of layers:', &
             kipf_network%num_layers, 'expected: 2'
@@ -74,12 +74,12 @@ program test_msgpass_network
     call kipf_network%test(graph_data_kipf, graph_data_kipf)
 
     ! Check that network produces reasonable outputs
-    if(kipf_network%accuracy_val .gt. 1.0) then
+    if(kipf_network%accuracy_val .gt. 1.0)then
        success = .false.
        write(0,*) 'Kipf network accuracy out of range:', kipf_network%accuracy_val
     end if
 
-    if(kipf_network%loss_val .lt. 0.0) then
+    if(kipf_network%loss_val .lt. 0.0)then
        success = .false.
        write(0,*) 'Kipf network loss is negative:', kipf_network%loss_val
     end if
@@ -114,7 +114,7 @@ program test_msgpass_network
     )
 
     ! Check network has correct number of layers (input + msgpass)
-    if(duvenaud_network%num_layers .ne. 2) then
+    if(duvenaud_network%num_layers .ne. 2)then
        success = .false.
        write(0,*) 'Duvenaud network has wrong number of layers:', &
             duvenaud_network%num_layers, 'expected: 2'
@@ -136,13 +136,13 @@ program test_msgpass_network
     call duvenaud_network%test(graph_data_duvenaud, target_array)
 
     ! Check that network produces reasonable outputs
-    if(duvenaud_network%accuracy_val .gt. 1.0) then
+    if(duvenaud_network%accuracy_val .gt. 1.0)then
        success = .false.
        write(0,*) 'Duvenaud network accuracy out of range:', &
             duvenaud_network%accuracy_val
     end if
 
-    if(duvenaud_network%loss_val < 0.0) then
+    if(duvenaud_network%loss_val .lt. 0.0)then
        success = .false.
        write(0,*) 'Duvenaud network loss is negative:', duvenaud_network%loss_val
     end if
@@ -160,13 +160,13 @@ program test_msgpass_network
 
     ! Test parameter counting
     num_params_kipf = kipf_network%get_num_params()
-    if(num_params_kipf <= 0) then
+    if(num_params_kipf .le. 0)then
        success = .false.
        write(0,*) 'Kipf network parameter count invalid:', num_params_kipf
     end if
 
     num_params_duvenaud = duvenaud_network%get_num_params()
-    if(num_params_duvenaud <= 0) then
+    if(num_params_duvenaud .le. 0)then
        success = .false.
        write(0,*) 'Duvenaud network parameter count invalid:', &
             num_params_duvenaud
@@ -174,14 +174,14 @@ program test_msgpass_network
 
     ! Test parameter retrieval
     params = kipf_network%get_params()
-    if(.not. allocated(params) .or. size(params) .ne. num_params_kipf) then
+    if(.not. allocated(params) .or. size(params) .ne. num_params_kipf)then
        success = .false.
        write(0,*) 'Kipf network parameter retrieval failed'
     end if
 
     if(allocated(params)) deallocate(params)
     params = duvenaud_network%get_params()
-    if(.not. allocated(params) .or. size(params) .ne. num_params_duvenaud) then
+    if(.not. allocated(params) .or. size(params) .ne. num_params_duvenaud)then
        success = .false.
        write(0,*) 'Duvenaud network parameter retrieval failed'
     end if
@@ -205,7 +205,7 @@ program test_msgpass_network
 
     ! Reset and check
     call test_network%reset()
-    if(test_network%num_layers .ne. 0) then
+    if(test_network%num_layers .ne. 0)then
        success = .false.
        write(0,*) 'Network reset failed - layers not cleared'
     end if
@@ -216,7 +216,7 @@ program test_msgpass_network
 ! Check for any failed tests
 !-------------------------------------------------------------------------------
   write(*,*) "----------------------------------------"
-  if(success) then
+  if(success)then
      write(*,*) 'test_msgpass_network passed all tests'
   else
      write(0,*) 'test_msgpass_network failed one or more tests'
@@ -271,7 +271,7 @@ contains
     ! Set edge weights and features
     graph%edge_weights = [1.0, 1.2, 0.8, 1.1, 0.9, 1.3]
 
-    if(allocate_edge_weights) then
+    if(allocate_edge_weights)then
        graph%edge_features(1,:) = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6]  ! Edge feature 1
        graph%edge_features(2,:) = [1.1, 1.2, 1.3, 1.4, 1.5, 1.6]  ! Edge feature 2
     end if

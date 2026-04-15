@@ -220,7 +220,7 @@ contains
        end if
 
        if(skipping)then
-          if(index(line, ']') .gt. 0) then
+          if(index(line, ']') .gt. 0)then
              skipping = .false.
           end if
           cycle

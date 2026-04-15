@@ -50,7 +50,7 @@ program test_metrics
 !-------------------------------------------------------------------------------
   call metric_dict_alloc(dict, length=10)
   do i = 1, size(dict)
-     if(size(dict(i)%history) .ne. 10) then
+     if(size(dict(i)%history) .ne. 10)then
         write(*,*) "Error: metric_dict_alloc failed to allocate the correct size."
         success = .false.
      end if
@@ -59,7 +59,7 @@ program test_metrics
   source(:) = a
   call metric_dict_alloc(dict, source = source)
   do i = 1, size(dict)
-     if(size(dict(i)%history) .ne. size(source(i)%history)) then
+     if(size(dict(i)%history) .ne. size(source(i)%history))then
         write(*,*) "Error: metric_dict_alloc failed to allocate the correct size."
         success = .false.
      end if
@@ -71,14 +71,14 @@ program test_metrics
 !-------------------------------------------------------------------------------
   a%history = [1, 1, 1, 1, 1]
   call a%check(plateau_threshold=10.E0, converged = converged)
-  if (converged .ne. 1) then
+  if(converged .ne. 1)then
      write(*,*) "Error: a%check failed to detect convergence."
      success = .false.
   end if
 
   a%history = [8, 8, 8, 8, 8]
   call a%check(plateau_threshold=10.E0, converged = converged)
-  if (converged .ne. -1) then
+  if(converged .ne. -1)then
      write(*,*) "Error: a%check failed to detect plateau."
      success = .false.
   end if
@@ -104,11 +104,11 @@ contains
     type(metric_dict_type), intent(in) :: actual
     type(metric_dict_type), intent(in) :: expected
 
-    if (actual%key .ne. expected%key .or. &
+    if(actual%key .ne. expected%key .or. &
          actual%val .ne. expected%val .or. &
          actual%threshold .ne. expected%threshold .or. &
          actual%active .neqv. expected%active .or. &
-         any(actual%history .ne. expected%history)) then
+         any(actual%history .ne. expected%history))then
        write(*,*) "Error: metric_dict_types are not equal."
        success = .false.
     end if

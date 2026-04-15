@@ -65,7 +65,7 @@ contains
        activation%apply_scaling = .true.
     end if
 
-    if(present(attributes)) then
+    if(present(attributes))then
        call activation%apply_attributes(attributes)
     end if
 
@@ -132,7 +132,7 @@ contains
        case("alpha")
           read(attributes(i)%val,*) this%alpha
        case("name")
-          if(trim(attributes(i)%val) .ne. trim(this%name)) then
+          if(trim(attributes(i)%val) .ne. trim(this%name))then
              call print_warning( &
                   'Leaky ReLU activation: name attribute "' // &
                   trim(attributes(i)%val) // &

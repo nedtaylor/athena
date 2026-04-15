@@ -122,7 +122,7 @@ program wandb_sine
      call loss%grad_reverse()
      call network%update()
 
-     if (mod(n, 1000) == 0) then
+     if(mod(n, 1000) .eq. 0)then
         y_pred(:,:) = network%predict(input=x_test(:,:))
         mse = sum((y_pred - y_test)**2) / size(y_pred)
         write(*,'(I7,1X,F12.6)') n, mse

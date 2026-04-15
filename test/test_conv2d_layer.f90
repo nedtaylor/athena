@@ -109,7 +109,7 @@ program test_conv2d_layer
   output => conv_layer%output(1,1)
 
   !! check outputs have expected value
-  if (any(abs(output%val(:,1) - 0.5) .gt. tol)) then
+  if(any(abs(output%val(:,1) - 0.5) .gt. tol))then
      success = .false.
      write(*,*) 'conv2d layer with zero input and sigmoid activation must &
           &return outputs all equal to 0.5'
@@ -280,7 +280,7 @@ program test_conv2d_layer
   ! Check that read layer has correct properties
   select type(read_layer)
   type is (conv2d_layer_type)
-     if (.not. read_layer%name .eq. 'conv2d') then
+     if(.not. read_layer%name .eq. 'conv2d')then
         success = .false.
         write(0,*) 'read conv2d layer has wrong name'
      end if

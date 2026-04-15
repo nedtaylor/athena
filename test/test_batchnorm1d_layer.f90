@@ -172,7 +172,7 @@ program test_batchnorm1d_layer
 
   !! check outputs all get normalised to zero
   write(*,*) "Checking output values..."
-  if (any(output_3d(:,1,:)-beta.gt. tol)) then
+  if(any(output_3d(:,1,:)-beta.gt. tol))then
      success = .false.
      write(0,*) 'batchnorm1d layer forward pass failed: &
           &output should all equal beta'
@@ -199,7 +199,7 @@ program test_batchnorm1d_layer
   do i = 1, width
      mean = sum(output_3d(1,i,:))/real(batch_size)
      std = sqrt(sum((output_3d(1,i,:) - mean)**2)/real(batch_size))
-     if (abs(mean - beta) .gt. 1.E-3) then
+     if(abs(mean - beta) .gt. 1.E-3)then
         success = .false.
         write(0,*) 'batchnorm1d layer forward pass failed: &
              &mean should equal beta'
@@ -207,7 +207,7 @@ program test_batchnorm1d_layer
      end if
      !! check std is close to gamma
      !! does not have to be exact due to random numbers and batch size
-     if (std .gt. gamma) then
+     if(std .gt. gamma)then
         success = .false.
         write(0,*) 'batchnorm1d layer forward pass failed: &
              &std should equal gamma'
@@ -239,19 +239,19 @@ program test_batchnorm1d_layer
      do i = 1, width
         mean = sum(input_3d(1,i,:))/real(batch_size)
         std = sqrt(sum((input_3d(1,i,:) - mean)**2)/real(batch_size))
-        if (abs(mean) .gt. tol) then
+        if(abs(mean) .gt. tol)then
            success = .false.
            write(0,*) 'batchnorm1d layer backward pass failed: &
                 &mean gradient should be zero'
         end if
         !! does not have to be exact due to random numbers and batch size
-        if (abs(std) .gt. 1.E-2) then
+        if(abs(std) .gt. 1.E-2)then
            success = .false.
            write(0,*) 'batchnorm1d layer backward pass failed: &
                 &std gradient should equal gamma'
         end if
-        if (abs(params_grad%val(current%num_channels+i,1) - &
-             sum(gradient_3d(1,i,:))) .gt. tol) then
+        if(abs(params_grad%val(current%num_channels+i,1) - &
+             sum(gradient_3d(1,i,:))) .gt. tol)then
            success = .false.
            write(0,*) 'batchnorm1d layer backward pass failed: &
                 &std gradient should equal sum of gradients'
@@ -273,7 +273,7 @@ program test_batchnorm1d_layer
   class is(learnable_layer_type)
      !! check parameters
      num_params = bn_layer%get_num_params()
-     if (num_params .ne. 2 * width)then
+     if(num_params .ne. 2 * width)then
         write(0,*) 'batchnorm1d layer has wrong number of parameters'
         success = .false.
      end if
@@ -396,7 +396,7 @@ program test_batchnorm1d_layer
   ! Check that read layer has correct properties
   select type(read_layer)
   type is (batchnorm1d_layer_type)
-     if (.not. read_layer%name .eq. 'batchnorm1d') then
+     if(.not. read_layer%name .eq. 'batchnorm1d')then
         success = .false.
         write(0,*) 'read batchnorm1d layer has wrong name'
      end if

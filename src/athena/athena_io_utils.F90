@@ -4,7 +4,7 @@ module athena__io_utils
   !! This module provides the expected procedure for stopping a program.
   implicit none
 
-  character(len=*), parameter :: athena__version__ = "2.1.0"
+  character(len=*), parameter :: athena__version__ = "2.1.1"
 
   private
 

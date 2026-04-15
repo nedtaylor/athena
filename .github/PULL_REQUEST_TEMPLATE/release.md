@@ -35,6 +35,11 @@ The release includes bug fixes, improvements, and new features stabilised during
 * [ ] `fpm test` succeeds
 * [ ] `fpm run --example` succeeds
 
+### Pull Request
+
+* [ ] PR description updated with release notes
+* [ ] Use merge commit to preserve history (do not use squash or rebase)
+
 ---
 
 ## Changes in this Release
@@ -87,3 +92,4 @@ git push origin vX.Y.Z
 * [ ] Create GitHub release
 * [ ] Announce release if appropriate
 * [ ] Update package manager recipes
+* [ ] Update spack package, if applicable

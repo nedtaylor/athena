@@ -177,5 +177,5 @@ See Also
 --------
 
 * :ref:`neural_operator_layer_type <neural-operator-layer>` - Mean-field neural operator layer on regular discretisations
-* :ref:`laplace_nop_layer_type <laplace-nop-layer>` - Spectral neural operator layer with fixed Laplace bases
+* :ref:`fixed_lno_layer_type <fixed-lno-layer>` - Laplace neural operator layer with fixed encoder/decoder bases and spectral mixing
 * :ref:`kipf_msgpass_layer_type <kipf-msgpass-layer>` - Degree-normalised message passing layer

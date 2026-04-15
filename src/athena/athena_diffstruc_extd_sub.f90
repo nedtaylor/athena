@@ -81,7 +81,7 @@ contains
     output%indices(1) = dim
     if(dim_act_on_shape_)then
        num_dims = size(input%shape)
-       if(dim .gt. num_dims) then
+       if(dim .gt. num_dims)then
           call stop_program("Dimension for add_bias exceeds input dimensions")
           return
        elseif(size(bias%shape) .ne. 1)then
@@ -389,7 +389,7 @@ contains
     real(real32) :: dot
 
     output = 0.0_real32
-    if (this%indices(1) .eq. 1) then
+    if(this%indices(1) .eq. 1)then
        nsamp = size(this%val,1)
        nfeat = size(this%val,2)
        do s = 1, nsamp

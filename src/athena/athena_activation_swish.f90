@@ -69,7 +69,7 @@ contains
 
     if(present(beta)) activation%beta = beta
 
-    if(present(attributes)) then
+    if(present(attributes))then
        call activation%apply_attributes(attributes)
     end if
 
@@ -136,7 +136,7 @@ contains
        case("beta")
           read(attributes(i)%val,*) this%beta
        case("name")
-          if(trim(attributes(i)%val) .ne. trim(this%name)) then
+          if(trim(attributes(i)%val) .ne. trim(this%name))then
              call print_warning( &
                   'Swish activation: name attribute "' // &
                   trim(attributes(i)%val) // &

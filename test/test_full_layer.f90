@@ -121,7 +121,7 @@ program test_full_layer
   ! Check that read layer has correct properties
   select type(read_layer)
   type is (full_layer_type)
-     if (.not. read_layer%name .eq. 'full') then
+     if(.not. read_layer%name .eq. 'full')then
         success = .false.
         write(0,*) 'read full layer has wrong name'
      end if

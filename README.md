@@ -146,13 +146,14 @@ This runs a set of test programs (found within the test/ directory) to ensure th
 The library can also be installed using the Spack package manager. This can be achieved by running the following commands in the main directory:
 ```
 spack repo add .spack
-spack install athena
+spack install athena-fortran
 ```
 
 Currently, Spack compilation requires manual download of athena.
 
 > **_NOTE:_**
 There already exists an `athena` package directly on Spack, be aware that these are not related.
+This is why the package name for this library on Spack is `athena-fortran` instead of `athena`.
 
 
 
@@ -331,7 +332,6 @@ All files with the __sub_ suffix are the implementations of interfaces defined w
 |_fpm.toml_                         | [Fortran Package Manager (fpm)](https://github.com/fortran-lang/fpm) compilation file |
 |_LICENSE_                          | licence of athena code |
 |_README.md_                        | a readme file with a brief description of the code and files  |
-|_TODO_                             | todo-list in addition to useful machine learning and fortran references |
 |_cmake/CodeCoverage.cmake_         | [cmake-modules](https://github.com/rpavlik/cmake-modules) file to automate unit test coverage reporting|
 |_example/example_library_          | Utility library shared between the examples |
 |_example/__[_NAME_]__/expected_output.txt_   | expected output from executing [_NAME_] example program  |

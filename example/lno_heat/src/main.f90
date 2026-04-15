@@ -164,7 +164,16 @@ program laplace_neural_operator_heat
 
         call network%set_batch_size(1)
         call network%forward(inp)
+#ifdef __INTEL_COMPILER
+        if(.not.allocated(network%expected_array))then
+           allocate(network%expected_array(1,1))
+        else
+           call network%expected_array(1,1)%deallocate()
+        end if
+        call network%expected_array(1,1)%allocate(source=tgt(1,1))
+#else
         network%expected_array = tgt
+#endif
         call network%reset_gradients()
         loss => network%loss_eval(1, 1)
         train_mse = train_mse + loss%val(1,1)

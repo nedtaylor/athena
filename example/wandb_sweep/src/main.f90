@@ -71,7 +71,7 @@ program wandb_sweep_example
        sweep_id = sweep_id        &
   )
 
-  if(len_trim(sweep_id) == 0)then
+  if(len_trim(sweep_id) .eq. 0)then
      write(*,'(a)') "ERROR: failed to create sweep (is wandb logged in?)."
      stop 1
   end if
@@ -197,7 +197,7 @@ contains
        call loss%grad_reverse()
        call network%update()
 
-       if(mod(n, 500) == 0)then
+       if(mod(n, 500) .eq. 0)then
           y_pred = network%predict(input=x_test)
           mse    = sum((y_pred - y_test)**2) / real(TEST_SIZE, real32)
           call wandb_log("mse", mse, step=n)

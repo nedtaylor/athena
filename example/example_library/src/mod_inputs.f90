@@ -190,7 +190,7 @@ contains
 !-------------------------------------------------------------------------------
     flagloop: do i=1,command_argument_count()
        empty=.false.
-       if (skip) then
+       if(skip)then
           skip=.false.
           cycle flagloop
        end if

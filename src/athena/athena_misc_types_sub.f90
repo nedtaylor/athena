@@ -23,13 +23,13 @@ contains
     !! Resulting ONNX attribute
 
     if(len_trim(name) .gt. 64)then
-        attribute%name = name(1:64)
+       attribute%name = name(1:64)
     else
        attribute%name = trim(name)
     end if
 
     if(len_trim(type) .gt. 10)then
-        attribute%type = type(1:10)
+       attribute%type = type(1:10)
     else
        attribute%type = trim(type)
     end if
@@ -61,7 +61,7 @@ contains
 
     attributes = this%export_attributes()
 
-    if(present(identifier)) then
+    if(present(identifier))then
        write(unit,'(3X,"ACTIVATION: ",A)') trim(identifier)
     else
        write(unit,'(3X,"ACTIVATION")')
@@ -121,7 +121,7 @@ contains
        call stop_program("Invalid number of fixed dimensions")
        return
     end select
-    if(this%rank .lt. this%nfixed_dims) then
+    if(this%rank .lt. this%nfixed_dims)then
        call stop_program("Number of fixed dimensions exceeds rank")
        return
     end if
@@ -129,9 +129,9 @@ contains
 
     ! Allocate arrays
     !---------------------------------------------------------------------------
-    if (allocated(this%dim)) deallocate(this%dim)
-    if (allocated(this%orig_bound)) deallocate(this%orig_bound)
-    if (allocated(this%dest_bound)) deallocate(this%dest_bound)
+    if(allocated(this%dim)) deallocate(this%dim)
+    if(allocated(this%orig_bound)) deallocate(this%orig_bound)
+    if(allocated(this%dest_bound)) deallocate(this%dest_bound)
 
     allocate(this%dim(this%num))
     allocate(this%orig_bound(2, this%rank, this%num))
@@ -159,14 +159,14 @@ contains
              ! Set origin bounds
              select case(imethod)
              case(3) ! circular
-                if(j .eq. 1) then
+                if(j .eq. 1)then
                    this%orig_bound(:,i,facet_idx) = &
                         [ length(i) - pad(i) + 1, length(i) ]
                 else
                    this%orig_bound(:,i,facet_idx) = [ 1, pad(i) ]
                 end if
              case(4) ! reflection
-                if(j .eq. 1) then
+                if(j .eq. 1)then
                    this%orig_bound(:,i,facet_idx) = [ pad(i) + 1, 2 ]
                 else
                    this%orig_bound(:,i,facet_idx) = &
@@ -177,7 +177,7 @@ contains
              end select
 
              ! Set destination bounds
-             if(j .eq. 1) then
+             if(j .eq. 1)then
                 this%dest_bound(:,i,facet_idx) = [1, pad(i)]
              else
                 this%dest_bound(:,i,facet_idx) = &
@@ -204,14 +204,14 @@ contains
                 ! Set original bounds using binary pattern
                 select case(imethod)
                 case(3) ! circular
-                   if(btest_k1) then
+                   if(btest_k1)then
                       this%orig_bound(:,i,facet_idx) = &
                            [ 1, pad(i) ]
                    else
                       this%orig_bound(:,i,facet_idx) = &
                            [ length(i) - pad(i) + 1, length(i) ]
                    end if
-                   if(btest_k0) then
+                   if(btest_k0)then
                       this%orig_bound(:,j,facet_idx) = &
                            [ 1, pad(j) ]
                    else
@@ -249,7 +249,7 @@ contains
           this%dim(i) = 0  ! All dimensions are fixed
           ! Use binary pattern for all three dimensions
           do j = 1, this%rank
-             if(btest(i-1, this%rank-j)) then
+             if(btest(i-1, this%rank-j))then
                 this%orig_bound(:,j,i) = length(j)
                 this%dest_bound(:,j,i) = &
                      [ length(j) + pad(j) + 1, length(j) + pad(j) * 2 ]

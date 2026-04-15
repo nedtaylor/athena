@@ -1,0 +1,104 @@
+name: run-spack-install
+
+on:
+  push:
+    branches:
+      - main
+      - development
+    paths:
+      - '.github/workflows/spack.yml'
+      - '.spack/**'
+      - 'fpm.toml'
+      - '**.f90'
+  pull_request:
+    paths:
+      - '.github/workflows/spack.yml'
+      - '.spack/**'
+      - 'fpm.toml'
+      - '**.f90'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: spack
+  cancel-in-progress: false
+
+jobs:
+  install-with-spack:
+    name: Install with Spack (gcc-15)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [gcc]
+        version: [15]
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 2
+          submodules: false
+
+      - name: Set up Spack
+        uses: spack/setup-spack@v3
+        with:
+          spack_ref: releases/v1.0
+          packages_ref: v2025.11.0
+          buildcache: true
+
+      - name: Setup compiler toolchain
+        uses: fortran-lang/setup-fortran@v1
+        id: setup-fortran
+        with:
+          compiler: ${{ matrix.compiler }}
+          version: ${{ matrix.version }}
+
+      - name: Register setup-fortran compiler with Spack
+        shell: bash -l {0}
+        run: |
+          # 1. Spack needs to know about the compiler setup-fortran just installed
+          # The compiler is usually available in the environment variables set by setup-fortran
+          # We force Spack to scan the environment/paths to find it
+          spack compiler find --scope user
+          spack compiler find
+
+          spack compiler add $(which gfortran)
+
+          # 2. Verify Spack sees it (e.g., gfortran)
+          spack compilers
+
+      - name: Install athena with Spack
+        shell: bash -l {0}
+        run: |
+          set -euo pipefail
+
+          export SPACK_DISABLE_LOCAL_CONFIG=1
+          export SPACK_USER_CACHE_PATH="$RUNNER_TEMP/spack-cache"
+          export SPACK_USER_CONFIG_PATH="$RUNNER_TEMP/spack-config"
+
+          echo "Add local Spack repo with athena-fortran package"
+          # Add local repo
+          spack repo add "$GITHUB_WORKSPACE/.spack"
+
+          # Debug info
+          spack info athena-fortran
+          spack spec athena-fortran %gcc@15 ^openblas
+
+          # Use binaries whenever possible
+          spack install athena-fortran %gcc@15 ^openblas \
+            --use-buildcache \
+            --show-log-on-error
+
+      - name: Verify installed prefix
+        shell: bash -l {0}
+        run: |
+          set -euo pipefail
+
+          prefix="$(spack location -i athena-fortran)"
+
+          test -f "$prefix/include/athena.mod"
+          test -f "$prefix/lib/libathena.a"
+
+          spack find --paths athena-fortran

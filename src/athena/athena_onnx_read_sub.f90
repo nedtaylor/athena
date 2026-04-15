@@ -1931,7 +1931,7 @@ contains
        if(trim(prefixes(i)) .eq. trim(prefix)) return
     end do
 
-    prefixes = [prefixes, trim(prefix)]
+    prefixes = [prefixes, prefix]
 
   end subroutine append_unique_onnx_expanded_prefix
 !###############################################################################
@@ -2056,7 +2056,7 @@ contains
        end do
 
        if(index(op_type_name, 'Pool', back=.true.) .eq. &
-            len_trim(op_type_name) - 3) then
+            len_trim(op_type_name) - 3)then
           n_kernel_dims = 0
           if(allocated(nodes(i)%attributes))then
              do j = 1, size(nodes(i)%attributes)

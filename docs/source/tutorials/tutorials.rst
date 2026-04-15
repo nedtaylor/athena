@@ -40,7 +40,8 @@ Welcome to the athena tutorials! These guides will help you get started with bui
    custom_loss
 
 
-.. rubric:: Next Steps
+Next Steps
+----------
 
 For specific information about layers, activations, and other components, see:
 

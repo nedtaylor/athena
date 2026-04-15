@@ -15,6 +15,7 @@ Swish Activation
 
 
 The Swish activation function is a self-gated activation function.
+TThis activation function is also known as SiLU (Sigmoid Linear Unit).
 
 .. math::
 

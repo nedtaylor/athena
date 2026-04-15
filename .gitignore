@@ -22,6 +22,7 @@ doc/html/
 *.json
 mod/
 __pycache__/
+_build/
 wandb/
 *.err
 tools/D_*
@@ -39,6 +40,7 @@ example/bin/
 example/obj/
 DPython_test/
 settings.json
+.actrc
 docs/_build/
 .local-pre-commit-config.yaml
 example/*/data/*.txt

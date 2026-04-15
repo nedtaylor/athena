@@ -141,7 +141,7 @@ contains
        out_idx = i + (c_out-1)*output_h
        grad_val = upstream_grad(out_idx, s)
 
-       if(abs(grad_val) > 1.e-30_real32)then
+       if(abs(grad_val) .gt. 1.e-30_real32)then
           do k = 1, kernel_h
              i_in = ( i - 1 ) * stride + ( k - 1 ) * dilation + 1
              if(i_in .ge. 1 .and. i_in .le. input_h)then
@@ -767,15 +767,15 @@ contains
                    do s = 1, size(upstream_grad, dim=2)
                       do k = 1, output_d
                          k_in = (k-1)*stride(3) + (kk-1)*dilation(3) + 1
-                         if(k_in >= 1 .and. k_in <= input_d)then
+                         if(k_in .ge. 1 .and. k_in .le. input_d)then
                             do j = 1, output_w
                                j_in = (j-1)*stride(2) + &
                                     (kj-1)*dilation(2) + 1
-                               if(j_in >= 1 .and. j_in <= input_w)then
+                               if(j_in .ge. 1 .and. j_in .le. input_w)then
                                   do i = 1, output_h
                                      i_in = (i-1)*stride(1) + &
                                           (ki-1)*dilation(1) + 1
-                                     if(i_in >= 1 .and. i_in <= input_h)then
+                                     if(i_in .ge. 1 .and. i_in .le. input_h)then
                                         in_idx = i_in + (j_in-1)*input_h + &
                                              (k_in-1)*input_h*input_w + &
                                              (c_in-1)*channel_size_in

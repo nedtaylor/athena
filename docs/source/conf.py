@@ -55,7 +55,6 @@ extensions = [
     'sphinx.ext.intersphinx',
     'sphinx.ext.napoleon',
     'sphinx.ext.viewcode',
-    'sphinx_rtd_theme',
     'sphinx.ext.extlinks',
     'sphinx_copybutton'
 ]
@@ -70,52 +69,43 @@ intersphinx_mapping = {
 }
 intersphinx_disabled_domains = ['std']
 
-templates_path = ['_templates']
-
 exclude_patterns = ['_build', '.DS_Store', 'build']
 
-# -- Search aliases extension
-
-sys.path.append(os.path.abspath('_ext'))
-
-extensions.append('spelling_aliases')
+# # -- Search aliases extension
+# sys.path.append(os.path.abspath('_ext'))
+# extensions.append('spelling_aliases')
 
 # -- Options for HTML output
 
-html_theme = 'sphinx_rtd_theme' # 'sphinx_book_theme'
+html_theme = 'furo'
+
+templates_path = ['_templates']
 
 # Add path for static files (will include FORD output)
 html_static_path = ['_static']
 html_css_files = [
-    "custom.css"
+    "custom.css",
 ]
 
 html_theme_options = {
-    'logo_only': False,
-    'prev_next_buttons_location': 'bottom',
-    'style_external_links': False,
-    'vcs_pageview_mode': '',
-    # 'style_nav_header_background': 'white',
-    'flyout_display': 'hidden',
-    'version_selector': True,
-    'language_selector': True,
     # Toc options
-    'collapse_navigation': True,
-    'sticky_navigation': True,
-    'navigation_depth': 4,
-    'includehidden': True,
-    'titles_only': False,
-    'use_edit_page_button': True,
-    'use_repository_button': True,
+    # 'home_page_in_toc': True,
+    # 'show_toc_level': 2,  # Sidebar shows subsections down to level 2
+    # 'navigation_depth': 4,
+    # 'collapse_navigation': True,
+    "top_of_page_buttons": [ "view", "edit" ],
+    "source_repository": "https://github.com/nedtaylor/athena/",
+    "source_branch": git_branch,
+    "source_directory": "docs/source/",
 }
-
 
 html_context = {
     "display_github": True,
     "github_repo": "athena",
     "github_user": "nedtaylor",
-    "github_version": "main",
-    "conf_py_path": "/docs/source/",
+    "github_version": git_branch,
+    "conf_py_path": "docs/source/",
+    "page_source_suffix": ".rst",
 }
 
 # -- Options for EPUB output

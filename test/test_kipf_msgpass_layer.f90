@@ -191,7 +191,7 @@ program test_kipf_msgpass_layer
   ! Check that read layer has correct properties
   select type(read_layer)
   type is (kipf_msgpass_layer_type)
-     if (.not. read_layer%name .eq. 'kipf') then
+     if(.not. read_layer%name .eq. 'kipf')then
         success = .false.
         write(0,*) 'read kipf layer has wrong name'
      end if

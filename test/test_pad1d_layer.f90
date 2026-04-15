@@ -494,7 +494,7 @@ program test_pad1d_layer
        call pad1d_layer%extract_output(output_2d)
 
        ! For zero padding, check that padding is actually zero
-       if(test_paddings(i) > 0)then
+       if(test_paddings(i) .gt. 0)then
           if(any(abs(output_2d(1:test_paddings(i),:)) .gt. tol) .or. &
                any(abs(output_2d(expected_widths_pad(i)-test_paddings(i)+1: &
                     expected_widths_pad(i),:)) .gt. tol))then

@@ -102,7 +102,7 @@ contains
     c%get_partial_right    => get_partial_gno_kernel_params
     c%get_partial_left_val => get_partial_gno_kernel_coords_val
     c%get_partial_right_val => get_partial_gno_kernel_params_val
-    if(coords%requires_grad .or. kernel_params%requires_grad) then
+    if(coords%requires_grad .or. kernel_params%requires_grad)then
        c%requires_grad    = .true.
        c%is_forward       = coords%is_forward .or. kernel_params%is_forward
        c%operation        = 'gno_kernel_eval'
@@ -192,7 +192,7 @@ contains
        dx = this%left_operand%val(:, e)
        pre_act = matmul(U, dx) + b_u
        do k = 1, H
-          if(pre_act(k) > 0.0_real32) then
+          if(pre_act(k) .gt. 0.0_real32)then
              relu_mask(k) = 1.0_real32
           else
              relu_mask(k) = 0.0_real32
@@ -201,7 +201,7 @@ contains
 
        dkappa_ddx = 0.0_real32
        do k = 1, H
-          if(relu_mask(k) > 0.0_real32) then
+          if(relu_mask(k) .gt. 0.0_real32)then
              dkappa_ddx = dkappa_ddx + &
                   spread(V(:, k), 2, d) * spread(U(k, :), 1, F)
           end if
@@ -304,7 +304,7 @@ contains
        ! --- Backprop through relu: grad_hidden = V^T @ upstream(:,e) * relu' ---
        grad_hidden = matmul(transpose(V), upstream_grad(:, e))
        do k = 1, H
-          if(pre_act(k) <= 0.0_real32) grad_hidden(k) = 0.0_real32
+          if(pre_act(k) .le. 0.0_real32) grad_hidden(k) = 0.0_real32
        end do
 
        ! --- d/d(b_u): grad_hidden directly ---
@@ -384,7 +384,7 @@ contains
     c%get_partial_right    => get_partial_gno_agg_kernels
     c%get_partial_left_val => get_partial_gno_agg_features_val
     c%get_partial_right_val => get_partial_gno_agg_kernels_val
-    if(features%requires_grad .or. edge_kernels%requires_grad) then
+    if(features%requires_grad .or. edge_kernels%requires_grad)then
        c%requires_grad    = .true.
        c%is_forward       = features%is_forward .or. edge_kernels%is_forward
        c%operation        = 'gno_aggregate'
@@ -568,7 +568,7 @@ contains
     ! Build encoder basis E [M x n_in]
     allocate(E(num_modes, num_inputs))
     do j = 1, num_inputs
-       if(num_inputs .gt. 1) then
+       if(num_inputs .gt. 1)then
           t = real(j-1, real32) / real(num_inputs-1, real32)
        else
           t = 0.0_real32
@@ -593,7 +593,7 @@ contains
     c%get_partial_right    => get_partial_lno_encode_poles
     c%get_partial_left_val => get_partial_lno_encode_input_val
     c%get_partial_right_val => get_partial_lno_encode_poles_val
-    if(input%requires_grad .or. poles%requires_grad) then
+    if(input%requires_grad .or. poles%requires_grad)then
        c%requires_grad    = .true.
        c%is_forward       = input%is_forward .or. poles%is_forward
        c%operation        = 'lno_encode'
@@ -642,7 +642,7 @@ contains
     do mode_index = 1, num_modes
        mu_m = this%right_operand%val(mode_index, 1)
        do j = 1, n_in
-          if(n_in .gt. 1) then
+          if(n_in .gt. 1)then
              t = real(j-1, real32) / real(n_in-1, real32)
           else
              t = 0.0_real32
@@ -696,7 +696,7 @@ contains
           mu_m = this%right_operand%val(mode_index, 1)
           accum = 0.0_real32
           do j = 1, n_in
-             if(n_in .gt. 1) then
+             if(n_in .gt. 1)then
                 t = real(j-1, real32) / real(n_in-1, real32)
              else
                 t = 0.0_real32
@@ -751,7 +751,7 @@ contains
     do m = 1, num_modes
        s = poles%val(m, 1)
        do i = 1, num_outputs
-          if(num_outputs .gt. 1) then
+          if(num_outputs .gt. 1)then
              t = real(i-1, real32) / real(num_outputs-1, real32)
           else
              t = 0.0_real32
@@ -774,7 +774,7 @@ contains
     c%get_partial_right    => get_partial_lno_decode_poles
     c%get_partial_left_val => get_partial_lno_decode_spectral_val
     c%get_partial_right_val => get_partial_lno_decode_poles_val
-    if(spectral%requires_grad .or. poles%requires_grad) then
+    if(spectral%requires_grad .or. poles%requires_grad)then
        c%requires_grad    = .true.
        c%is_forward       = spectral%is_forward .or. poles%is_forward
        c%operation        = 'lno_decode'
@@ -823,7 +823,7 @@ contains
     do mode_index = 1, num_modes
        mu_m = this%right_operand%val(mode_index, 1)
        do i = 1, n_out
-          if(n_out .gt. 1) then
+          if(n_out .gt. 1)then
              t = real(i-1, real32) / real(n_out-1, real32)
           else
              t = 0.0_real32
@@ -877,7 +877,7 @@ contains
           mu_m = this%right_operand%val(mode_index, 1)
           accum = 0.0_real32
           do i = 1, n_out
-             if(n_out .gt. 1) then
+             if(n_out .gt. 1)then
                 t = real(i-1, real32) / real(n_out-1, real32)
              else
                 t = 0.0_real32
@@ -926,7 +926,7 @@ contains
     c%get_partial_right    => null()
     c%get_partial_left_val  => get_partial_elem_scale_input_val
     c%get_partial_right_val => get_partial_elem_scale_scale_val
-    if(input%requires_grad .or. scale%requires_grad) then
+    if(input%requires_grad .or. scale%requires_grad)then
        c%requires_grad    = .true.
        c%is_forward       = input%is_forward .or. scale%is_forward
        c%operation        = 'elem_scale'
@@ -1068,7 +1068,7 @@ contains
     c%get_partial_right    => get_partial_ono_encode_basis
     c%get_partial_left_val => get_partial_ono_encode_input_val
     c%get_partial_right_val => get_partial_ono_encode_basis_val
-    if(input%requires_grad .or. basis_weights%requires_grad) then
+    if(input%requires_grad .or. basis_weights%requires_grad)then
        c%requires_grad    = .true.
        c%is_forward       = input%is_forward .or. basis_weights%is_forward
        c%operation        = 'ono_encode'
@@ -1122,7 +1122,7 @@ contains
           Q(:,j) = Q(:,j) - proj * Q(:,i)
        end do
        norm_val = sqrt(dot_product(Q(:,j), Q(:,j)))
-       if(norm_val .gt. 1.0e-12_real32) then
+       if(norm_val .gt. 1.0e-12_real32)then
           Q(:,j) = Q(:,j) / norm_val
        else
           Q(:,j) = 0.0_real32
@@ -1186,7 +1186,7 @@ contains
           Q(:,j) = Q(:,j) - R(i,j) * Q(:,i)
        end do
        R(j,j) = sqrt(dot_product(Q(:,j), Q(:,j)))
-       if(R(j,j) .gt. 1.0e-12_real32) then
+       if(R(j,j) .gt. 1.0e-12_real32)then
           Q(:,j) = Q(:,j) / R(j,j)
        else
           Q(:,j) = 0.0_real32
@@ -1213,7 +1213,7 @@ contains
 
        do j = k, 1, -1
           norm_j = R(j, j)
-          if(norm_j .le. 1.0e-12_real32) then
+          if(norm_j .le. 1.0e-12_real32)then
              dB(:,j) = 0.0_real32
              cycle
           end if
@@ -1313,7 +1313,7 @@ contains
     c%get_partial_right    => get_partial_ono_decode_basis
     c%get_partial_left_val => get_partial_ono_decode_mixed_val
     c%get_partial_right_val => get_partial_ono_decode_basis_val
-    if(mixed%requires_grad .or. basis_weights%requires_grad) then
+    if(mixed%requires_grad .or. basis_weights%requires_grad)then
        c%requires_grad    = .true.
        c%is_forward       = mixed%is_forward .or. basis_weights%is_forward
        c%operation        = 'ono_decode'
@@ -1367,7 +1367,7 @@ contains
           Q(:,j) = Q(:,j) - proj * Q(:,i)
        end do
        norm_val = sqrt(dot_product(Q(:,j), Q(:,j)))
-       if(norm_val .gt. 1.0e-12_real32) then
+       if(norm_val .gt. 1.0e-12_real32)then
           Q(:,j) = Q(:,j) / norm_val
        else
           Q(:,j) = 0.0_real32
@@ -1437,7 +1437,7 @@ contains
           Q(:,j) = Q(:,j) - R(i,j) * Q(:,i)
        end do
        R(j,j) = sqrt(dot_product(Q(:,j), Q(:,j)))
-       if(R(j,j) .gt. 1.0e-12_real32) then
+       if(R(j,j) .gt. 1.0e-12_real32)then
           Q(:,j) = Q(:,j) / R(j,j)
        else
           Q(:,j) = 0.0_real32
@@ -1464,7 +1464,7 @@ contains
 
        do j = k, 1, -1
           norm_j = R(j, j)
-          if(norm_j .le. 1.0e-12_real32) then
+          if(norm_j .le. 1.0e-12_real32)then
              dB(:,j) = 0.0_real32
              cycle
           end if
