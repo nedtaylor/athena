@@ -20,22 +20,28 @@ Internal version numbers remain `X.Y.Z`.
 
 ## Statement of need
 
-The athena library leverages Fortran's strong support of array arithmatics, and its compatibility with parallel and high-performance computing resources.
-Additionally, there exist many improvements made available since Fortran 95, specifically in Fortran 2018 [(Reid 2018)](#references) (and ones in Fortran 2023), as well as continued development by the Fortran Standards committee.
-All of this provides a clear incentive to develop further libraries and frameworks focused on providing machine learning capabilities to the Fortran community.
+The increasing use of machine learning in scientific computing has created demand for tools that integrate naturally with established simulation codes.
+While Python-based frameworks dominate the machine learning ecosystem, their use within large-scale Fortran codes typically requires wrappers, inter-language interfaces, or separate training pipelines, adding complexity and maintenance overhead.
 
-While existing Fortran-based libraries, such as neural-fortran [(Curcic 2019)](#references), address many aspects of neural networks,
-athena provides implementation of some well-known features not currently available within other libraries; these features include batchnormalisation, regularisation layers (such as dropout and dropblock), and average pooling layers.
-Additionally, the library provides support for 1, 2, and 3D input data for most features currently implemented; this includes 1, 2, and 3D data for convolutional layers.
-The athena library also supports many convolutional techniques, including various data padding types, and stride.
-Building on this, the library also supports strongly physics-focused architectures through providing capabilties of graph neural networks through the inclusion of message passing layers and physics informed neural networks through its use of automatic differentiation.
+Existing Fortran machine learning libraries such as [neural-fortran](https://github.com/modern-fortran/neural-fortran) [(Curcic, 2019)](#references) and [Fiats](https://github.com/BerkeleyLab/fiats) [(Rouson, 2025)](#references) provide efficient implementations of core neural network functionality for high-performance computing, but are generally focused on standard architectures and offer more limited support for the broader range of models used in scientific machine learning.
 
-One of the primary intended applications of athena is in materials science, which heavily utilises convolutional and graph neural networks for learning based on charge densities and atomic structures.
-Given the unique data structure of atomic configurations, specifically their graph-based nature, a specialised API must be developed to accommodate these needs.
+athena addresses this by providing a fully extensible framework for building, training, and deploying modern neural networks directly in Fortran.
+In particular, it supports a range of approaches that are becoming central in scientific applications, including:
+
+- Graph neural networks for atomistic systems and structured data
+- Physics-informed neural networks for solving partial differential equations
+- Neural operators for learning mappings between functional spaces
+- Inverse design methods for optimising inputs to achieve target outputs
+
+The library is designed around abstract interfaces for core components—including layers, activations, optimisers, and loss functions—allowing new functionality to be added via external modules without modifying the core codebase, in line with SOLID design principles.
+It also provides native support for graph-structured data and integrates automatic differentiation within the framework, enabling flexible definition of custom computational graphs and training procedures without reliance on external tooling.
+
+By enabling end-to-end machine learning workflows in Fortran, athena removes the need for cross-language integration layers and is particularly suited to existing large-scale simulation codes in materials science, plasma physics, and computational fluid dynamics.
+
 
 ### References
-- Reid, J. (2018). The new features of fortran 2018. SIGPLAN Fortran Forum, 37(1), 5–43. https://doi.org/10.1145/3206214.3206215
 - Curcic, M. (2019). A parallel fortran framework for neural networks and deep learning. SIGPLAN Fortran Forum, 38(1), 4–21. https://doi.org/10.1145/3323057.3323059
+- Rouson et al., (2025). Fiats: Functional inference and training for surrogates. Journal of Open Source Software, 10(116), 8785, https://doi.org/10.21105/joss.08785
 
 
 Documentation
