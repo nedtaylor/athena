@@ -10,7 +10,7 @@ You can browse the complete API documentation here:
 .. raw:: html
 
    <div style="margin: 20px 0;">
-      <a href="_static/ford/index.html" target="_blank" class="btn btn-primary">
+      <a href="_static/ford/index.html" target="_blank" class="btn btn-primary text-white">
          📚 Open FORD API Documentation
       </a>
    </div>

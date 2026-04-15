@@ -20,7 +20,8 @@ The format of names and arguments are made to closely align with industry standa
 
 The code is freely available under the `MIT License <https://opensource.org/licenses/MIT>`_.
 
-.. rubric:: Footnotes
+Footnotes
+---------
 
 .. [#f1] The open-closed principle is a software design principle that states that software entities (modules, functions, derived types, etc.) should be open for extension but closed for modification.
    This means that the behaviour of a module can be extended without modifying its source code, typically through mechanisms such as inheritance, interfaces, and composition.
