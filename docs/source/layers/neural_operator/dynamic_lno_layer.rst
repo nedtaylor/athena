@@ -128,5 +128,5 @@ See Also
 --------
 
 * :ref:`neural_operator_layer_type <neural-operator-layer>` - Simpler mean-field neural operator layer
-* :ref:`fixed_lno_layer_type <laplace-nop-layer>` - Laplace neural operator layer with fixed encoder/decoder bases and spectral mixing
+* :ref:`fixed_lno_layer_type <fixed-lno-layer>` - Laplace neural operator layer with fixed encoder/decoder bases and spectral mixing
 * :ref:`full_layer_type <full-layer>` - Standard dense layer

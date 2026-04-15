@@ -176,5 +176,5 @@ See Also
 
 * :ref:`orthogonal_nop_block_type <orthogonal-nop-block>` - Orthogonal neural operator block with spectral mixing on the same learned basis
 * :ref:`neural_operator_layer_type <neural-operator-layer>` - Simpler mean-field neural operator layer
-* :ref:`laplace_nop_layer_type <laplace-nop-layer>` - Spectral neural operator layer with fixed bases
+* :ref:`fixed_lno_layer_type <fixed-lno-layer>` - Laplace neural operator layer with fixed encoder/decoder bases and spectral mixing
 * :ref:`full_layer_type <full-layer>` - Standard dense layer

@@ -136,7 +136,7 @@ Notes
 -----
 
 * Smaller ``num_basis`` gives a cheaper low-rank operator but can limit spectral expressiveness.
-* The basis is learned from data rather than fixed analytically, unlike :ref:`laplace_nop_layer_type <laplace-nop-layer>`.
+* The basis is learned from data rather than fixed analytically, unlike :ref:`fixed_lno_layer_type <fixed-lno-layer>`.
 * The orthogonality quality can be monitored through the block's ``get_orthogonality_metric()`` method, which reports :math:`\max |\mathbf{\Phi}^T\mathbf{\Phi} - \mathbf{I}|`.
 * In the current implementation, the same matrix :math:`\mathbf{W}` is used for both the local bypass and the decoded spectral projection.
 
@@ -144,6 +144,6 @@ See Also
 --------
 
 * :ref:`orthogonal_attention_layer_type <orthogonal-attention-layer>` - Orthogonal attention layer built from the same learned low-rank basis idea
-* :ref:`laplace_nop_layer_type <laplace-nop-layer>` - Spectral neural operator layer with fixed bases
+* :ref:`fixed_lno_layer_type <fixed-lno-layer>` - Laplace neural operator layer with fixed encoder/decoder bases and spectral mixing
 * :ref:`neural_operator_layer_type <neural-operator-layer>` - Simpler mean-field neural operator layer
 * :ref:`full_layer_type <full-layer>` - Standard dense layer

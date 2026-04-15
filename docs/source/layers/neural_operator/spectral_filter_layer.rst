@@ -127,6 +127,6 @@ See Also
 --------
 
 * :ref:`neural_operator_layer_type <neural-operator-layer>` - Mean-field neural operator layer
-* :ref:`fixed_lno_layer_type <fixed-lno-layer>` - Laplace neural operator with pole-residue spectral mixing
+* :ref:`fixed_lno_layer_type <fixed-lno-layer>` - Laplace neural operator layer with fixed encoder/decoder bases and spectral mixing
 * :ref:`dynamic_lno_layer_type <dynamic-lno-layer>` - Laplace neural operator with learnable encoder/decoder bases
 * :ref:`full_layer_type <full-layer>` - Standard dense layer
