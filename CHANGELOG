@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed intel ifx compilation issues in examples and associated source code
 - Fixed orthogonal attention forward pass implementation
 - Fixed conditional formatting consistency, such as spacing, and symbol choice
+- Fixed fixed laplace neural operator layer documentation and naming consistency
 
 ## Changed
 - Renamed spack package from "athena" to "athena-fortran" to avoid conflicts with the existing "athena" package. Please update references as appropriate
