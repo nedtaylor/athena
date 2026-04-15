@@ -5,7 +5,6 @@ on:
     branches:
       - main
       - development
-      - 'releases/**'
     paths:
       - '.github/workflows/spack.yml'
       - '.spack/**'
@@ -30,71 +29,76 @@ jobs:
   install-with-spack:
     name: Install with Spack (gcc-15)
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [gcc]
+        version: [15]
     steps:
-      - name: checkout repo
-        uses: actions/checkout@v4
+      - name: Checkout repo
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 2
+          submodules: false
 
-      - name: Install compiler + system dependencies
-        shell: bash
-        run: |
-          sudo apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y software-properties-common curl file git
-          sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
-          sudo apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
-            bzip2 \
-            gcc-15 \
-            g++-15 \
-            gfortran-15 \
-            libopenblas-dev \
-            make \
-            patch \
-            pkg-config \
-            unzip \
-            xz-utils \
-            zstd
+      - name: Set up Spack
+        uses: spack/setup-spack@v3
+        with:
+          spack_ref: releases/v1.0
+          packages_ref: v2025.11.0
+          buildcache: true
 
-      - name: Clone Spack
-        shell: bash
+      - name: Setup compiler toolchain
+        uses: fortran-lang/setup-fortran@v1
+        id: setup-fortran
+        with:
+          compiler: ${{ matrix.compiler }}
+          version: ${{ matrix.version }}
+
+      - name: Register setup-fortran compiler with Spack
+        shell: bash -l {0}
         run: |
-          spack_root="$RUNNER_TEMP/spack"
-          git clone --depth 1 https://github.com/spack/spack.git "$spack_root"
-          echo "SPACK_ROOT=$spack_root" >> "$GITHUB_ENV"
+          # 1. Spack needs to know about the compiler setup-fortran just installed
+          # The compiler is usually available in the environment variables set by setup-fortran
+          # We force Spack to scan the environment/paths to find it
+          spack compiler find --scope user
+          spack compiler find
+
+          spack compiler add $(which gfortran)
+
+          # 2. Verify Spack sees it (e.g., gfortran)
+          spack compilers
 
       - name: Install athena with Spack
         shell: bash -l {0}
         run: |
           set -euo pipefail
 
-          source "$SPACK_ROOT/share/spack/setup-env.sh"
-
           export SPACK_DISABLE_LOCAL_CONFIG=1
           export SPACK_USER_CACHE_PATH="$RUNNER_TEMP/spack-cache"
           export SPACK_USER_CONFIG_PATH="$RUNNER_TEMP/spack-config"
 
-          compiler_version="$(gfortran-15 -dumpfullversion -dumpversion)"
-
-          spack compiler find /usr/bin
-          spack config add "packages:all:compiler:[gcc@${compiler_version}]"
-          spack external find --not-buildable openblas || true
+          echo "Add local Spack repo with athena-fortran package"
+          # Add local repo
           spack repo add "$GITHUB_WORKSPACE/.spack"
 
+          # Debug info
           spack info athena-fortran
-          spack spec athena-fortran
-          spack install --fresh --show-log-on-error athena-fortran
+          spack spec athena-fortran %gcc@15 ^openblas
+
+          # Use binaries whenever possible
+          spack install athena-fortran %gcc@15 ^openblas \
+            --use-buildcache \
+            --show-log-on-error
 
       - name: Verify installed prefix
         shell: bash -l {0}
         run: |
           set -euo pipefail
 
-          source "$SPACK_ROOT/share/spack/setup-env.sh"
-
-          export SPACK_DISABLE_LOCAL_CONFIG=1
-          export SPACK_USER_CACHE_PATH="$RUNNER_TEMP/spack-cache"
-          export SPACK_USER_CONFIG_PATH="$RUNNER_TEMP/spack-config"
-
           prefix="$(spack location -i athena-fortran)"
+
           test -f "$prefix/include/athena.mod"
           test -f "$prefix/lib/libathena.a"
+
           spack find --paths athena-fortran

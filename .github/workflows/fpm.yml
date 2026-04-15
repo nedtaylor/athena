@@ -5,7 +5,6 @@ on:
     branches:
       - main
       - development
-      - 'releases/**'
     paths:
       - ".github/workflows/fpm.yml"
       - "fpm.toml"

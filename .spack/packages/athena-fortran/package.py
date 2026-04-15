@@ -31,13 +31,11 @@ class AthenaFortran(CMakePackage):
     variant("mpi", default=False, description="Enable MPI support")
 
     # --- Dependencies ---
-    depends_on("cmake@3.18:", type="build")
-
     depends_on("mpi", when="+mpi")
-
-    # Use virtual deps but constrain providers safely
-    depends_on("blas")
-    depends_on("lapack")
+    depends_on("openblas")
+#    depends_on("cmake@3.18:", type="build")
+#    depends_on("gcc@15:", type="build")  # for Fortran compiler
+    depends_on("fortran", type="build")  # generated
 
     # --- Compiler constraints ---
     conflicts("%gcc@:14.2", when="@main", msg="Requires GCC 14.3 or later for Fortran support")

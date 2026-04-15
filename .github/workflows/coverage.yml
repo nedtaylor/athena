@@ -51,15 +51,14 @@ jobs:
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y software-properties-common
           sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
           sudo apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y cmake gcc-15 gfortran-15 gcovr python3-pip libblas-dev liblapack-dev
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y cmake gcc-15 gfortran-15
           sudo update-alternatives --install /usr/bin/gfortran gfortran /usr/bin/gfortran-15 150
 
-      - name: Install runner dependencies (Ubuntu)
-        if: github.actor != 'nektos/act'
+      - name: Install runner dependencies
         shell: bash
         run: |
           sudo apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y gcovr python3-pip libblas-dev liblapack-dev
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y gcovr python3-pip
 
       - name: Setup CMake
         if: github.actor != 'nektos/act'
