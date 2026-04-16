@@ -37,6 +37,7 @@ module athena
   use athena__optimiser, only: &
        base_optimiser_type, &
        sgd_optimiser_type, &
+       plp_optimiser_type, &
        rmsprop_optimiser_type, &
        adagrad_optimiser_type, &
        adam_optimiser_type

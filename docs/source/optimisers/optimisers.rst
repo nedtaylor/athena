@@ -11,6 +11,7 @@ The athena library implements several popular optimisation algorithms, each with
    :caption: Available Optimisers
 
    sgd
+   plp
    adam
    rmsprop
    adagrad

@@ -32,6 +32,12 @@ module athena__optimiser
   !!   θ_{t+1} = θ_t - η * m̂ / (sqrt(v̂) + ε)
   !!   Combines momentum and adaptive learning rates, most popular choice
   !!
+  !! PLP (Parameters Linear Prediction):
+  !!   store p₁, p₂, p₃ from three consecutive SGD-style updates
+  !!   m₁₂ = (p₁ + p₂)/2,  m₂₃ = (p₂ + p₃)/2
+  !!   p_pred = m₂₃ + (m₂₃ - m₁₂)
+  !!   Applies a three-point linear extrapolation every third iteration
+  !!
   !! L-BFGS (Limited-memory BFGS):
   !!   Quasi-Newton method approximating Hessian inverse
   !!   Good for small-medium sized problems, smooth objectives
@@ -55,6 +61,7 @@ module athena__optimiser
 
   public :: base_optimiser_type
   public :: sgd_optimiser_type
+  public :: plp_optimiser_type
   public :: rmsprop_optimiser_type
   public :: adagrad_optimiser_type
   public :: adam_optimiser_type
@@ -154,6 +161,47 @@ module athena__optimiser
        !! Instance of the SGD optimiser
      end function optimiser_setup_sgd
   end interface sgd_optimiser_type
+
+!-------------------------------------------------------------------------------
+
+  type, extends(sgd_optimiser_type) :: plp_optimiser_type
+     !! Parameters linear prediction optimiser type
+     real(real32), allocatable, dimension(:) :: history1
+     !! Parameter values after the first SGD-style update in a 3-step cycle
+     real(real32), allocatable, dimension(:) :: history2
+     !! Parameter values after the second SGD-style update in a 3-step cycle
+     real(real32), allocatable, dimension(:) :: history3
+     !! Parameter values after the third SGD-style update in a 3-step cycle
+   contains
+     procedure, pass(this) :: init_gradients => init_gradients_plp
+     !! Initialise gradients for PLP
+     procedure, pass(this) :: minimise => minimise_plp
+     !! Apply gradients and linear prediction using the PLP optimiser
+  end type plp_optimiser_type
+
+  interface plp_optimiser_type
+     !! Interface for setting up the PLP optimiser
+     module function optimiser_setup_plp( &
+          learning_rate, momentum, &
+          nesterov, num_params, &
+          regulariser, clip_dict, lr_decay) result(optimiser)
+       !! Set up the PLP optimiser
+       real(real32), optional, intent(in) :: learning_rate, momentum
+       !! Learning rate and momentum
+       logical, optional, intent(in) :: nesterov
+       !! Nesterov momentum
+       integer, optional, intent(in) :: num_params
+       !! Number of parameters
+       class(base_regulariser_type), optional, intent(in) :: regulariser
+       !! Regularisation method
+       type(clip_type), optional, intent(in) :: clip_dict
+       !! Clipping dictionary
+       class(base_lr_decay_type), optional, intent(in) :: lr_decay
+       !! Learning rate decay method
+       type(plp_optimiser_type) :: optimiser
+       !! Instance of the PLP optimiser
+     end function optimiser_setup_plp
+  end interface plp_optimiser_type
 
 !-------------------------------------------------------------------------------
 
@@ -671,6 +719,145 @@ contains
        param = param + this%velocity
     end if
   end subroutine minimise_sgd
+!###############################################################################
+
+
+!##############################################################################!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!##############################################################################!
+
+
+!###############################################################################
+  module function optimiser_setup_plp( &
+       learning_rate, momentum, &
+       nesterov, num_params, &
+       regulariser, clip_dict, lr_decay) result(optimiser)
+    !! Set up the PLP optimiser
+    implicit none
+
+    ! Arguments
+    real(real32), optional, intent(in) :: learning_rate, momentum
+    !! Learning rate and momentum
+    logical, optional, intent(in) :: nesterov
+    !! Nesterov momentum
+    integer, optional, intent(in) :: num_params
+    !! Number of parameters
+    class(base_regulariser_type), optional, intent(in) :: regulariser
+    !! Regularisation method
+    type(clip_type), optional, intent(in) :: clip_dict
+    !! Clipping dictionary
+    class(base_lr_decay_type), optional, intent(in) :: lr_decay
+    !! Learning rate decay method
+
+    type(plp_optimiser_type) :: optimiser
+    !! Instance of the PLP optimiser
+
+    ! Local variables
+    integer :: num_params_
+    !! Number of parameters
+
+
+    ! Initialise optimiser name
+    optimiser%name = "plp"
+
+    ! Apply regularisation
+    if(present(regulariser))then
+       optimiser%regularisation = .true.
+       if(allocated(optimiser%regulariser)) deallocate(optimiser%regulariser)
+       allocate(optimiser%regulariser, source = regulariser)
+    end if
+
+    ! Apply clipping
+    if(present(clip_dict)) optimiser%clip_dict = clip_dict
+
+    ! Initialise general optimiser parameters
+    if(present(learning_rate)) optimiser%learning_rate = learning_rate
+    if(present(momentum)) optimiser%momentum = momentum
+
+    ! Initialise learning rate decay
+    if(present(lr_decay))then
+       if(allocated(optimiser%lr_decay)) deallocate(optimiser%lr_decay)
+       allocate(optimiser%lr_decay, source = lr_decay)
+    else
+       allocate(optimiser%lr_decay, source = base_lr_decay_type())
+    end if
+
+    ! Initialise nesterov boolean
+    if(present(nesterov)) optimiser%nesterov = nesterov
+
+    ! Initialise gradients
+    if(present(num_params))then
+       num_params_ = num_params
+    else
+       num_params_ = 1
+    end if
+    call optimiser%init_gradients(num_params_)
+  end function optimiser_setup_plp
+!###############################################################################
+
+
+!###############################################################################
+  pure subroutine init_gradients_plp(this, num_params)
+    !! Initialise gradients for PLP optimiser
+    implicit none
+
+    ! Arguments
+    class(plp_optimiser_type), intent(inout) :: this
+    !! Instance of the PLP optimiser
+    integer, intent(in) :: num_params
+    !! Number of parameters
+
+
+    ! Initialise gradients
+    if(allocated(this%velocity)) deallocate(this%velocity)
+    if(allocated(this%history1)) deallocate(this%history1)
+    if(allocated(this%history2)) deallocate(this%history2)
+    if(allocated(this%history3)) deallocate(this%history3)
+    allocate(this%velocity(num_params), source=0._real32)
+    allocate(this%history1(num_params), source=0._real32)
+    allocate(this%history2(num_params), source=0._real32)
+    allocate(this%history3(num_params), source=0._real32)
+  end subroutine init_gradients_plp
+!###############################################################################
+
+
+!###############################################################################
+  pure subroutine minimise_plp(this, param, gradient)
+    !! Apply gradients to parameters and predict the next state using PLP
+    implicit none
+
+    ! Arguments
+    class(plp_optimiser_type), intent(inout) :: this
+    !! Instance of the PLP optimiser
+    real(real32), dimension(:), intent(inout) :: param
+    !! Parameters
+    real(real32), dimension(:), intent(inout) :: gradient
+    !! Gradients
+
+    ! Local variables
+    integer :: cycle_iter, effective_iter
+    !! Iteration counters for the 3-step PLP cycle
+    real(real32), dimension(size(param)) :: midpoint12, midpoint23
+    !! Midpoints used by the three-point linear predictor
+
+
+    call minimise_sgd(this, param, gradient)
+
+    effective_iter = max(this%iter, 1)
+    cycle_iter = modulo(effective_iter - 1, 3) + 1
+
+    select case(cycle_iter)
+    case(1)
+       this%history1 = param
+    case(2)
+       this%history2 = param
+    case(3)
+       this%history3 = param
+       midpoint12 = 0.5_real32 * (this%history1 + this%history2)
+       midpoint23 = 0.5_real32 * (this%history2 + this%history3)
+       param = midpoint23 + (midpoint23 - midpoint12)
+    end select
+  end subroutine minimise_plp
 !###############################################################################
 
 

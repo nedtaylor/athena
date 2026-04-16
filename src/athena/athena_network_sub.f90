@@ -569,7 +569,8 @@ contains
     !! Read the optimiser settings from a file
     use coreutils, only: to_lower, to_upper, icount
     use athena__optimiser, only: &
-         sgd_optimiser_type, adam_optimiser_type, rmsprop_optimiser_type, &
+         sgd_optimiser_type, plp_optimiser_type, adam_optimiser_type, &
+         rmsprop_optimiser_type, &
          adagrad_optimiser_type, base_optimiser_type
     implicit none
 
@@ -600,6 +601,8 @@ contains
     select case(trim(adjustl(to_lower(optimiser_name))))
     case("sgd")
        this%optimiser = sgd_optimiser_type()
+    case("plp")
+       this%optimiser = plp_optimiser_type()
     case("adam")
        this%optimiser = adam_optimiser_type()
     case("rmsprop")
