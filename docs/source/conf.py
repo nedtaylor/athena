@@ -7,14 +7,34 @@ import sys
 import subprocess
 import shutil
 
+
+def env_truthy(name):
+    """Return True when an environment variable is set to a truthy value."""
+    return os.environ.get(name, "").strip().lower() in {
+        "1", "true", "yes", "on"
+    }
+
+
 def run_ford(app):
     """Run FORD to generate Fortran API documentation"""
+    if env_truthy("ATHENA_SKIP_FORD") or env_truthy("SKIP_FORD"):
+        print(
+            "Skipping FORD documentation generation because "
+            "ATHENA_SKIP_FORD or SKIP_FORD is set"
+        )
+        return
+
     ford_dir = os.path.abspath(os.path.join(app.confdir, "..", ".."))
-    ford_otuput = os.path.join(app.confdir, "_static", "ford")
+    ford_output = os.path.join(app.confdir, "_static", "ford")
     project_file = os.path.join(ford_dir, "ford.md")
 
     print(f"Running FORD with config: {project_file}")
-    result = subprocess.run(["ford", project_file, "-o", ford_otuput], cwd=ford_dir, capture_output=True, text=True)
+    result = subprocess.run(
+        ["ford", project_file, "-o", ford_output],
+        cwd=ford_dir,
+        capture_output=True,
+        text=True,
+    )
 
     if result.returncode != 0:
         print(f"FORD output:\n{result.stdout}")
