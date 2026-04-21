@@ -15,6 +15,11 @@ on:
       - "CMakeLists.txt"
       - "**.f90"
   workflow_dispatch:
+    inputs:
+      deploy-on-any-branch:
+        description: "Deploy on any branch"
+        required: false
+        default: "false"
 
 permissions:
   contents: read
@@ -142,7 +147,7 @@ jobs:
         shell: bash -l {0}
         run: |
           build_dir="$GITHUB_WORKSPACE/build/coverage-ci"
-          mkdir -p build/pages/coverage
+          mkdir -p "$build_dir/coverage"
 
           gcovr \
             --gcov-executable "$GCOV" \
@@ -150,11 +155,11 @@ jobs:
             --filter "$GITHUB_WORKSPACE/src/" \
             --exclude "$GITHUB_WORKSPACE/test/" \
             --object-directory "$build_dir" \
-            --html-details build/pages/coverage/index.html \
-            --txt build/pages/coverage/coverage.txt \
+            --html-details "$build_dir/coverage/index.html" \
+            --txt "$build_dir/coverage/coverage.txt" \
             --print-summary
 
-          sed -n '1,160p' "build/pages/coverage/coverage.txt"
+          sed -n '1,160p' "$build_dir/coverage/coverage.txt"
 
       - name: Get coverage percentage
         id: coverage_percentage
@@ -178,46 +183,14 @@ jobs:
           maxColorRange: 100
           minColorRange: 0
 
-      - name: add metrics link to coverage page
-        shell: bash
-        run: |
-          file="build/pages/coverage/index.html"
-
-          if [ -f "$file" ]; then
-            echo "<hr><p><a href='../metrics/'>📊 View repository metrics dashboard</a></p>" >> "$file"
-          fi
-
-      - name: ensure dashboard index exists
-        shell: bash
-        run: |
-          mkdir -p build/pages
-
-          cat > build/pages/index.html << 'EOF'
-          <html>
-          <head>
-            <meta http-equiv="refresh" content="0; url=./coverage/">
-            <title>Athena Dashboard</title>
-          </head>
-          <body>
-            <p>Redirecting to <a href="./coverage/">Coverage</a>...</p>
-            <h1>📦 Athena Dashboard</h1>
-
-            <ul>
-              <li><a href="./coverage/">🧪 Coverage Report</a></li>
-              <li><a href="./metrics/">📊 Metrics Dashboard</a></li>
-            </ul>
-          </body>
-          </html>
-          EOF
-
       - name: upload artifact
         if: github.actor != 'nektos/act'
         uses: actions/upload-pages-artifact@v4
         with:
-          path: build/pages/
+          path: './build/coverage-ci/coverage/'
 
   deploy:
-    if: ${{ github.actor != 'nektos/act' && github.ref_name == 'main' }}
+    if: ${{ github.actor != 'nektos/act' && ( github.ref_name == 'main' || github.event.inputs.deploy-on-any-branch == 'true' ) }}
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
