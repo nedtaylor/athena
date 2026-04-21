@@ -25,9 +25,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  backfill-metrics:
+  run-metrics:
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' && inputs.backfill == 'true'
 
     steps:
       - name: checkout repo
@@ -39,7 +38,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y jq python3
 
-      - name: backfill last 14 days
+      # -----------------------------
+      # OPTIONAL BACKFILL (INTEGRATED)
+      # -----------------------------
+      - name: backfill last 14 days (optional)
+        if: ${{ inputs.backfill == 'true' }}
         shell: bash
         env:
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -48,7 +51,6 @@ jobs:
 
           FILE="build/pages/metrics/history.json"
 
-          # start with existing history if present
           if [ -f "$FILE" ]; then
             cp "$FILE" tmp.json
           else
@@ -98,21 +100,11 @@ jobs:
             echo "$tmp" > tmp.json
           done
 
-          mv tmp.json build/pages/metrics/history.json
+          jq 'sort_by(.date)' tmp.json > "$FILE"
 
-  run-metrics:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: checkout repo
-        uses: actions/checkout@v6
-
-      - name: install dependencies
-        shell: bash
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y jq python3
-
+      # -----------------------------
+      # NORMAL DAILY METRICS
+      # -----------------------------
       - name: collect metrics
         shell: bash
         env:
@@ -157,11 +149,14 @@ jobs:
 
           echo "$entry" > build/pages/metrics/latest.json
 
+      # -----------------------------
+      # MERGE + DASHBOARD GENERATION
+      # -----------------------------
       - name: generate dashboard
         shell: bash
         run: |
           python3 << 'EOF'
-          import json, os
+          import json, os, urllib.request
 
           base = "build/pages/metrics"
           os.makedirs(base, exist_ok=True)
@@ -170,24 +165,46 @@ jobs:
           latest_path = f"{base}/latest.json"
 
           data = []
-          if os.path.exists(history_path):
-              data = json.load(open(history_path))
 
+          # ----------------------------
+          # 1. Try local history first
+          # ----------------------------
+          if os.path.exists(history_path):
+              try:
+                  data = json.load(open(history_path))
+              except:
+                  data = []
+
+          # ----------------------------
+          # 2. Fallback: fetch from GitHub Pages
+          # ----------------------------
+          if not data:
+              try:
+                  url = "https://nedtaylor.github.io/athena/metrics/history.json"
+                  with urllib.request.urlopen(url, timeout=5) as r:
+                      data = json.loads(r.read().decode("utf-8"))
+              except Exception:
+                  data = []
+
+          # ----------------------------
+          # 3. Merge latest snapshot
+          # ----------------------------
           latest = json.load(open(latest_path))
 
           data = [d for d in data if d["date"] != latest["date"]]
           data.append(latest)
 
-          json.dump(data, open(history_path,"w"), indent=2)
+          data = sorted(data, key=lambda x: x["date"])
+
+          json.dump(data, open(history_path, "w"), indent=2)
+
+          # ----------------------------
+          # 4. Build HTML
+          # ----------------------------
           html = ["<html><body><h1>Athena Metrics</h1><table border='1'>"]
           html.append("<tr><th>Date</th><th>Stars</th><th>Forks</th><th>Clones</th><th>Downloads</th></tr>")
 
-          totals = {
-              "stars": 0,
-              "forks": 0,
-              "clones": 0,
-              "downloads": 0
-          }
+          totals = {"stars": 0, "forks": 0, "clones": 0, "downloads": 0}
 
           for d in data:
               html.append(
@@ -196,8 +213,8 @@ jobs:
                   f"<td>{d['downloads']}</td></tr>"
               )
 
-              totals["stars"] = d["stars"]
-              totals["forks"] = d["forks"]
+              totals["stars"] += d["stars"]
+              totals["forks"] += d["forks"]
               totals["clones"] += d["clones"]
               totals["downloads"] += d["downloads"]
 
