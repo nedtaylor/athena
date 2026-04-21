@@ -1,7 +1,6 @@
 name: run-metrics
 
 on:
-  push:
   schedule:
     - cron: "0 2 * * *"
   workflow_dispatch:
@@ -22,7 +21,6 @@ concurrency:
 
 jobs:
   run-metrics:
-    if: github.actor == 'nektos/act' || github.event_name != 'push'
     runs-on: ubuntu-latest
 
     steps:
@@ -40,13 +38,7 @@ jobs:
         env:
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          mkdir -p build/metrics
-
-          # fallback token for act
-          if [ -z "$TOKEN" ]; then
-            echo "Using local ACT token fallback"
-            TOKEN="${GITHUB_TOKEN:-}"
-          fi
+          mkdir -p build/pages/metrics
 
           DATE=$(date -u +"%Y-%m-%d")
 
@@ -83,7 +75,7 @@ jobs:
               downloads:$downloads
             }')
 
-          echo "$entry" > build/metrics/latest.json
+          echo "$entry" > build/pages/metrics/latest.json
 
       - name: generate dashboard
         shell: bash
@@ -91,19 +83,22 @@ jobs:
           python3 << 'EOF'
           import json, os
 
-          os.makedirs("build/metrics", exist_ok=True)
+          base = "build/pages/metrics"
+          os.makedirs(base, exist_ok=True)
+
+          history_path = f"{base}/history.json"
+          latest_path = f"{base}/latest.json"
 
           data = []
-          if os.path.exists("build/metrics/history.json"):
-              data = json.load(open("build/metrics/history.json"))
+          if os.path.exists(history_path):
+              data = json.load(open(history_path))
 
-          latest = json.load(open("build/metrics/latest.json"))
+          latest = json.load(open(latest_path))
 
-          # remove duplicate day
           data = [d for d in data if d["date"] != latest["date"]]
           data.append(latest)
 
-          json.dump(data, open("build/metrics/history.json","w"), indent=2)
+          json.dump(data, open(history_path,"w"), indent=2)
 
           html = ["<html><body><h1>Athena Metrics</h1><table border='1'>"]
           html.append("<tr><th>Date</th><th>Stars</th><th>Forks</th><th>Clones</th><th>Downloads</th></tr>")
@@ -116,14 +111,40 @@ jobs:
               )
 
           html.append("</table></body></html>")
-          open("build/metrics/index.html","w").write("\n".join(html))
+          open(f"{base}/index.html","w").write("\n".join(html))
+          EOF
+
+      - name: add coverage link to metrics page
+        shell: bash
+        run: |
+          file="build/pages/metrics/index.html"
+
+          if [ -f "$file" ]; then
+            echo "<hr><p><a href='../'>🧪 View code coverage report</a></p>" >> "$file"
+          fi
+
+      - name: ensure dashboard index exists
+        shell: bash
+        run: |
+          mkdir -p build/pages
+
+          cat > build/pages/index.html << 'EOF'
+          <html>
+          <body>
+            <h1>📦 Athena Dashboard</h1>
+
+            <ul>
+              <li><a href="./coverage/">🧪 Coverage Report</a></li>
+              <li><a href="./metrics/">📊 Metrics Dashboard</a></li>
+            </ul>
+          </body>
+          </html>
           EOF
 
       - name: upload pages artifact
-        if: github.actor != 'nektos/act'
         uses: actions/upload-pages-artifact@v4
         with:
-          path: build/metrics/
+          path: build/pages/
 
   deploy:
     if: |

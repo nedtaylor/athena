@@ -142,7 +142,7 @@ jobs:
         shell: bash -l {0}
         run: |
           build_dir="$GITHUB_WORKSPACE/build/coverage-ci"
-          mkdir -p "$build_dir/coverage"
+          mkdir -p build/pages/coverage
 
           gcovr \
             --gcov-executable "$GCOV" \
@@ -150,8 +150,8 @@ jobs:
             --filter "$GITHUB_WORKSPACE/src/" \
             --exclude "$GITHUB_WORKSPACE/test/" \
             --object-directory "$build_dir" \
-            --html-details "$build_dir/coverage/index.html" \
-            --txt "$build_dir/coverage/coverage.txt" \
+            --html-details build/pages/coverage/index.html \
+            --txt build/pages/coverage/coverage.txt \
             --print-summary
 
           sed -n '1,160p' "$build_dir/coverage/coverage.txt"
@@ -178,14 +178,41 @@ jobs:
           maxColorRange: 100
           minColorRange: 0
 
+      - name: add metrics link to coverage page
+        shell: bash
+        run: |
+          file="build/pages/coverage/index.html"
+
+          if [ -f "$file" ]; then
+            echo "<hr><p><a href='../metrics/'>📊 View repository metrics dashboard</a></p>" >> "$file"
+          fi
+
+      - name: ensure dashboard index exists
+        shell: bash
+        run: |
+          mkdir -p build/pages
+
+          cat > build/pages/index.html << 'EOF'
+          <html>
+          <body>
+            <h1>📦 Athena Dashboard</h1>
+
+            <ul>
+              <li><a href="./coverage/">🧪 Coverage Report</a></li>
+              <li><a href="./metrics/">📊 Metrics Dashboard</a></li>
+            </ul>
+          </body>
+          </html>
+          EOF
+
       - name: upload artifact
         if: github.actor != 'nektos/act'
         uses: actions/upload-pages-artifact@v4
         with:
-          path: './build/coverage-ci/coverage/'
+          path: build/pages/
 
   deploy:
-    if: ${{ github.actor != 'nektos/act' && github.ref_name == 'main' }}
+    # if: ${{ github.actor != 'nektos/act' && github.ref_name == 'main' }}
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
