@@ -154,7 +154,7 @@ jobs:
             --txt build/pages/coverage/coverage.txt \
             --print-summary
 
-          sed -n '1,160p' "$build_dir/coverage/coverage.txt"
+          sed -n '1,160p' "build/pages/coverage/coverage.txt"
 
       - name: Get coverage percentage
         id: coverage_percentage
