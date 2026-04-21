@@ -194,7 +194,12 @@ jobs:
 
           cat > build/pages/index.html << 'EOF'
           <html>
+          <head>
+            <meta http-equiv="refresh" content="0; url=./coverage/">
+            <title>Athena Dashboard</title>
+          </head>
           <body>
+            <p>Redirecting to <a href="./coverage/">Coverage</a>...</p>
             <h1>📦 Athena Dashboard</h1>
 
             <ul>
@@ -212,7 +217,7 @@ jobs:
           path: build/pages/
 
   deploy:
-    # if: ${{ github.actor != 'nektos/act' && github.ref_name == 'main' }}
+    if: ${{ github.actor != 'nektos/act' && github.ref_name == 'main' }}
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
