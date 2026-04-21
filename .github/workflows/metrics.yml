@@ -204,19 +204,27 @@ jobs:
           html = ["<html><body><h1>Athena Metrics</h1><table border='1'>"]
           html.append("<tr><th>Date</th><th>Stars</th><th>Forks</th><th>Clones</th><th>Downloads</th></tr>")
 
+          def safe(v):
+              return v if isinstance(v, int) else 0
+
           totals = {"stars": 0, "forks": 0, "clones": 0, "downloads": 0}
 
           for d in data:
+              stars = safe(d.get("stars"))
+              forks = safe(d.get("forks"))
+              clones = safe(d.get("clones"))
+              downloads = safe(d.get("downloads"))
+
               html.append(
-                  f"<tr><td>{d['date']}</td><td>{d['stars']}</td>"
-                  f"<td>{d['forks']}</td><td>{d['clones']}</td>"
-                  f"<td>{d['downloads']}</td></tr>"
+                  f"<tr><td>{d['date']}</td><td>{stars}</td>"
+                  f"<td>{forks}</td><td>{clones}</td>"
+                  f"<td>{downloads}</td></tr>"
               )
 
-              totals["stars"] += d["stars"]
-              totals["forks"] += d["forks"]
-              totals["clones"] += d["clones"]
-              totals["downloads"] += d["downloads"]
+              totals["stars"] += stars
+              totals["forks"] += forks
+              totals["clones"] += clones
+              totals["downloads"] += downloads
 
           html.append(
               "<tr><th>TOTALS</th>"
