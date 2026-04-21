@@ -5,6 +5,11 @@ on:
   schedule:
     - cron: "0 2 * * *"
   workflow_dispatch:
+    inputs:
+      allow_any_branch:
+        description: "Allow running on any branch"
+        required: false
+        default: "false"
 
 permissions:
   contents: read
@@ -121,7 +126,13 @@ jobs:
           path: build/metrics/
 
   deploy:
-    if: github.actor != 'nektos/act' && github.ref_name == 'main'
+    if: |
+      needs.run-metrics.result == 'success' &&
+      (
+        github.event_name == 'schedule' ||
+        github.ref_name == 'main' ||
+        inputs.allow_any_branch == 'true'
+      )
     runs-on: ubuntu-latest
     needs: run-metrics
 
