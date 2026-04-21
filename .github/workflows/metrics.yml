@@ -1,0 +1,135 @@
+name: run-metrics
+
+on:
+  push:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  run-metrics:
+    if: github.actor == 'nektos/act' || github.event_name != 'push'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: checkout repo
+        uses: actions/checkout@v6
+
+      - name: install dependencies
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq python3
+
+      - name: collect metrics
+        shell: bash
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p build/metrics
+
+          # fallback token for act
+          if [ -z "$TOKEN" ]; then
+            echo "Using local ACT token fallback"
+            TOKEN="${GITHUB_TOKEN:-}"
+          fi
+
+          DATE=$(date -u +"%Y-%m-%d")
+
+          repo=$(curl -s -H "Authorization: Bearer $TOKEN" \
+            https://api.github.com/repos/nedtaylor/athena)
+
+          stars=$(echo "$repo" | jq .stargazers_count)
+          forks=$(echo "$repo" | jq .forks_count)
+
+          clones=$(curl -s -H "Authorization: Bearer $TOKEN" \
+            https://api.github.com/repos/nedtaylor/athena/traffic/clones)
+
+          clones_total=$(echo "$clones" | jq .count)
+          clones_uniques=$(echo "$clones" | jq .uniques)
+
+          releases=$(curl -s -H "Authorization: Bearer $TOKEN" \
+            https://api.github.com/repos/nedtaylor/athena/releases)
+
+          downloads=$(echo "$releases" | jq '[.[].assets[].download_count] | add // 0')
+
+          entry=$(jq -n \
+            --arg date "$DATE" \
+            --argjson stars "$stars" \
+            --argjson forks "$forks" \
+            --argjson clones "$clones_total" \
+            --argjson uniques "$clones_uniques" \
+            --argjson downloads "$downloads" \
+            '{
+              date:$date,
+              stars:$stars,
+              forks:$forks,
+              clones:$clones,
+              uniques:$uniques,
+              downloads:$downloads
+            }')
+
+          echo "$entry" > build/metrics/latest.json
+
+      - name: generate dashboard
+        shell: bash
+        run: |
+          python3 << 'EOF'
+          import json, os
+
+          os.makedirs("build/metrics", exist_ok=True)
+
+          data = []
+          if os.path.exists("build/metrics/history.json"):
+              data = json.load(open("build/metrics/history.json"))
+
+          latest = json.load(open("build/metrics/latest.json"))
+
+          # remove duplicate day
+          data = [d for d in data if d["date"] != latest["date"]]
+          data.append(latest)
+
+          json.dump(data, open("build/metrics/history.json","w"), indent=2)
+
+          html = ["<html><body><h1>Athena Metrics</h1><table border='1'>"]
+          html.append("<tr><th>Date</th><th>Stars</th><th>Forks</th><th>Clones</th><th>Downloads</th></tr>")
+
+          for d in data:
+              html.append(
+                  f"<tr><td>{d['date']}</td><td>{d['stars']}</td>"
+                  f"<td>{d['forks']}</td><td>{d['clones']}</td>"
+                  f"<td>{d['downloads']}</td></tr>"
+              )
+
+          html.append("</table></body></html>")
+          open("build/metrics/index.html","w").write("\n".join(html))
+          EOF
+
+      - name: upload pages artifact
+        if: github.actor != 'nektos/act'
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: build/metrics/
+
+  deploy:
+    if: github.actor != 'nektos/act' && github.ref_name == 'main'
+    runs-on: ubuntu-latest
+    needs: run-metrics
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: deploy metrics page
+        id: deployment
+        uses: actions/deploy-pages@v4
