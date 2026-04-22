@@ -18,6 +18,7 @@ authors:
     orcid: 0009-0001-8980-0156
     affiliation: "1"
   - name: Artan Qerushi
+    orcid: 0009-0009-6636-5209
     affiliation: "2"
   - name: Steven Paul Hepplestone
     orcid: 0000-0002-2528-1270
@@ -144,6 +145,7 @@ The authors confirm that they have reviewed and approved the final version of th
 N.T.T. was supported by the Government Office for Science and the Royal Academy of Engineering under the UK Intelligence Community Postdoctoral Research Fellowships scheme (Grant No. ICRF2425-8-148).
 H.M. was supported by the EPSRC via Grant No. EPSRC-690010152.
 S.P.H. was supported by the MCC funding via Grant No. UKRI2710.
+A.Q. acknowledges support from Lockheed Martin Aeronautics for research on physics-inspired machine learning.
 
 N.T.T. was the lead developer of the `ATHENA` software and heavily contributed to all aspects of the project, including conceptualisation, methodology, software development, validation, funding acquisition, supervision, project administration, and writing (original draft, review, and editing).
 H.M. contributed to the software development, conceptualisation, and validation (neural operators and inverse design), and writing (review and editing).
