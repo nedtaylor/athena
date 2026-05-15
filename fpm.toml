@@ -17,14 +17,27 @@ module-naming = false
 
 [dependencies]
 coreutils = { git = "https://github.com/nedtaylor/coreutils", tag = "v0.1.0" }
-diffstruc = { git = "https://github.com/nedtaylor/diffstruc", tag = "v1.2.0" }
+diffstruc = { git = "https://github.com/nedtaylor/diffstruc", branch = "parallel-port" }
 graphstruc = { git = "https://github.com/nedtaylor/graphstruc", tag = "v0.2.1" }
 
 [features]
+metal.description = "Enable the Apple Metal backend for diffstruc in fpm builds on macOS"
+metal.macos.preprocess.cpp.macros = ["DIFFSTRUC_ENABLE_METAL_BACKEND"]
+
 wandb.dependencies.wandb-fortran = { git = "https://github.com/nedtaylor/wandb-fortran" }
 wandb.dependencies.example_library = { path = "example/example_library" }
 wandb.preprocess.cpp.macros = ["_WANDB"]
 wandb.example = [
+	{ name = "wandb_sine", source-dir = "example/wandb_sine/src", main = "main.f90" },
+	{ name = "wandb_pinn_burgers", source-dir = "example/wandb_pinn_burgers/src", main = "main.f90" },
+	{ name = "wandb_sweep", source-dir = "example/wandb_sweep/src", main = "main.f90" },
+	{ name = "wandb_network_sine", source-dir = "example/wandb_network_sine/src", main = "main.F90" }
+]
+
+wandb-support.dependencies.wandb-fortran = { git = "https://github.com/nedtaylor/wandb-fortran" }
+wandb-support.dependencies.example_library = { path = "example/example_library" }
+wandb-support.preprocess.cpp.macros = ["_WANDB"]
+wandb-support.example = [
 	{ name = "wandb_sine", source-dir = "example/wandb_sine/src", main = "main.f90" },
 	{ name = "wandb_pinn_burgers", source-dir = "example/wandb_pinn_burgers/src", main = "main.f90" },
 	{ name = "wandb_sweep", source-dir = "example/wandb_sweep/src", main = "main.f90" },
@@ -43,6 +56,10 @@ source-form = "free"
 [preprocess]
 [preprocess.cpp]
 suffixes = ["F90", "f90"]
+
+[profiles]
+release-metal = ["release", "metal"]
+wandb-metal = ["release", "metal", "wandb-support"]
 
 [[example]]
 name = "sine"

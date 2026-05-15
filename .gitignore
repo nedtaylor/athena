@@ -34,6 +34,8 @@ network*.in
 .ipynb_checkpoints
 OLD_CMakeLists.txt
 build/
+build_*/
+cmake-build-*/
 test/bin/
 test/obj/
 example/bin/

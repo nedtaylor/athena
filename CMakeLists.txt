@@ -66,6 +66,13 @@ endif()
 set(BUILD_TESTING OFF)
 set(BUILD_TESTS OFF)
 
+option(ATHENA_ENABLE_METAL_BACKEND "Enable the Apple Metal backend in diffstruc on macOS" OFF)
+set(ATHENA_DIFFSTRUC_SOURCE_DIR "${CMAKE_SOURCE_DIR}/../diffstruc"
+  CACHE PATH "Path to a local diffstruc checkout with CMake Metal support")
+if(ATHENA_ENABLE_METAL_BACKEND AND NOT APPLE)
+  message(FATAL_ERROR "ATHENA_ENABLE_METAL_BACKEND requires macOS")
+endif()
+
 # include CPM module
 find_package(Git REQUIRED)
 set(GIT_EXECUTABLE "${GIT_EXECUTABLE}" CACHE FILEPATH "Path to git executable" FORCE)
@@ -77,11 +84,16 @@ CPMAddPackage(
   VERSION 0.1.0
   GITHUB_REPOSITORY nedtaylor/coreutils
 )
+
 CPMAddPackage(
   NAME diffstruc
-  VERSION 1.2.0
+  VERSION parallel-port
   GITHUB_REPOSITORY nedtaylor/diffstruc
+  OPTIONS
+    "USE_BLAS ON"
+    "DIFFSTRUC_ENABLE_METAL_BACKEND ${ATHENA_ENABLE_METAL_BACKEND}"
 )
+
 CPMAddPackage(
   NAME graphstruc
   VERSION 0.2.1

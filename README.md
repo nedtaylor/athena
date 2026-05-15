@@ -107,11 +107,24 @@ Run the following command in the repository main directory:
 fpm build --profile release
 ```
 
+To build against a Metal-enabled `diffstruc` checkout on macOS, use the Metal profile:
+
+```bash
+fpm build --profile release-metal
+```
+
 To build with the built-in Weights & Biases integration enabled, use the `wandb` feature:
 
 ```bash
 source tools/setup_wf_env.sh
 fpm build --features wandb
+```
+
+To combine the built-in Weights & Biases examples with a Metal-enabled `diffstruc` build on macOS, use:
+
+```bash
+source tools/setup_wf_env.sh
+fpm build --profile wandb-metal
 ```
 
 #### Testing with fpm
@@ -132,6 +145,17 @@ Run the following commands in the directory containing _CMakeLists.txt_:
 mkdir build
 cd build
 cmake [-DCMAKE_BUILD_TYPE="Release"] ..
+make install
+```
+
+To build with Metal-enabled `diffstruc` support on macOS, use the following command:
+
+```bash
+mkdir build
+cd build
+cmake -DATHENA_ENABLE_METAL_BACKEND=ON \
+  -DCMAKE_C_COMPILER=/usr/bin/clang \
+  [-DCMAKE_BUILD_TYPE="Release"] ..
 make install
 ```
 
@@ -240,6 +264,7 @@ athena provides optional integration with the Weights and Biases (wandb) machine
 This integration is opt-in:
 
 - fpm (>=0.13.0): build/run with `--features wandb`
+- fpm (macOS Metal): build/run with `--profile wandb-metal`
 - cmake: use `-DATHENA_WANDB_SUPPORT=ON` (or `-DATHENA_ENABLE_WANDB=ON`)
 
 The `network_type` derived type in athena has an extended type called `wandb_network_type` that provides additional procedures for logging to wandb by default inside the `train` procedure. To use this, simply declare a `wandb_network_type` variable instead of a `network_type` variable, and the library will handle the rest.
