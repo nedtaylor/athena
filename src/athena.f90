@@ -103,6 +103,11 @@ module athena
   use athena__input_layer,   only: input_layer_type
 
 
+  ! Block layer types
+  !-----------------------------------------------------------------------------
+  use athena__block_container, only: block_container_type, read_block_container
+
+
   ! Activation layer types
   !-----------------------------------------------------------------------------
   use athena__actv_layer, only: actv_layer_type, read_actv_layer
