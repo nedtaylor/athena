@@ -78,6 +78,20 @@ contains
 
   end subroutine finalise_container_layer
 
+  module function container_setup(layer) result(container)
+    !! Construct a container layer from a base layer
+    implicit none
+
+    ! Arguments
+    class(base_layer_type), intent(in) :: layer
+    !! Base layer to be contained
+
+    type(container_layer_type) :: container
+    !! Container layer
+
+    allocate(container%layer, source=layer)
+  end function container_setup
+
 !###############################################################################
 
 #if defined(GFORTRAN)

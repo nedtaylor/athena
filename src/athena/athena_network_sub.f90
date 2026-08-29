@@ -23,6 +23,7 @@ submodule(athena__network) athena__network_submodule
   use athena__input_layer,   only: input_layer_type
   use athena__msgpass_layer, only: msgpass_layer_type
   use athena__recurrent_layer, only: recurrent_layer_type
+  use athena__block_layer, only: block_layer_type
 
 ! #ifdef _OPENMP
 !   !$omp declare reduction( &
@@ -1768,12 +1769,7 @@ contains
       integer :: l_idx, p_idx, seg_count, s_idx, e_idx
       ! First pass: count segments
       seg_count = 0
-      do l_idx = 1, this%num_layers
-         select type(current => this%model(l_idx)%layer)
-         class is(learnable_layer_type)
-            seg_count = seg_count + size(current%params)
-         end select
-      end do
+      call count_segments(this%model, seg_count)
       this%param_num_segments = seg_count
       if(allocated(this%param_seg_layer)) deallocate(this%param_seg_layer)
       if(allocated(this%param_seg_pidx))  deallocate(this%param_seg_pidx)
@@ -1786,20 +1782,7 @@ contains
       ! Second pass: fill layout
       seg_count = 0
       e_idx = 0
-      do l_idx = 1, this%num_layers
-         select type(current => this%model(l_idx)%layer)
-         class is(learnable_layer_type)
-            do p_idx = 1, size(current%params)
-               seg_count = seg_count + 1
-               s_idx = e_idx + 1
-               e_idx = e_idx + size(current%params(p_idx)%val, 1)
-               this%param_seg_layer(seg_count) = l_idx
-               this%param_seg_pidx(seg_count) = p_idx
-               this%param_seg_start(seg_count) = s_idx
-               this%param_seg_end(seg_count) = e_idx
-            end do
-         end select
-      end do
+      call set_param_segments(this, this%model, seg_count, e_idx)
     end block
 
 
@@ -1809,6 +1792,71 @@ contains
     if(present(batch_size)) this%batch_size = batch_size
 
   end subroutine compile
+!-------------------------------------------------------------------------------
+  recursive subroutine count_segments(container, seg_count)
+    !! Count the number of parameter segments in a layer (including nested layers)
+    implicit none
+
+    ! Arguments
+    class(container_layer_type), dimension(:), intent(in) :: container
+    !! Container to count segments in
+    integer, intent(inout) :: seg_count
+    !! Count of segments
+
+    ! Local variables
+    integer :: l_idx
+    !! Loop index
+
+    write(*,*) "Counting segments in container of size: ", size(container)
+    do l_idx = 1, size(container)
+       select type(current => container(l_idx)%layer)
+       class is(block_layer_type)
+          call count_segments(current%layers, seg_count)
+       class is(learnable_layer_type)
+          seg_count = seg_count + size(current%params)
+       end select
+    end do
+    write(*,*) "Current segment count: ", seg_count
+
+  end subroutine count_segments
+!-------------------------------------------------------------------------------
+  recursive subroutine set_param_segments(network, container, seg_count, e_idx)
+    !! Set the parameter segment layout for a layer (including nested layers)
+    implicit none
+
+    ! Arguments
+    class(network_type), intent(inout) :: network
+    !! Instance of network
+    class(container_layer_type), dimension(:), intent(in) :: container
+    !! Container to set segments in
+    integer, intent(inout) :: seg_count
+    !! Count of segments
+    integer, intent(inout) :: e_idx
+    !! End index of last segment
+
+    ! Local variables
+    integer :: l_idx, p_idx, s_idx
+    !! Loop indices
+
+
+    do l_idx = 1, size(container)
+       select type(current => container(l_idx)%layer)
+       class is(block_layer_type)
+          call set_param_segments(network, current%layers, seg_count, e_idx)
+       class is(learnable_layer_type)
+          do p_idx = 1, size(current%params)
+             seg_count = seg_count + 1
+             s_idx = e_idx + 1
+             e_idx = e_idx + size(current%params(p_idx)%val, 1)
+             network%param_seg_layer(seg_count) = l_idx
+             network%param_seg_pidx(seg_count) = p_idx
+             network%param_seg_start(seg_count) = s_idx
+             network%param_seg_end(seg_count) = e_idx
+          end do
+       end select
+    end do
+
+  end subroutine set_param_segments
 !###############################################################################
 
 

@@ -46,6 +46,16 @@ module athena__container_layer
 #endif
   end type container_layer_type
 
+  interface container_layer_type
+     module function container_setup(layer) result(container)
+       !! Construct a container layer from a base layer
+       class(base_layer_type), intent(in) :: layer
+       !! Base layer to be contained
+       type(container_layer_type) :: container
+       !! Container layer
+     end function container_setup
+  end interface
+
 
 #if defined(GFORTRAN)
   interface

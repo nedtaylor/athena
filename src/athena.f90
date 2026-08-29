@@ -105,7 +105,7 @@ module athena
 
   ! Block layer types
   !-----------------------------------------------------------------------------
-  use athena__block_container, only: block_container_type, read_block_container
+  use athena__block_layer, only: block_layer_type, read_block_layer
 
 
   ! Activation layer types
@@ -212,6 +212,7 @@ module athena
   ! List of layer types
   !-----------------------------------------------------------------------------
   use athena__container_layer, only: &
+       container_layer_type, &
        list_of_layer_types, &
        allocate_list_of_layer_types, &
        list_of_onnx_layer_creators, &

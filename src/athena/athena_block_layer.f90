@@ -1,4 +1,4 @@
-module athena__block_container
+module athena__block_layer
   !! Module containing implementation of a block container
   !!
   !! The block container is a data structure that holds a collection of layers
@@ -12,11 +12,11 @@ module athena__block_container
 
   private
 
-  public :: block_container_type
-  public :: read_block_container
+  public :: block_layer_type
+  public :: read_block_layer
 
 
-  type, extends(learnable_layer_type) :: block_container_type
+  type, extends(learnable_layer_type) :: block_layer_type
      !! Type for block container with overloaded procedures
      integer :: num_layers
      !! Number of layers in the block
@@ -38,11 +38,11 @@ module athena__block_container
 
      final :: finalise_block
      !! Finalise block container
-  end type block_container_type
+  end type block_layer_type
 
-  interface block_container_type
+  interface block_layer_type
      !! Interface for setting up the block container
-     module function block_setup( &
+     module function layer_setup( &
           layers, input_shape, verbose &
      ) result(layer)
        !! Setup a fully connected layer
@@ -52,10 +52,10 @@ module athena__block_container
        !! Input shape
        integer, optional, intent(in) :: verbose
        !! Verbosity level
-       type(block_container_type) :: layer
+       type(block_layer_type) :: layer
        !! Instance of the block container
-     end function block_setup
-  end interface block_container_type
+     end function layer_setup
+  end interface block_layer_type
 
 
 
@@ -67,7 +67,7 @@ contains
     implicit none
 
     ! Arguments
-    type(block_container_type), intent(inout) :: this
+    type(block_layer_type), intent(inout) :: this
     !! Instance of the block container
 
     if(allocated(this%input_shape)) deallocate(this%input_shape)
@@ -89,7 +89,7 @@ contains
     implicit none
 
     ! Arguments
-    class(block_container_type), intent(in) :: this
+    class(block_layer_type), intent(in) :: this
     !! Instance of the block container
     integer :: num_params
     !! Number of parameters
@@ -112,7 +112,7 @@ contains
 
 
 !###############################################################################
-  module function block_setup(layers, input_shape, verbose) result(layer)
+  module function layer_setup(layers, input_shape, verbose) result(layer)
     !! Setup a block container
     implicit none
 
@@ -126,7 +126,7 @@ contains
     integer, optional, intent(in) :: verbose
     !! Verbosity level
 
-    type(block_container_type) :: layer
+    type(block_layer_type) :: layer
     !! Instance of the block container
 
     ! Local variables
@@ -160,7 +160,7 @@ contains
     !---------------------------------------------------------------------------
     if(present(input_shape)) call layer%init(input_shape=input_shape)
 
-  end function block_setup
+  end function layer_setup
 !###############################################################################
 
 
@@ -173,11 +173,12 @@ contains
     implicit none
 
     ! Arguments
-    class(block_container_type), intent(inout) :: this
+    class(block_layer_type), intent(inout) :: this
     !! Instance of the block container
     integer, optional, intent(in) :: verbose
     !! Verbosity level
 
+    write(*,*) "Setting hyperparameters for block container"
     this%name = "block"
     this%type = "blck"
     this%num_layers = size(this%layers)
@@ -196,7 +197,7 @@ contains
     implicit none
 
     ! Arguments
-    class(block_container_type), intent(inout) :: this
+    class(block_layer_type), intent(inout) :: this
     !! Instance of the fully connected layer
     integer, dimension(:), intent(in) :: input_shape
     !! Input shape
@@ -251,7 +252,7 @@ contains
     implicit none
 
     ! Arguments
-    class(block_container_type), intent(in) :: this
+    class(block_layer_type), intent(in) :: this
     !! Instance of the fully connected layer
     integer, intent(in) :: unit
     !! File unit
@@ -260,6 +261,7 @@ contains
 
 
     write(unit,'(3X,"NUM_LAYERS = ",I0)') this%num_layers
+    write(unit,'(3X,"INPUT_SHAPE =",3X,I0,"(1X,I0))")') this%input_shape
     do l = 1, size(this%layers)
        write(unit,'(A)') to_upper(trim(this%layers(l)%layer%name))
        call this%layers(l)%layer%print_to_unit(unit)
@@ -280,7 +282,7 @@ contains
     implicit none
 
     ! Arguments
-    class(block_container_type), intent(inout) :: this
+    class(block_layer_type), intent(inout) :: this
     !! Instance of the block container
     integer, intent(in) :: unit
     !! Unit number
@@ -422,7 +424,7 @@ contains
 
 
 !###############################################################################
-  function read_block_container(unit, verbose) result(layer)
+  function read_block_layer(unit, verbose) result(layer)
     !! Read fully connected layer from file and return layer
     implicit none
 
@@ -439,10 +441,10 @@ contains
     !! Verbosity level
 
     if(present(verbose)) verbose_ = verbose
-    allocate(layer, source=block_container_type([container_layer_type()]))
+    allocate(layer, source=block_layer_type([container_layer_type()]))
     call layer%read(unit, verbose=verbose_)
 
-  end function read_block_container
+  end function read_block_layer
 !###############################################################################
 
 
@@ -457,7 +459,7 @@ contains
     implicit none
 
     ! Arguments
-    class(block_container_type), intent(inout) :: this
+    class(block_layer_type), intent(inout) :: this
     !! Instance of the fully connected layer
     class(array_type), dimension(:,:), intent(in) :: input
     !! Input values
@@ -474,4 +476,4 @@ contains
   end subroutine forward_block
 !###############################################################################
 
-end module athena__block_container
+end module athena__block_layer
