@@ -1236,7 +1236,7 @@ contains
 !###############################################################################
   module subroutine compile( &
        this, optimiser, loss_method, accuracy_method, &
-       metrics, batch_size, verbose &
+       metrics, batch_size, check_shapes, verbose &
   )
     !! Compile the network
     implicit none
@@ -1254,6 +1254,8 @@ contains
     !! Metrics
     integer, optional, intent(in) :: batch_size
     !! Batch size
+    logical, optional, intent(in) :: check_shapes
+    !! Whether to check the input shape
     integer, optional, intent(in) :: verbose
     !! Verbosity level
 
@@ -1266,6 +1268,8 @@ contains
     !! Ranks of layers
     integer :: verbose_ = 0
     !! Verbosity level
+    logical :: check_shapes_ = .true.
+    !! Whether to check the input shape
     logical :: use_graph_input = .false.
     !! Boolean whether to use graph input
     logical :: l_flatten_child, l_set_input_shape
@@ -1284,6 +1288,7 @@ contains
     ! Initialise optional arguments
     !---------------------------------------------------------------------------
     if(present(verbose)) verbose_ = verbose
+    if(present(check_shapes)) check_shapes_ = check_shapes
 
 
     !---------------------------------------------------------------------------
@@ -1631,81 +1636,85 @@ contains
     !---------------------------------------------------------------------------
     ! Confirm input_shape of each layer matches data going into it
     !---------------------------------------------------------------------------
-    do i = 1, size(this%vertex_order, dim = 1)
-       vertex_idx = this%vertex_order(i)
-       layer_id = this%auto_graph%vertex(vertex_idx)%id
-       if(this%model(layer_id)%layer%type.eq."inpt") cycle
+    if(check_shapes_)then
+       do i = 1, size(this%vertex_order, dim = 1)
+          vertex_idx = this%vertex_order(i)
+          layer_id = this%auto_graph%vertex(vertex_idx)%id
+          if(this%model(layer_id)%layer%type.eq."inpt") cycle
 
-       ! Get all parent vertices that feed into this layer
-       parent_vertices = pack( &
-            [(j, j=1,size(this%auto_graph%adjacency(:,vertex_idx)))], &
-            this%auto_graph%adjacency(:,vertex_idx) .ne. 0 &
-       )
-       if(size(parent_vertices).eq.0) cycle
-       select type( layer => this%model(layer_id)%layer )
-       class is(merge_layer_type)
-          operator = layer%merge_mode
-       class default
-          if(size(parent_vertices).gt.1)then
-             call stop_program( &
-                  "layer "//trim(layer%name)// &
-                  " is not a merge layer but has multiple inputs" &
-             )
-             return
-          end if
-       end select
-
-       ! Calculate expected input size from parent layers
-       num_inputs = 0
-       do j = 1, size(parent_vertices)
-          parent_vertex = parent_vertices(j)
-
-          select case(operator)
-          case(1) ! pointwise - all inputs should have same size
-             if(num_inputs.eq.0)then
-                if(this%model(layer_id)%layer%use_graph_input)then
-                   num_inputs = this%model(parent_vertex)%layer%output_shape(1)
-                else
-                   num_inputs = product(this%model(parent_vertex)%layer%output_shape)
-                end if
-             end if
-          case(2) ! concatenate
-             if(this%model(layer_id)%layer%use_graph_input)then
-                num_inputs = num_inputs + &
-                     this%model(parent_vertex)%layer%output_shape(1)
-             else
-                num_inputs = num_inputs + &
-                     product(this%model(parent_vertex)%layer%output_shape)
+          ! Get all parent vertices that feed into this layer
+          parent_vertices = pack( &
+               [(j, j=1,size(this%auto_graph%adjacency(:,vertex_idx)))], &
+               this%auto_graph%adjacency(:,vertex_idx) .ne. 0 &
+          )
+          if(size(parent_vertices).eq.0) cycle
+          select type( layer => this%model(layer_id)%layer )
+          class is(merge_layer_type)
+             operator = layer%merge_mode
+          class default
+             if(size(parent_vertices).gt.1)then
+                call stop_program( &
+                     "layer "//trim(layer%name)// &
+                     " is not a merge layer but has multiple inputs" &
+                )
+                return
              end if
           end select
+
+          ! Calculate expected input size from parent layers
+          num_inputs = 0
+          do j = 1, size(parent_vertices)
+             parent_vertex = parent_vertices(j)
+
+             select case(operator)
+             case(1) ! pointwise - all inputs should have same size
+                if(num_inputs.eq.0)then
+                   if(this%model(layer_id)%layer%use_graph_input)then
+                      num_inputs = this%model(parent_vertex)%layer%output_shape(1)
+                   else
+                      num_inputs = product( &
+                           this%model(parent_vertex)%layer%output_shape &
+                      )
+                   end if
+                end if
+             case(2) ! concatenate
+                if(this%model(layer_id)%layer%use_graph_input)then
+                   num_inputs = num_inputs + &
+                        this%model(parent_vertex)%layer%output_shape(1)
+                else
+                   num_inputs = num_inputs + &
+                        product(this%model(parent_vertex)%layer%output_shape)
+                end if
+             end select
+          end do
+
+          ! Verify calculated input size matches layer's expected input size
+          if(this%model(layer_id)%layer%use_graph_input)then
+             if(num_inputs.ne.this%model(layer_id)%layer%input_shape(1) .and. &
+                  num_inputs.ne.0)then
+                write(*,*) "Expected:", num_inputs, "Got:", &
+                     this%model(layer_id)%layer%input_shape(1)
+                call stop_program( &
+                     "input_shape of layer "//&
+                     trim(this%model(layer_id)%layer%name)// &
+                     " does not match data going into it" &
+                )
+             end if
+          else
+             if(num_inputs.ne.product(this%model(layer_id)%layer%input_shape) .and. &
+                  num_inputs.ne.0)then
+                write(*,*) "Expected:", num_inputs, "Got:", &
+                     product(this%model(layer_id)%layer%input_shape)
+                call stop_program( &
+                     "input_shape of layer "//&
+                     trim(this%model(layer_id)%layer%name)// &
+                     " does not match data going into it" &
+                )
+             end if
+          end if
        end do
+    end if
 
-       ! Verify calculated input size matches layer's expected input size
-       if(this%model(layer_id)%layer%use_graph_input)then
-          if(num_inputs.ne.this%model(layer_id)%layer%input_shape(1) .and. &
-               num_inputs.ne.0)then
-             write(*,*) "Expected:", num_inputs, "Got:", &
-                  this%model(layer_id)%layer%input_shape(1)
-             call stop_program( &
-                  "input_shape of layer "//&
-                  trim(this%model(layer_id)%layer%name)// &
-                  " does not match data going into it" &
-             )
-          end if
-       else
-          if(num_inputs.ne.product(this%model(layer_id)%layer%input_shape) .and. &
-               num_inputs.ne.0)then
-             write(*,*) "Expected:", num_inputs, "Got:", &
-                  product(this%model(layer_id)%layer%input_shape)
-             call stop_program( &
-                  "input_shape of layer "//&
-                  trim(this%model(layer_id)%layer%name)// &
-                  " does not match data going into it" &
-             )
-          end if
-       end if
-
-    end do
 
     !---------------------------------------------------------------------------
     ! Initialise optimiser
@@ -1807,7 +1816,6 @@ contains
     integer :: l_idx
     !! Loop index
 
-    write(*,*) "Counting segments in container of size: ", size(container)
     do l_idx = 1, size(container)
        select type(current => container(l_idx)%layer)
        class is(block_layer_type)
@@ -1816,7 +1824,6 @@ contains
           seg_count = seg_count + size(current%params)
        end select
     end do
-    write(*,*) "Current segment count: ", seg_count
 
   end subroutine count_segments
 !-------------------------------------------------------------------------------
@@ -2224,13 +2231,29 @@ contains
     integer :: num_params
     !! Number of parameters
 
+    num_params = get_num_params_container(this%model)
+
+  end function get_num_params
+!-------------------------------------------------------------------------------
+  pure recursive function get_num_params_container(container) result(num_params)
+    !! Get the number of learnable parameters in a container layer
+    implicit none
+
+    ! Arguments
+    class(container_layer_type), dimension(:), intent(in) :: container
+    !! Container layer
+    integer :: num_params
+    !! Number of parameters
+
     ! Local variables
     integer :: l, i
     !! Loop index
 
     num_params = 0
-    do l = 1, this%num_layers
-       select type(current => this%model(l)%layer)
+    do l = 1, size(container)
+       select type(current => container(l)%layer)
+       class is(block_layer_type)
+          num_params = num_params + get_num_params_container(current%layers)
        class is(learnable_layer_type)
           do i = 1, size(current%params)
              num_params = num_params + size(current%params(i)%val, 1)
@@ -2238,7 +2261,7 @@ contains
        end select
     end do
 
-  end function get_num_params
+  end function get_num_params_container
 !###############################################################################
 
 
@@ -3733,9 +3756,7 @@ contains
                 ))
              end if
 
-             write(6,'("epoch=",I0,", batch=",I0,&
-                  &", lr=",ES0.2,", loss=",A,A)' &
-             ) &
+             write(6,'("epoch=",I0,", batch=",I0,", lr=",ES0.2,", loss=",A,A)') &
                   this%epoch, batch, &
                   this%optimiser%lr_decay%get_lr( &
                        this%optimiser%learning_rate, this%optimiser%iter &
@@ -3896,9 +3917,7 @@ contains
                   this%metrics(2)%val, print_precision_, scientific_print_ &
              ))
           end if
-          write(6,'("epoch=",I0,&
-               &", lr=",ES0.2,", loss=",A,A,A)' &
-          ) &
+          write(6,'("epoch=",I0,", lr=",ES0.2,", loss=",A,A,A)') &
                this%epoch, &
                this%optimiser%lr_decay%get_lr( &
                     this%optimiser%learning_rate, this%optimiser%iter &

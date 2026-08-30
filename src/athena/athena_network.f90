@@ -333,7 +333,7 @@ module athena__network
      !! Interface for compiling the network
      module subroutine compile( &
           this, optimiser, loss_method, accuracy_method, &
-          metrics, batch_size, verbose &
+          metrics, batch_size, check_shapes, verbose &
      )
        !! Compile the network
        class(network_type), intent(inout) :: this
@@ -348,6 +348,8 @@ module athena__network
        !! Metrics
        integer, optional, intent(in) :: batch_size
        !! Batch size
+       logical, optional, intent(in) :: check_shapes
+       !! Whether to check input shapes
        integer, optional, intent(in) :: verbose
        !! Verbosity level
      end subroutine compile

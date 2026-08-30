@@ -98,8 +98,12 @@ contains
     integer :: l
     !! Loop index
 
+    num_params = 0
     do l = 1, size(this%layers)
-       num_params = num_params + this%layers(l)%layer%get_num_params()
+       select type(layer => this%layers(l)%layer)
+       class is(learnable_layer_type)
+          num_params = num_params + layer%get_num_params()
+       end select
     end do
 
   end function get_num_params_block
