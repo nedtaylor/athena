@@ -3,11 +3,11 @@ submodule(athena__network) athena__network_submodule
 #ifdef _OPENMP
   use omp_lib
 #endif
-  use coreutils, only: stop_program, print_warning, to_lower
+  use coreutils, only: stop_program, print_warning, to_lower, to_string
   use athena__misc_ml, only: shuffle
 
   use athena__accuracy, only: categorical_score, mae_score, mse_score, r2_score
-  use athena__base_layer, only: learnable_layer_type, merge_layer_type
+  use athena__base_layer, only: merge_layer_type
 #if defined(GFORTRAN)
   use athena__container_layer, only: container_reduction
 #endif
@@ -1774,25 +1774,7 @@ contains
     !---------------------------------------------------------------------------
     ! Pre-compute parameter segment layout
     !---------------------------------------------------------------------------
-    block
-      integer :: l_idx, p_idx, seg_count, s_idx, e_idx
-      ! First pass: count segments
-      seg_count = 0
-      call count_segments(this%model, seg_count)
-      this%param_num_segments = seg_count
-      if(allocated(this%param_seg_layer)) deallocate(this%param_seg_layer)
-      if(allocated(this%param_seg_pidx))  deallocate(this%param_seg_pidx)
-      if(allocated(this%param_seg_start)) deallocate(this%param_seg_start)
-      if(allocated(this%param_seg_end))   deallocate(this%param_seg_end)
-      allocate(this%param_seg_layer(seg_count))
-      allocate(this%param_seg_pidx(seg_count))
-      allocate(this%param_seg_start(seg_count))
-      allocate(this%param_seg_end(seg_count))
-      ! Second pass: fill layout
-      seg_count = 0
-      e_idx = 0
-      call set_param_segments(this, this%model, seg_count, e_idx)
-    end block
+    call this%set_param_segments()
 
 
     !---------------------------------------------------------------------------
@@ -1827,43 +1809,146 @@ contains
 
   end subroutine count_segments
 !-------------------------------------------------------------------------------
-  recursive subroutine set_param_segments(network, container, seg_count, e_idx)
+  module subroutine set_param_segments(this)
     !! Set the parameter segment layout for a layer (including nested layers)
     implicit none
 
     ! Arguments
-    class(network_type), intent(inout) :: network
+    class(network_type), intent(inout) :: this
+    !! Instance of network
+
+    ! Local variables
+    integer :: seg_count
+    !! Count of segments
+    integer :: e_idx
+    !! End index of last segment
+
+    if(allocated(this%param_segments)) deallocate(this%param_segments)
+
+    call count_segments(this%model, seg_count)
+    allocate(this%param_segments(seg_count))
+
+    seg_count = 0
+    e_idx = 0
+    call this%set_param_segments_container(this%model, seg_count, e_idx, 0, [0])
+
+  end subroutine set_param_segments
+!-------------------------------------------------------------------------------
+  module recursive subroutine set_param_segments_container( &
+       this, container, seg_count, e_idx, depth, path &
+  )
+    !! Recursive implementation that fills parameter segments
+    implicit none
+
+    ! Arguments
+    class(network_type), intent(inout) :: this
     !! Instance of network
     class(container_layer_type), dimension(:), intent(in) :: container
-    !! Container to set segments in
+    !! Container to set segments for
     integer, intent(inout) :: seg_count
     !! Count of segments
     integer, intent(inout) :: e_idx
     !! End index of last segment
+    integer, intent(in) :: depth
+    !! Depth of recursion
+    integer, dimension(:), intent(in) :: path
+    !! Path to the current layer in the container hierarchy
 
     ! Local variables
     integer :: l_idx, p_idx, s_idx
     !! Loop indices
-
+    integer, allocatable :: new_path(:)
+    !! New path for the current layer
 
     do l_idx = 1, size(container)
+       ! Create extended path for this layer
+       allocate(new_path(depth + 1))
+       if(depth .gt. 0) new_path(1:depth) = path
+       new_path(depth + 1) = l_idx
+
        select type(current => container(l_idx)%layer)
        class is(block_layer_type)
-          call set_param_segments(network, current%layers, seg_count, e_idx)
+          call this%set_param_segments_container( &
+               current%layers, seg_count, e_idx, depth + 1, new_path &
+          )
+
        class is(learnable_layer_type)
           do p_idx = 1, size(current%params)
              seg_count = seg_count + 1
              s_idx = e_idx + 1
              e_idx = e_idx + size(current%params(p_idx)%val, 1)
-             network%param_seg_layer(seg_count) = l_idx
-             network%param_seg_pidx(seg_count) = p_idx
-             network%param_seg_start(seg_count) = s_idx
-             network%param_seg_end(seg_count) = e_idx
+
+             ! Store segment information
+             this%param_segments(seg_count)%depth = depth + 1
+             allocate(this%param_segments(seg_count)%path(depth + 1))
+             this%param_segments(seg_count)%path = new_path
+             this%param_segments(seg_count)%param_index = p_idx
+             this%param_segments(seg_count)%start_idx = s_idx
+             this%param_segments(seg_count)%end_idx = e_idx
+
+             ! Store name for debugging
+             this%param_segments(seg_count)%name = &
+                  trim(current%name) // "_p" // trim(to_string(p_idx))
           end do
        end select
+
+       deallocate(new_path)
     end do
 
-  end subroutine set_param_segments
+  end subroutine set_param_segments_container
+!-------------------------------------------------------------------------------
+  module function get_layer_by_path(this, path) result(layer_ptr)
+    !! Traverse container hierarchy using path to find layer
+    implicit none
+
+    ! Arguments
+    class(network_type), intent(in), target :: this
+    !! Instance of network
+    integer, dimension(:), intent(in) :: path
+    !! Path to the layer in the container hierarchy
+    class(learnable_layer_type), pointer :: layer_ptr
+    !! Pointer to the learnable layer found at the end of the path
+
+    ! Local variables
+    class(container_layer_type), pointer :: current_container(:)
+    !! Pointer to the current container layer during traversal
+    integer :: depth, idx
+    !! Depth and index for traversal
+    integer :: i
+    !! Loop index
+
+    layer_ptr => null()
+
+    ! Start at top level
+    current_container => this%model  ! Assuming this is your top-level container
+
+    ! Traverse path
+    do i = 1, size(path)
+       idx = path(i)
+
+       if (i == size(path)) then
+          ! Last element - should be a learnable layer
+          select type(current => current_container(idx)%layer)
+          class is(learnable_layer_type)
+             layer_ptr => current
+             return
+          class default
+             call stop_program("Expected learnable layer at end of path")
+             return
+          end select
+       else
+          ! Intermediate - should be a block layer
+          select type(current => current_container(idx)%layer)
+          class is(block_layer_type)
+             current_container => current%layers
+          class default
+             call stop_program("Expected block layer in path")
+             return
+          end select
+       end if
+    end do
+
+  end function get_layer_by_path
 !###############################################################################
 
 
@@ -2276,14 +2361,36 @@ contains
     real(real32), dimension(this%num_params) :: params
     !! Parameters
 
+    params = get_params_container(this%model, this%num_params)
+
+  end function get_params
+!-------------------------------------------------------------------------------
+  pure recursive function get_params_container(container, num_params) result(params)
+    !! Get learnable parameters from a container layer
+    implicit none
+
+    ! Arguments
+    class(container_layer_type), dimension(:), intent(in) :: container
+    !! Container layer
+    integer, intent(in) :: num_params
+    !! Number of parameters
+    real(real32) :: params(num_params)
+    !! Parameters
+
     ! Local variables
-    integer :: l, i, start_idx, end_idx
+    integer :: l, i, start_idx, end_idx, num_params_block
     !! Loop index
 
     start_idx = 0
     end_idx   = 0
-    do l = 1, this%num_layers
-       select type(current => this%model(l)%layer)
+    do l = 1, size(container)
+       select type(current => container(l)%layer)
+       class is(block_layer_type)
+          num_params_block = get_num_params_container(current%layers)
+          start_idx = end_idx + 1
+          end_idx = end_idx + num_params_block
+          params(start_idx:end_idx) = get_params_container(current%layers, &
+               num_params_block)
        class is(learnable_layer_type)
           do i = 1, size(current%params)
              start_idx = end_idx + 1
@@ -2293,7 +2400,7 @@ contains
        end select
     end do
 
-  end function get_params
+  end function get_params_container
 !###############################################################################
 
 
@@ -2309,24 +2416,45 @@ contains
     !! Parameters
 
     ! Local variables
-    integer :: l, i, start_idx, end_idx
+    integer :: start_idx, end_idx
     !! Loop index
 
     start_idx = 0
     end_idx   = 0
-    do l = 1, this%num_layers
-       select type(current => this%model(l)%layer)
+    call set_params_container(this%model, params, start_idx, end_idx)
+
+  end subroutine set_params
+!-------------------------------------------------------------------------------
+  recursive subroutine set_params_container(container, params, start_idx, end_idx)
+    !! Set learnable parameters in a container layer
+    implicit none
+
+    ! Arguments
+    class(container_layer_type), dimension(:), intent(inout) :: container
+    !! Container layer
+    real(real32), dimension(:), intent(in) :: params
+    !! Parameters
+    integer, intent(inout) :: start_idx, end_idx
+    !! Start and end indices of parameters
+
+    ! Local variables
+    integer :: l, i
+    !! Loop index
+
+    do l = 1, size(container)
+       select type(current => container(l)%layer)
+       class is(block_layer_type)
+          call set_params_container(current%layers, params, start_idx, end_idx)
        class is(learnable_layer_type)
           do i = 1, size(current%params)
              start_idx = end_idx + 1
              end_idx = end_idx + size(current%params(i)%val, 1)
              current%params(i)%val(:,1) = params(start_idx:end_idx)
           end do
-          !  call current%set_params(params(start_idx:end_idx))
        end select
     end do
 
-  end subroutine set_params
+  end subroutine set_params_container
 !###############################################################################
 
 
@@ -2341,14 +2469,38 @@ contains
     real(real32), dimension(this%num_params) :: gradients
     !! Gradients
 
+    gradients = get_gradients_container(this%model, this%num_params)
+    call this%optimiser%clip_dict%apply(size(gradients),gradients)
+
+  end function get_gradients
+!-------------------------------------------------------------------------------
+  pure recursive function get_gradients_container(container, num_params) &
+       result(gradients)
+    !! Get gradients from a container layer
+    implicit none
+
+    ! Arguments
+    class(container_layer_type), dimension(:), intent(in) :: container
+    !! Container layer
+    integer, intent(in) :: num_params
+    !! Number of parameters
+    real(real32) :: gradients(num_params)
+    !! Gradients
+
     ! Local variables
-    integer :: l, i, start_idx, end_idx
+    integer :: l, i, start_idx, end_idx, num_params_block
     !! Loop index
 
     start_idx = 0
     end_idx   = 0
-    do l = 1, this%num_layers
-       select type(current => this%model(l)%layer)
+    do l = 1, size(container)
+       select type(current => container(l)%layer)
+       class is(block_layer_type)
+          num_params_block = get_num_params_container(current%layers)
+          start_idx = end_idx + 1
+          end_idx = end_idx + num_params_block
+          gradients(start_idx:end_idx) = get_gradients_container(current%layers, &
+               num_params_block)
        class is(learnable_layer_type)
           do i = 1, size(current%params)
              if(associated(current%params(i)%grad))then
@@ -2362,9 +2514,53 @@ contains
           end do
        end select
     end do
-    call this%optimiser%clip_dict%apply(size(gradients),gradients)
 
-  end function get_gradients
+  end function get_gradients_container
+!###############################################################################
+
+
+!###############################################################################
+  pure recursive subroutine get_params_and_gradients(container, params, gradients, start_idx, end_idx)
+    !! Get learnable parameters and gradients from a container layer
+    implicit none
+
+    ! Arguments
+    class(container_layer_type), dimension(:), intent(in) :: container
+    !! Container layer
+    real(real32), dimension(:), intent(out) :: params
+    !! Parameters
+    real(real32), dimension(:), intent(out) :: gradients
+    !! Gradients
+    integer, intent(inout) :: start_idx, end_idx
+    !! Start and end indices of parameters/gradients
+
+    ! Local variables
+    integer :: l, i, num_params_block
+    !! Loop index
+
+    do l = 1, size(container)
+       select type(current => container(l)%layer)
+       class is(block_layer_type)
+          call get_params_and_gradients(current%layers, params, gradients, &
+               start_idx, end_idx)
+       class is(learnable_layer_type)
+          do i = 1, size(current%params)
+             start_idx = end_idx + 1
+             end_idx = end_idx + size(current%params(i)%val, 1)
+             params(start_idx:end_idx) = current%params(i)%val(:,1)
+             if(associated(current%params(i)%grad))then
+                gradients(start_idx:end_idx) = [ &
+                     sum(current%params(i)%grad%val, dim=2) / &
+                     real(size(current%params(i)%grad%val, dim=2), real32) &
+                ]
+             else
+                gradients(start_idx:end_idx) = 0._real32
+             end if
+          end do
+       end select
+    end do
+
+  end subroutine get_params_and_gradients
 !###############################################################################
 
 
@@ -2380,13 +2576,35 @@ contains
     !! Gradients
 
     ! Local variables
-    integer :: l, start_idx, end_idx
+    integer :: start_idx, end_idx
     !! Loop index
 
     start_idx = 0
     end_idx   = 0
-    do l = 1, this%num_layers
-       select type(current => this%model(l)%layer)
+    call set_gradients_container(this%model, gradients, start_idx, end_idx)
+
+  end subroutine set_gradients
+!-------------------------------------------------------------------------------
+  recursive subroutine set_gradients_container(container, gradients, start_idx, end_idx)
+    !! Set gradients in a container layer
+    implicit none
+
+    ! Arguments
+    class(container_layer_type), dimension(:), intent(inout) :: container
+    !! Container layer
+    real(real32), dimension(..), intent(in) :: gradients
+    !! Gradients
+    integer, intent(inout) :: start_idx, end_idx
+    !! Start and end indices of gradients
+
+    ! Local variables
+    integer :: l, i
+    !! Loop index
+
+    do l = 1, size(container)
+       select type(current => container(l)%layer)
+       class is(block_layer_type)
+          call set_gradients_container(current%layers, gradients, start_idx, end_idx)
        class is(learnable_layer_type)
           start_idx = end_idx + 1
           end_idx = end_idx + current%num_params
@@ -2395,11 +2613,13 @@ contains
              call current%set_gradients(gradients)
           rank(1)
              call current%set_gradients(gradients(start_idx:end_idx))
+          rank default
+             call stop_program("gradients array has unexpected rank, expected 0 or 1")
           end select
        end select
     end do
 
-  end subroutine set_gradients
+  end subroutine set_gradients_container
 !###############################################################################
 
 
@@ -2412,12 +2632,26 @@ contains
     class(network_type), intent(inout) :: this
     !! Instance of network
 
+    call reset_gradients_container(this%model)
+
+  end subroutine reset_gradients
+!-------------------------------------------------------------------------------
+  recursive subroutine reset_gradients_container(container)
+    !! Reset gradients in a container layer
+    implicit none
+
+    ! Arguments
+    class(container_layer_type), dimension(:), intent(inout) :: container
+    !! Container layer
+
     ! Local variables
     integer :: l, i
     !! Loop index
 
-    do l = 1, this%num_layers
-       select type(current => this%model(l)%layer)
+    do l = 1, size(container)
+       select type(current => container(l)%layer)
+       class is(block_layer_type)
+          call reset_gradients_container(current%layers)
        class is(learnable_layer_type)
           do i = 1, size(current%params)
              call current%params(i)%zero_grad()
@@ -2425,7 +2659,7 @@ contains
        end select
     end do
 
-  end subroutine reset_gradients
+  end subroutine reset_gradients_container
 !###############################################################################
 
 
@@ -2895,8 +3129,11 @@ contains
     !! Parameters and gradients
 
     ! Local variables
-    integer :: l, i, s, start_idx, end_idx, seg
-    !! Loop index
+    integer :: seg, start_idx, end_idx
+    integer :: depth_idx, layer_path_idx
+    class(learnable_layer_type), pointer :: layer_ptr
+    integer :: param_idx
+    integer :: batch_size
 
 
     !---------------------------------------------------------------------------
@@ -2915,86 +3152,88 @@ contains
     !---------------------------------------------------------------------------
     ! Get learnable parameters and gradients (using pre-computed layout)
     !---------------------------------------------------------------------------
-    if(this%param_num_segments.gt.0 .and. &
-         allocated(this%param_seg_layer))then
-       do seg = 1, this%param_num_segments
-          l = this%param_seg_layer(seg)
-          i = this%param_seg_pidx(seg)
-          start_idx = this%param_seg_start(seg)
-          end_idx = this%param_seg_end(seg)
-          select type(current => this%model(l)%layer)
-          class is(learnable_layer_type)
-             params(start_idx:end_idx) = current%params(i)%val(:,1)
-             if(.not.associated(current%params(i)%grad))then
-                call stop_program( &
-                     "Gradient not allocated for parameters" &
-                )
-             end if
-             s = size(current%params(i)%grad%val,2)
-             if(s.eq.1)then
-                gradients(start_idx:end_idx) = &
-                     current%params(i)%grad%val(:,1)
-             else
-                gradients(start_idx:end_idx) = &
-                     sum(current%params(i)%grad%val, dim=2) / &
-                     real(s, real32)
-             end if
-          end select
+    if(allocated(this%param_segments) .and. size(this%param_segments) > 0) then
+
+       ! Use pre-computed layout from parameter_segments
+       do seg = 1, size(this%param_segments)
+          start_idx = this%param_segments(seg)%start_idx
+          end_idx = this%param_segments(seg)%end_idx
+
+          ! Get the layer pointer using the stored path
+          layer_ptr => this%get_layer_by_path(this%param_segments(seg)%path)
+
+          if (.not. associated(layer_ptr)) then
+             call stop_program("Layer not found for segment " // trim(to_string(seg)))
+          end if
+
+          param_idx = this%param_segments(seg)%param_index
+
+          ! Copy parameters
+          params(start_idx:end_idx) = layer_ptr%params(param_idx)%val(:,1)
+
+          ! Handle gradients
+          if (.not. associated(layer_ptr%params(param_idx)%grad)) then
+             call stop_program( &
+                  "Gradient not allocated for parameters in segment " // trim(to_string(seg)) &
+             )
+          end if
+
+          ! Average gradients across batch if needed
+          batch_size = size(layer_ptr%params(param_idx)%grad%val, 2)
+          if (batch_size == 1) then
+             gradients(start_idx:end_idx) = &
+                  layer_ptr%params(param_idx)%grad%val(:,1)
+          else
+             gradients(start_idx:end_idx) = &
+                  sum(layer_ptr%params(param_idx)%grad%val, dim=2) / &
+                  real(batch_size, real32)
+          end if
        end do
+
     else
+       ! Fallback: use get_params_and_gradients method
        start_idx = 0
-       end_idx   = 0
-       do l = 1, this%num_layers
-          select type(current => this%model(l)%layer)
-          class is(learnable_layer_type)
-             do i = 1, size(current%params)
-                start_idx = end_idx + 1
-                end_idx = end_idx + size(current%params(i)%val, 1)
-                params(start_idx:end_idx) = current%params(i)%val(:,1)
-                if(.not.associated(current%params(i)%grad))then
-                   call stop_program( &
-                        "Gradient not allocated for parameters" &
-                   )
-                end if
-                select case(size(current%params(i)%grad%val,2))
-                case(1)
-                   gradients(start_idx:end_idx) = &
-                        current%params(i)%grad%val(:,1)
-                case default
-                   gradients(start_idx:end_idx) = [ &
-                        sum(current%params(i)%grad%val, dim=2) / &
-                        real( &
-                             size(current%params(i)%grad%val, dim=2), &
-                             real32) &
-                   ]
-                end select
-             end do
-          end select
-       end do
+       end_idx = 0
+       call get_params_and_gradients(this%model, params, gradients, start_idx, end_idx)
     end if
+
+    ! Apply gradient clipping
     call this%optimiser%clip_dict%apply(size(gradients),gradients)
 
     !---------------------------------------------------------------------------
-    ! Update layers of learnable layer types
+    ! Update layers using optimiser
     !---------------------------------------------------------------------------
     call this%optimiser%minimise(params, gradients)
 
-    ! Set params back using pre-computed layout
-    if(this%param_num_segments.gt.0 .and. &
-         allocated(this%param_seg_layer))then
-       do seg = 1, this%param_num_segments
-          l = this%param_seg_layer(seg)
-          i = this%param_seg_pidx(seg)
-          start_idx = this%param_seg_start(seg)
-          end_idx = this%param_seg_end(seg)
-          select type(current => this%model(l)%layer)
-          class is(learnable_layer_type)
-             current%params(i)%val(:,1) = params(start_idx:end_idx)
-          end select
+    !---------------------------------------------------------------------------
+    ! Set updated parameters back into layers
+    !---------------------------------------------------------------------------
+    if(allocated(this%param_segments) .and. size(this%param_segments) > 0) then
+
+       ! Use pre-computed layout from parameter_segments
+       do seg = 1, size(this%param_segments)
+          start_idx = this%param_segments(seg)%start_idx
+          end_idx = this%param_segments(seg)%end_idx
+
+          ! Get the layer pointer using the stored path
+          layer_ptr => this%get_layer_by_path(this%param_segments(seg)%path)
+
+          if (.not. associated(layer_ptr)) then
+             call stop_program("Layer not found for segment " // trim(to_string(seg)))
+          end if
+
+          param_idx = this%param_segments(seg)%param_index
+
+          ! Copy updated parameters back
+          layer_ptr%params(param_idx)%val(:,1) = params(start_idx:end_idx)
        end do
+
     else
+       ! Fallback: use set_params method
        call this%set_params(params)
     end if
+
+    ! Reset gradients after update
     call this%reset_gradients()
 
   end subroutine update

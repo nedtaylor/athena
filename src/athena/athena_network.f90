@@ -14,7 +14,7 @@ module athena__network
   use athena__optimiser, only: base_optimiser_type
   use athena__loss, only: base_loss_type
   use athena__accuracy, only: comp_acc_func => compute_accuracy_function
-  use athena__base_layer, only: base_layer_type
+  use athena__base_layer, only: base_layer_type, learnable_layer_type
   use diffstruc, only: array_type
   use athena__misc_types, only: &
        onnx_node_type, onnx_initialiser_type, onnx_tensor_type
@@ -80,14 +80,8 @@ module athena__network
      ! Pre-computed parameter segment layout (populated during compile)
      integer :: param_num_segments = 0
      !! Number of parameter segments
-     integer, dimension(:), allocatable :: param_seg_layer
-     !! Layer index for each parameter segment
-     integer, dimension(:), allocatable :: param_seg_pidx
-     !! Param index within that layer for each segment
-     integer, dimension(:), allocatable :: param_seg_start
-     !! Start offset in flat parameter array
-     integer, dimension(:), allocatable :: param_seg_end
-     !! End offset in flat parameter array
+     type(parameter_segment), dimension(:), allocatable :: param_segments
+     !! Parameter segments
 
      type(array_type), dimension(:,:), allocatable :: input_array
      !! Input array for the network
@@ -193,6 +187,14 @@ module athena__network
      procedure, pass(this) :: extract_output => extract_output_real
      !! Extract network output as real array (only works for single output layer models)
 
+     procedure :: set_param_segments
+     !! Set the parameter segments for the network
+     procedure, private :: set_param_segments_container
+     !! Recursively set the parameter segments for the network
+     procedure, private :: get_layer_by_path
+     !! Traverse container hierarchy using path to find layer
+
+
      procedure, pass(this) :: forward => forward_generic2d
      !! Forward pass for generic 2D input
      procedure, pass(this) :: forward_eval
@@ -246,6 +248,58 @@ module athena__network
        !! Instance of the network
      end function network_setup
   end interface network_type
+
+  type :: parameter_segment
+     integer :: depth
+     !! Depth of the layer in the network
+     integer, allocatable :: path(:)
+     !! Path from the root to the layer in the network
+     integer :: param_index
+     !! Index of the parameter within the layer
+     integer :: start_idx, end_idx
+     !! Start and end indices of the parameter segment in the flat parameter array
+     character(len=:), allocatable :: name
+     !! Name of the parameter segment
+  end type parameter_segment
+
+  interface
+     !! Interface for setting the parameter segments for the network
+     module subroutine set_param_segments(this)
+       !! Set the parameter segments for the network
+       class(network_type), intent(inout) :: this
+       !! Instance of the network
+     end subroutine set_param_segments
+
+     !! Interface for recursively setting the parameter segments for the network
+     module recursive subroutine set_param_segments_container( &
+          this, container, seg_count, e_idx, depth, path &
+     )
+       !! Recursively set the parameter segments for the network
+       class(network_type), intent(inout) :: this
+       !! Instance of the network
+       class(container_layer_type), dimension(:), intent(in) :: container
+       !! Container to set segments for
+       integer, intent(inout) :: seg_count
+       !! Count of segments
+       integer, intent(inout) :: e_idx
+       !! End index of last segment
+       integer, intent(in) :: depth
+       !! Depth of recursion
+       integer, dimension(:), intent(in) :: path
+       !! Path to the current layer in the container hierarchy
+     end subroutine set_param_segments_container
+
+     !! Interface for traversing the container hierarchy using a path to find a layer
+     module function get_layer_by_path(this, path) result(layer_ptr)
+       !! Traverse container hierarchy using path to find layer
+       class(network_type), intent(in), target :: this
+       !! Instance of network
+       integer, dimension(:), intent(in) :: path
+       !! Path to the layer in the container hierarchy
+       class(learnable_layer_type), pointer :: layer_ptr
+       !! Pointer to the learnable layer found at the end of the path
+     end function get_layer_by_path
+  end interface
 
   interface
      !! Interface for printing the network to file
