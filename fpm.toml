@@ -16,7 +16,7 @@ auto-examples = false
 module-naming = false
 
 [dependencies]
-coreutils = { git = "https://github.com/nedtaylor/coreutils", tag = "v0.1.0" }
+coreutils = { git = "https://github.com/nedtaylor/coreutils", branch = "development" }
 diffstruc = { git = "https://github.com/nedtaylor/diffstruc", tag = "v1.2.0" }
 graphstruc = { git = "https://github.com/nedtaylor/graphstruc", tag = "v0.2.1" }
 
@@ -119,6 +119,10 @@ source-dir = "example/onnx_nop/src"
 [[example]]
 name = "resnet"
 source-dir = "example/resnet/src"
+
+[[example]]
+name = "resnet_block"
+source-dir = "example/resnet_block/src"
 
 [[example]]
 name = "rnn_timeseries"
