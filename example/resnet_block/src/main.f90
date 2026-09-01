@@ -17,11 +17,11 @@ contains
     !! Test simple ResNet with one residual block
     type(network_type) :: net
     type(adam_optimiser_type) :: optimiser
-    type(cce_loss_type) :: loss
+    type(cce_loss_type) :: loss_method
     class(base_layer_type), allocatable :: block_layer
     integer :: layer_id
     type(array_type) :: input_data(1,1)
-    type(array_type), pointer :: output_data(:,:)
+    type(array_type), pointer :: output_data(:,:), loss
 
     ! Image dimensions: 28x28 grayscale images
     ! Data format: [width, height, channels]
@@ -51,8 +51,10 @@ contains
 
     ! Compile
     optimiser = adam_optimiser_type(learning_rate=0.001_real32)
-    loss = cce_loss_type()
-    call net%compile(optimiser=optimiser, loss_method=loss, verbose=3, check_shapes=.false.)
+    loss_method = cce_loss_type()
+    call net%compile(optimiser=optimiser, loss_method=loss_method, verbose=3, &
+         check_shapes=.false. &
+    )
 
     ! Print summary
     call net%print_summary()
@@ -60,9 +62,16 @@ contains
     ! Run a forward pass with dummy input data
     call input_data(1,1)%allocate([width, height, channels, 1])
     output_data => net%forward_eval(input_data)
+    loss => output_data(1,1) - 1.0_real32  ! Dummy target for testing
+    loss%is_temporary = .false.
+    call loss%grad_reverse(reset_graph=.true.)
 
     ! Update the network (dummy update for testing)
     call net%update()
+    call loss%nullify_graph()
+    deallocate(loss)
+    nullify(loss)
+
 
     print *, "Simple ResNet test completed successfully!"
 

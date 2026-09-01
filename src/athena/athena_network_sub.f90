@@ -1825,6 +1825,7 @@ contains
 
     if(allocated(this%param_segments)) deallocate(this%param_segments)
 
+    seg_count = 0
     call count_segments(this%model, seg_count)
     allocate(this%param_segments(seg_count))
 
@@ -1888,7 +1889,10 @@ contains
 
              ! Store name for debugging
              this%param_segments(seg_count)%name = &
-                  trim(current%name) // "_p" // trim(to_string(p_idx))
+                  trim(current%name) // &
+                  "_seg" // trim(to_string(seg_count)) // &
+                  "_d" // trim(to_string(depth + 1)) // &
+                  "_p" // trim(to_string(p_idx))
           end do
        end select
 
@@ -3152,7 +3156,7 @@ contains
     !---------------------------------------------------------------------------
     ! Get learnable parameters and gradients (using pre-computed layout)
     !---------------------------------------------------------------------------
-    if(allocated(this%param_segments) .and. size(this%param_segments) > 0) then
+    if(allocated(this%param_segments) .and. size(this%param_segments) .gt. 0)then
 
        ! Use pre-computed layout from parameter_segments
        do seg = 1, size(this%param_segments)
@@ -3162,7 +3166,7 @@ contains
           ! Get the layer pointer using the stored path
           layer_ptr => this%get_layer_by_path(this%param_segments(seg)%path)
 
-          if (.not. associated(layer_ptr)) then
+          if(.not. associated(layer_ptr))then
              call stop_program("Layer not found for segment " // trim(to_string(seg)))
           end if
 
@@ -3172,9 +3176,11 @@ contains
           params(start_idx:end_idx) = layer_ptr%params(param_idx)%val(:,1)
 
           ! Handle gradients
-          if (.not. associated(layer_ptr%params(param_idx)%grad)) then
+          if(.not. associated(layer_ptr%params(param_idx)%grad))then
              call stop_program( &
-                  "Gradient not allocated for parameters in segment " // trim(to_string(seg)) &
+                  "Gradient not allocated for parameters in segment " // &
+                  trim(to_string(seg)) // &
+                  " (" // trim(this%param_segments(seg)%name) // ")" &
              )
           end if
 
@@ -3208,7 +3214,7 @@ contains
     !---------------------------------------------------------------------------
     ! Set updated parameters back into layers
     !---------------------------------------------------------------------------
-    if(allocated(this%param_segments) .and. size(this%param_segments) > 0) then
+    if(allocated(this%param_segments) .and. size(this%param_segments) .gt. 0)then
 
        ! Use pre-computed layout from parameter_segments
        do seg = 1, size(this%param_segments)
@@ -3218,7 +3224,7 @@ contains
           ! Get the layer pointer using the stored path
           layer_ptr => this%get_layer_by_path(this%param_segments(seg)%path)
 
-          if (.not. associated(layer_ptr)) then
+          if(.not. associated(layer_ptr))then
              call stop_program("Layer not found for segment " // trim(to_string(seg)))
           end if
 

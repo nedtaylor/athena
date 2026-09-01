@@ -68,7 +68,7 @@ contains
     allocate(x1(size(input,1), size(input,2)))
     ptr => x(1,1) + input(1,1)
     call x1(1,1)%assign_and_deallocate_source(ptr)
-    output => this%layers(6)%layer%forward_eval(x)
+    output => this%layers(6)%layer%forward_eval(x1)
 
   end function forward_block
 
