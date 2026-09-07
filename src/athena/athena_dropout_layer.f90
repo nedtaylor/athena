@@ -499,7 +499,7 @@ contains
     implicit none
 
     ! Arguments
-    class(dropout_layer_type), intent(inout) :: this
+    class(dropout_layer_type), intent(inout), target :: this
     !! Instance of the dropout layer
     class(array_type), dimension(:,:), intent(in) :: input
     !! Input values

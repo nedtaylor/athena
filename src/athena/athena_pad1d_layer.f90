@@ -383,7 +383,7 @@ contains
     implicit none
 
     ! Arguments
-    class(pad1d_layer_type), intent(inout) :: this
+    class(pad1d_layer_type), intent(inout), target :: this
     !! Instance of the 1D padding layer
     class(array_type), dimension(:,:), intent(in) :: input
     !! Input values

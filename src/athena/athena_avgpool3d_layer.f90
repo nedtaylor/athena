@@ -445,7 +445,7 @@ contains
     implicit none
 
     ! Arguments
-    class(avgpool3d_layer_type), intent(inout) :: this
+    class(avgpool3d_layer_type), intent(inout), target :: this
     !! Instance of the 3D average pooling layer
     class(array_type), dimension(:,:), intent(in) :: input
     !! Input values

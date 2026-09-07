@@ -530,7 +530,7 @@ contains
     implicit none
 
     ! Arguments
-    class(dropblock3d_layer_type), intent(inout) :: this
+    class(dropblock3d_layer_type), intent(inout), target :: this
     !! Instance of the 3D dropblock layer
     class(array_type), dimension(:,:), intent(in) :: input
     !! Input values

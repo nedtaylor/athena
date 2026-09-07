@@ -367,7 +367,7 @@ contains
     implicit none
 
     ! Arguments
-    class(base_layer_type), intent(inout) :: this
+    class(base_layer_type), intent(inout), target :: this
     !! Instance of the layer
     class(array_type), dimension(:,:), intent(in) :: input
     !! Input data

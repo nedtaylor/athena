@@ -524,7 +524,7 @@ contains
     implicit none
 
     ! Arguments
-    class(dropblock2d_layer_type), intent(inout) :: this
+    class(dropblock2d_layer_type), intent(inout), target :: this
     !! Instance of the 2D dropblock layer
     class(array_type), dimension(:,:), intent(in) :: input
     !! Input values

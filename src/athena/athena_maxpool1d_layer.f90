@@ -433,7 +433,7 @@ contains
     implicit none
 
     ! Arguments
-    class(maxpool1d_layer_type), intent(inout) :: this
+    class(maxpool1d_layer_type), intent(inout), target :: this
     !! Instance of the 1D max pooling layer
     class(array_type), dimension(:,:), intent(in) :: input
     !! Input values

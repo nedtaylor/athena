@@ -693,7 +693,7 @@ contains
     implicit none
 
     ! Arguments
-    class(fixed_lno_layer_type), intent(inout) :: this
+    class(fixed_lno_layer_type), intent(inout), target :: this
     !! Layer instance to execute
     class(array_type), dimension(:,:), intent(in) :: input
     !! Input batch tensor collection

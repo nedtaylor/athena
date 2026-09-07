@@ -443,7 +443,7 @@ contains
     implicit none
 
     ! Arguments
-    class(avgpool2d_layer_type), intent(inout) :: this
+    class(avgpool2d_layer_type), intent(inout), target :: this
     !! Instance of the 2D average pooling layer
     class(array_type), dimension(:,:), intent(in) :: input
     !! Input values

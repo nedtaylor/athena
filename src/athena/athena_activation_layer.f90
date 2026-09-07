@@ -498,7 +498,7 @@ contains
     implicit none
 
     ! Arguments
-    class(actv_layer_type), intent(inout) :: this
+    class(actv_layer_type), intent(inout), target :: this
     !! Instance of the fully connected layer
     class(array_type), dimension(:,:), intent(in) :: input
     !! Input values

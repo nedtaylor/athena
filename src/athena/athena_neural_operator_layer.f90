@@ -735,7 +735,7 @@ contains
     implicit none
 
     ! Arguments
-    class(neural_operator_layer_type), intent(inout) :: this
+    class(neural_operator_layer_type), intent(inout), target :: this
     !! Instance of the neural operator layer
     class(array_type), dimension(:,:), intent(in) :: input
     !! Input values

@@ -143,7 +143,7 @@ module athena__msgpass_layer
   interface
      module subroutine forward_msgpass(this, input)
        !! Forward pass for the message passing layer
-       class(msgpass_layer_type), intent(inout) :: this
+       class(msgpass_layer_type), intent(inout), target :: this
        !! Instance of the layer type
        class(array_type), dimension(:,:), intent(in) :: input
        !! Input data (i.e. vertex and edge features)

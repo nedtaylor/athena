@@ -192,7 +192,7 @@ module athena__base_layer
   interface
      module subroutine forward_base(this, input)
        !! Forward pass of layer
-       class(base_layer_type), intent(inout) :: this
+       class(base_layer_type), intent(inout), target :: this
        !! Instance of the layer
        class(array_type), dimension(:,:), intent(in) :: input
        !! Input data

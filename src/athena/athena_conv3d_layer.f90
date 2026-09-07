@@ -889,7 +889,7 @@ contains
     implicit none
 
     ! Arguments
-    class(conv3d_layer_type), intent(inout) :: this
+    class(conv3d_layer_type), intent(inout), target :: this
     !! Instance of the 3D convolutional layer
     class(array_type), dimension(:,:), intent(in) :: input
     !! Input values

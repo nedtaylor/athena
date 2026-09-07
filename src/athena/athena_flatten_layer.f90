@@ -470,7 +470,7 @@ contains
     implicit none
 
     ! Arguments
-    class(flatten_layer_type), intent(inout) :: this
+    class(flatten_layer_type), intent(inout), target :: this
     !! Instance of the fully connected layer
     class(array_type), dimension(:,:), intent(in) :: input
     !! Input values

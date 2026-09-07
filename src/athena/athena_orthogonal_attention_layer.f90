@@ -835,7 +835,7 @@ contains
     implicit none
 
     ! Arguments
-    class(orthogonal_attention_layer_type), intent(inout) :: this
+    class(orthogonal_attention_layer_type), intent(inout), target :: this
     !! Layer instance to execute
     class(array_type), dimension(:,:), intent(in) :: input
     !! Input batch tensor collection

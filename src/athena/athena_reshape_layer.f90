@@ -473,7 +473,7 @@ contains
     implicit none
 
     ! Arguments
-    class(reshape_layer_type), intent(inout) :: this
+    class(reshape_layer_type), intent(inout), target :: this
     !! Instance of the reshape layer
     class(array_type), dimension(:,:), intent(in) :: input
     !! Input array

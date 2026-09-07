@@ -186,7 +186,7 @@ contains
     implicit none
 
     ! Arguments
-    class(msgpass_layer_type), intent(inout) :: this
+    class(msgpass_layer_type), intent(inout), target :: this
     !! Instance of the layer type
     class(array_type), dimension(:,:), intent(in) :: input
     !! Input data (i.e. vertex and edge features)
