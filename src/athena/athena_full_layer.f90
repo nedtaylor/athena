@@ -372,9 +372,11 @@ contains
     !---------------------------------------------------------------------------
     ! Allocate weight, weight steps (velocities), output, and activation
     !---------------------------------------------------------------------------
+    if(allocated(this%weight_shape)) deallocate(this%weight_shape)
     allocate(this%weight_shape(2,1))
     this%weight_shape(:,1) = [ this%num_outputs, this%num_inputs ]
 
+    if(allocated(this%params)) deallocate(this%params)
     if(this%use_bias)then
        this%bias_shape = [ this%num_outputs ]
        allocate(this%params(2))

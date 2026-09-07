@@ -288,6 +288,7 @@ contains
     ! set up number of channels, width, height
     !---------------------------------------------------------------------------
     if(allocated(this%output)) deallocate(this%output)
+    if(allocated(this%output_shape)) deallocate(this%output_shape)
     allocate(this%output_shape(this%input_rank))
     if(size(this%input_shape).eq.1)then
        this%output_shape(1) = this%input_shape(1)
@@ -297,9 +298,11 @@ contains
     end if
     this%num_channels = this%input_shape(this%input_rank)
     this%num_params = this%get_num_params()
+    if(allocated(this%params)) deallocate(this%params)
     allocate(this%params(1))
     call this%params(1)%allocate([2 * this%num_channels, 1])
     call this%params(1)%set_requires_grad(.true.)
+    if(allocated(this%weight_shape)) deallocate(this%weight_shape)
     allocate(this%weight_shape(1,1))
     this%weight_shape(:,1) = [ this%num_channels ]
     this%bias_shape = [this%num_channels]
@@ -308,6 +311,8 @@ contains
     !---------------------------------------------------------------------------
     ! allocate mean and variance
     !---------------------------------------------------------------------------
+    if(allocated(this%mean)) deallocate(this%mean)
+    if(allocated(this%variance)) deallocate(this%variance)
     allocate(this%mean(this%num_channels), source=0._real32)
     allocate(this%variance, source=this%mean)
 
