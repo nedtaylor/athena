@@ -291,8 +291,14 @@ contains
     if(allocated(this%output_shape)) deallocate(this%output_shape)
     allocate(this%output_shape(this%input_rank))
     if(size(this%input_shape).eq.1)then
-       this%output_shape(1) = this%input_shape(1)
-       this%output_shape(2) = 1
+       if(this%input_rank.eq.2)then
+          this%output_shape(1) = this%input_shape(1)
+          this%output_shape(2) = 1
+       elseif(this%input_rank.eq.1)then
+          this%output_shape(1) = this%input_shape(1)
+       else
+          call stop_program("Batch normalisation layer: input rank must be 1 or 2")
+       end if
     else
        this%output_shape = this%input_shape
     end if

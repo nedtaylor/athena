@@ -115,6 +115,8 @@ module athena
 
   ! Batch normalisation layer types
   !-----------------------------------------------------------------------------
+  use athena__batchnorm0d_layer, only: &
+       batchnorm0d_layer_type, read_batchnorm0d_layer
   use athena__batchnorm1d_layer, only: &
        batchnorm1d_layer_type, read_batchnorm1d_layer
   use athena__batchnorm2d_layer, only: &
