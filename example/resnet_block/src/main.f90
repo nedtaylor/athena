@@ -60,6 +60,7 @@ contains
     call net%print_summary()
 
     ! Run a forward pass with dummy input data
+    call net%set_training_mode()
     call input_data(1,1)%allocate([width, height, channels, 1])
     output_data => net%forward_eval(input_data)
     loss => output_data(1,1) - 1.0_real32  ! Dummy target for testing

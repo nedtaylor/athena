@@ -60,6 +60,8 @@ contains
     type(adam_optimiser_type) :: optimiser
     type(cce_loss_type) :: loss
     integer :: layer_id
+    type(array_type) :: input_data(1,1)
+    type(array_type), pointer :: output_data(:,:)
 
     ! Image dimensions: 28x28 grayscale images
     ! Data format: [width, height, channels]
@@ -109,10 +111,13 @@ contains
     ! Compile
     optimiser = adam_optimiser_type(learning_rate=0.001_real32)
     loss = cce_loss_type()
-    call net%compile(optimiser=optimiser, loss_method=loss)
+    call net%compile(optimiser=optimiser, loss_method=loss, verbose=3)
 
     ! Print summary
     call net%print_summary()
+
+    call input_data(1,1)%allocate([width, height, channels, 1])
+    output_data => net%forward_eval(input_data)
 
     print *, "Simple ResNet test completed successfully!"
 
