@@ -1,7 +1,7 @@
 module athena__batchnorm1d_layer
-  !! Module containing implementation of 0D and 1D batch normalisation layers
+  !! Module containing implementation of 1D batch normalisation layers
   !!
-  !! This module implements batch normalisation for 3D convolutional layers,
+  !! This module implements batch normalisation for 1D convolutional layers,
   !! normalizing activations across the batch dimension.
   !!
   !! Mathematical operation (training):
