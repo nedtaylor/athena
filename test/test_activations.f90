@@ -63,7 +63,6 @@ program test_activations
   call val_array%allocate([1], source=value)
   call val_array%set_requires_grad(.true.)
   val_array%is_temporary = .false.
-  val_array%fix_pointer = .true.
   scale = 2.E0
   activate(1) = value
   activate(2) = scale / (1.5E0 * sqrt(2.E0 * pi)) * exp(-0.5E0 * (value/1.5E0)**2.E0)

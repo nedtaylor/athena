@@ -223,8 +223,7 @@ program test_batchnorm1d_layer
 !!!-----------------------------------------------------------------------------
   !! run backward pass
   output => bn_layer%output(1,1)
-  allocate(output%grad)
-  call output%grad%allocate(array_shape=[output%shape, size(output%val, 2)])
+  call output%set_requires_grad(.true.)
   output%grad%val = output%val
   call output%grad%extract(gradient_3d)
   !call output%extract(gradient_3d)

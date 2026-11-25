@@ -337,14 +337,12 @@ contains
     ! R: spectral mixing weights
     call this%params(1)%allocate([this%num_modes, this%num_modes, 1])
     call this%params(1)%set_requires_grad(.true.)
-    this%params(1)%fix_pointer = .true.
     this%params(1)%is_sample_dependent = .false.
     this%params(1)%is_temporary = .false.
 
     ! W: local bypass weights
     call this%params(2)%allocate([this%num_outputs, this%num_inputs, 1])
     call this%params(2)%set_requires_grad(.true.)
-    this%params(2)%fix_pointer = .true.
     this%params(2)%is_sample_dependent = .false.
     this%params(2)%is_temporary = .false.
 
@@ -353,7 +351,6 @@ contains
        num_inputs = this%num_inputs + 1
        call this%params(3)%allocate([this%bias_shape, 1])
        call this%params(3)%set_requires_grad(.true.)
-       this%params(3)%fix_pointer = .true.
        this%params(3)%is_sample_dependent = .false.
        this%params(3)%is_temporary = .false.
     end if
@@ -390,7 +387,6 @@ contains
          [this%num_modes, this%num_inputs, 1])
     this%encoder_basis%is_sample_dependent = .false.
     this%encoder_basis%requires_grad = .false.
-    this%encoder_basis%fix_pointer = .true.
     this%encoder_basis%is_temporary = .false.
 
     do j = 1, this%num_inputs
@@ -417,7 +413,6 @@ contains
          [this%num_outputs, this%num_modes, 1])
     this%decoder_basis%is_sample_dependent = .false.
     this%decoder_basis%requires_grad = .false.
-    this%decoder_basis%fix_pointer = .true.
     this%decoder_basis%is_temporary = .false.
 
     do k = 1, this%num_modes

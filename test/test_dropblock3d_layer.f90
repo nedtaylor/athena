@@ -14,7 +14,7 @@ program test_dropblock3d_layer
   type(array_type) :: input(1,1)
   real, allocatable, dimension(:,:,:,:,:) :: input_5d, output_5d, gradient_5d
   real, allocatable, dimension(:) :: output_1d
-  real, allocatable, dimension(:,:) :: output_2d
+  real, allocatable, dimension(:,:,:,:,:) :: output_2d
   real, parameter :: tol = 1.E-7
   logical :: success = .true.
   class(array_type), pointer :: output => null()
@@ -119,8 +119,7 @@ program test_dropblock3d_layer
 !-------------------------------------------------------------------------------
   !! run backward pass
   output => db_layer%output(1,1)
-  allocate(output%grad)
-  call output%grad%allocate(array_shape=[output%shape, size(output%val, 2)])
+  call output%set_requires_grad(.true.)
   output%grad%val = output%val
   call output%grad_reverse()
   gradient => input(1,1)%grad

@@ -70,7 +70,6 @@ contains
     ! Update the network (dummy update for testing)
     call net%update()
     call loss%nullify_graph()
-    deallocate(loss)
     nullify(loss)
 
 

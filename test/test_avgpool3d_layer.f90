@@ -143,8 +143,8 @@ program test_avgpool3d_layer
 ! run backward pass
 !-------------------------------------------------------------------------------
   gradient => output
-  allocate(gradient%grad)
-  gradient%grad = output
+  call output%set_requires_grad(.true.)
+  output%grad%val = output%val
   call gradient%grad_reverse()
   call di_compare(1,1)%allocate(&
        array_shape=[width,width,width,num_channels,1], source = 0.0)
@@ -161,7 +161,7 @@ program test_avgpool3d_layer
                             di_compare(1,1)%val(&
                                  ip1 + (jp1-1)*width + (kp1-1)*width*width + &
                                  (c-1)*width*width*width, 1 &
-                            ) + &
+                       ) + &
                             gradient%val(&
                                  i + (j-1)*output_width + &
                                  (k-1)*output_width*output_width, 1) / &

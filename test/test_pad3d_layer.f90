@@ -19,6 +19,7 @@ program test_pad3d_layer
 
   ! Test data
   real(real32), allocatable, dimension(:,:) :: output_2d
+  real(real32), allocatable, dimension(:) :: output_1d
   real(real32), allocatable, dimension(:,:,:,:,:) :: input_5d, output_5d
   type(array_type) :: input(1,1)
   type(array_type), pointer :: output, gradient
@@ -117,7 +118,9 @@ program test_pad3d_layer
 
   ! Run forward pass
   call pad3d_layer%forward(input)
-  call pad3d_layer%extract_output(output_2d)
+  call pad3d_layer%extract_output(output_1d)
+  allocate(output_2d(size(output_1d) / batch_size, batch_size))
+  output_2d = reshape(output_1d, shape(output_2d))
 
   ! Check output dimensions
   if(size(output_2d, 1) .ne. &
@@ -132,7 +135,7 @@ program test_pad3d_layer
   end if
 
   call pad3d_layer%output(1,1)%nullify_graph()
-  deallocate(output_2d)
+  deallocate(output_2d, output_1d)
   call input(1,1)%deallocate()
 
 
@@ -330,9 +333,8 @@ program test_pad3d_layer
     end if
 
     output => pad3d_layer%output(1,1)
-    allocate(output%grad)
-    call output%grad%allocate(array_shape=shape(gradient_out), source=0.0)
-    call output%grad%set(gradient_out)
+    call output%set_requires_grad(.true.)
+    output%grad%val = reshape(gradient_out, shape(output%grad%val))
     call output%grad_reverse()
     gradient => input(1,1)%grad
     allocate(gradient_expected(simple_width, simple_height, simple_depth, &
@@ -427,9 +429,8 @@ program test_pad3d_layer
     ! Test backward pass for replication
     output => pad3d_layer%output(1,1)
     call output%reset_graph()
-    allocate(output%grad)
-    call output%grad%allocate(array_shape=shape(gradient_out), source=0.0)
-    call output%grad%set(gradient_out)
+    call output%set_requires_grad(.true.)
+    output%grad%val = reshape(gradient_out, shape(output%grad%val))
     call output%grad_reverse()
     gradient => input(1,1)%grad
     allocate(gradient_expected(simple_width, simple_height, simple_depth, &

@@ -248,7 +248,6 @@ program pinn_burgers_example
      call wandb_log("epoch", i, step=i)
      ! clean memory
      call loss%nullify_graph()
-     deallocate(loss)
      nullify(loss)
   end do
   call wandb_finish()

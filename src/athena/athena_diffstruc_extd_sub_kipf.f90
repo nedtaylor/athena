@@ -53,8 +53,7 @@ contains
        c%requires_grad = .true.
        c%is_forward = vertex_features%is_forward
        c%operation = 'kipf_propagate'
-       c%left_operand => vertex_features
-       c%owns_left_operand = vertex_features%is_temporary
+       c%left_operand => canonical(vertex_features)
     end if
   end function kipf_propagate
 !-------------------------------------------------------------------------------
@@ -73,10 +72,10 @@ contains
     output = reverse_kipf_propagate( upstream_grad, &
          this%indices, this%adj_ja, &
          num_features = [ &
-              this%left_operand%shape(1), this%right_operand%shape(1) &
+              this%left_operand%shape(1), this%left_operand%shape(1) &
          ], &
          num_elements = [ &
-              size(this%left_operand%val,2), size(this%right_operand%val,2) &
+              size(this%left_operand%val,2), 1 &
          ] &
     )
 
@@ -154,8 +153,7 @@ contains
        c%requires_grad = .true.
        c%is_forward = a%is_forward
        c%operation = 'reverse_kipf_propagate'
-       c%left_operand => a
-       c%owns_left_operand = a%is_temporary
+       c%left_operand => canonical(a)
     end if
   end function reverse_kipf_propagate
 !-------------------------------------------------------------------------------

@@ -363,7 +363,6 @@ contains
        call this%params(t)%set_requires_grad(.true.)
        this%params(t)%is_sample_dependent = .false.
        this%params(t)%is_temporary = .false.
-       this%params(t)%fix_pointer = .true.
     end do
 
 
@@ -557,7 +556,7 @@ contains
     if(num_time_steps.gt.0 .and. num_time_steps.ne.size(num_vertex_features,1)-1)then
        write(err_msg,'("NUM_TIME_STEPS = ",I0," does not match length of "// &
             &"NUM_VERTEX_FEATURES = ",I0)') num_time_steps, &
-            size(num_vertex_features,1)-1
+       size(num_vertex_features,1)-1
        call stop_program(err_msg)
        return
     end if
@@ -798,7 +797,7 @@ contains
          '        "attribute": [{"name": "axis", "i": "0", "type": "INT"}]'
     character(len=*), parameter :: onnx_transpose_10_attr = &
          '        "attribute": [{"name": "perm", "ints": ["1", "0"], ' // &
-         '"type": "INTS"}]'
+              '"type": "INTS"}]'
     character(len=*), parameter :: onnx_cast_float_attr = &
          '        "attribute": [{"name": "to", "i": "1", "type": "INT"}]'
 

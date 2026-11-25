@@ -123,8 +123,8 @@ contains
        output%requires_grad = .true.
        output%is_forward = input%is_forward .or. bias%is_forward
        output%operation = 'add_bias'
-       output%left_operand => input
-       output%right_operand => bias
+       output%left_operand => canonical(input)
+       output%right_operand => canonical(bias)
     end if
 
   end function add_bias
@@ -239,17 +239,15 @@ contains
        output%requires_grad = .true.
        output%is_forward = input%is_forward
        output%operation = 'piecewise'
-       output%left_operand => input
-       output%owns_left_operand = input%is_temporary
+       output%left_operand => canonical(input)
     end if
-    allocate(b_array)
+    b_array => input%create_result([2, 1])
     b_array%is_sample_dependent = .false.
+    b_array%is_scalar = .false.
     b_array%requires_grad = .false.
-    call b_array%allocate(array_shape=[2, 1])
     b_array%val(1,1) = gradient
     b_array%val(2,1) = limit
-    output%right_operand => b_array
-    output%owns_right_operand = .true.
+    output%right_operand => canonical(b_array)
 
   end function piecewise_array
 !-------------------------------------------------------------------------------
@@ -263,10 +261,10 @@ contains
     type(array_type), pointer :: ptr
 
     ptr => merge( &
-         upstream_grad, &
          upstream_grad * this%right_operand%val(1,1), &
-         this%left_operand%val.le.-this%right_operand%val(2,1) .or. &
-         this%left_operand%val.ge.this%right_operand%val(2,1) &
+         upstream_grad, &
+         this%left_operand%val.lt.-this%right_operand%val(2,1) .or. &
+         this%left_operand%val.gt.this%right_operand%val(2,1) &
     )
     call output%assign_and_deallocate_source(ptr)
 
@@ -279,12 +277,12 @@ contains
     real(real32), dimension(:,:), intent(in) :: upstream_grad
     real(real32), dimension(:,:), intent(out) :: output
 
-    where(this%left_operand%val.le.this%right_operand%val(2,1) .or. &
-         this%left_operand%val.ge.-this%right_operand%val(2,1) &
+    where(this%left_operand%val.lt.-this%right_operand%val(2,1) .or. &
+         this%left_operand%val.gt.this%right_operand%val(2,1) &
     )
-       output = upstream_grad
-    elsewhere
        output = upstream_grad * this%right_operand%val(1,1)
+    elsewhere
+       output = upstream_grad
     end where
 
   end subroutine get_partial_piecewise_val
@@ -324,8 +322,7 @@ contains
        output%requires_grad = .true.
        output%is_forward = input%is_forward
        output%operation = 'softmax'
-       output%left_operand => input
-       output%owns_left_operand = input%is_temporary
+       output%left_operand => canonical(input)
     end if
 
   end function softmax_array
@@ -440,17 +437,14 @@ contains
        output%requires_grad = .true.
        output%is_forward = input%is_forward
        output%operation = 'swish'
-       output%left_operand => input
-       output%owns_left_operand = input%is_temporary
+       output%left_operand => canonical(input)
     end if
-    allocate(b_array)
+    b_array => input%create_result([1, 1])
     b_array%is_sample_dependent = .false.
     b_array%is_scalar = .true.
     b_array%requires_grad = .false.
-    call b_array%allocate(array_shape=[1, 1])
     b_array%val(1,1) = beta
-    output%right_operand => b_array
-    output%owns_right_operand = .true.
+    output%right_operand => canonical(b_array)
 
   end function swish_array
 !-------------------------------------------------------------------------------
@@ -530,10 +524,8 @@ contains
        output%requires_grad = .true.
        output%is_forward = softmax%is_forward .or. gradient%is_forward
        output%operation = 'softmax_reverse'
-       output%left_operand => softmax
-       output%right_operand => gradient
-       output%owns_left_operand = softmax%is_temporary
-       output%owns_right_operand = gradient%is_temporary
+       output%left_operand => canonical(softmax)
+       output%right_operand => canonical(gradient)
     end if
 
   end function softmax_reverse_array

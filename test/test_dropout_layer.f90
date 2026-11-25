@@ -114,8 +114,7 @@ program test_dropout_layer
 
   !! run backward pass
   output => drop_layer%output(1,1)
-  allocate(output%grad)
-  call output%grad%allocate(array_shape=[output%shape, size(output%val, 2)])
+  call output%set_requires_grad(.true.)
   output%grad%val = output%val
   call output%grad_reverse()
   gradient => input(1,1)%grad

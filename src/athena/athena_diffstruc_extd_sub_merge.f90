@@ -39,7 +39,7 @@ contains
        output%requires_grad = .true.
        output%is_forward = tsource%is_forward
        output%operation = 'merge_over_channels'
-       output%left_operand => tsource
+       output%left_operand => canonical(tsource)
     end if
 
   end function merge_scalar_over_channels
@@ -50,7 +50,13 @@ contains
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
-    output = merge_scalar_over_channels(upstream_grad, 0._real32, this%mask)
+    type(array_type), pointer :: up
+
+    ! The upstream gradient passed to a graph partial is a flat storage view,
+    ! so rebuild a handle with the operand's logical shape before the merge.
+    up => this%left_operand%create_result()
+    up%val = upstream_grad%val
+    output = merge_scalar_over_channels(up, 0._real32, this%mask)
 
   end function get_partial_merge_scalar_over_channels
 !-------------------------------------------------------------------------------

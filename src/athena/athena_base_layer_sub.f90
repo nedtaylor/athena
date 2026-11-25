@@ -278,7 +278,7 @@ contains
     else
        write(err_msg,'("Invalid size of input_shape in ",A,&
             &" expected (",I0,"), got (",I0,")")')  &
-            trim(this%name), this%input_rank, size(input_shape,dim=1)
+       trim(this%name), this%input_rank, size(input_shape,dim=1)
        call stop_program(err_msg)
        return
     end if
@@ -485,11 +485,14 @@ contains
           return
        end if
        do i = 1, size(this%params,1)
-          this%params(i) = this%params(i) + input%params(i)
+          ! Sum the values in place so the parameters stay root variables of
+          ! the graph (assigning an expression into a bound handle would turn
+          ! them into operation nodes).
+          this%params(i)%val = this%params(i)%val + input%params(i)%val
           if(associated(this%params(i)%grad).and.&
                associated(input%params(i)%grad))then
-             this%params(i)%grad = this%params(i)%grad + &
-                  input%params(i)%grad
+             this%params(i)%grad%val = this%params(i)%grad%val + &
+                  input%params(i)%grad%val
           end if
        end do
     else
@@ -523,13 +526,24 @@ contains
           return
        end if
        do i = 1, size(a%params,1)
-          output%params(i)%grad => null()
-          output%params(i) = a%params(i) + b%params(i)
+          ! `output = a` copied the parameter handles, which shares a's
+          ! context-owned records. Break that binding and allocate an
+          ! independent record before writing the summed values.
+          output%params(i)%id = 0
+          output%params(i)%allocated = .false.
+          output%params(i)%self => null()
+          call output%params(i)%allocate( &
+               array_shape=[a%params(i)%shape, size(a%params(i)%val,2)], &
+               source=a%params(i)%val, &
+               sample_dependent=a%params(i)%is_sample_dependent, &
+               temporary=a%params(i)%is_temporary &
+          )
+          call output%params(i)%set_requires_grad(a%params(i)%requires_grad)
+          output%params(i)%val = a%params(i)%val + b%params(i)%val
           if(associated(a%params(i)%grad).and.&
                associated(b%params(i)%grad))then
-             allocate(output%params(i)%grad)
-             output%params(i)%grad = a%params(i)%grad + &
-                  b%params(i)%grad
+             output%params(i)%grad%val = a%params(i)%grad%val + &
+                  b%params(i)%grad%val
           end if
        end do
     else

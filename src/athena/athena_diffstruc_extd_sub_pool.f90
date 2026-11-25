@@ -44,7 +44,7 @@ contains
        output%requires_grad = .true.
        output%is_forward = input%is_forward
        output%operation = 'avgpool'
-       output%left_operand => input
+       output%left_operand => canonical(input)
     end if
 
   end function avgpool1d
@@ -171,7 +171,7 @@ contains
        output%requires_grad = .true.
        output%is_forward = input%is_forward
        output%operation = 'avgpool'
-       output%left_operand => input
+       output%left_operand => canonical(input)
     end if
 
   end function avgpool2d
@@ -321,7 +321,7 @@ contains
        output%requires_grad = .true.
        output%is_forward = input%is_forward
        output%operation = 'avgpool3d'
-       output%left_operand => input
+       output%left_operand => canonical(input)
     end if
 
   end function avgpool3d
@@ -450,7 +450,7 @@ contains
        output%requires_grad = .true.
        output%is_forward = input%is_forward
        output%operation = 'maxpool'
-       output%left_operand => input
+       output%left_operand => canonical(input)
     end if
 
   end function maxpool1d
@@ -590,7 +590,7 @@ contains
        output%requires_grad = .true.
        output%is_forward = input%is_forward
        output%operation = 'maxpool'
-       output%left_operand => input
+       output%left_operand => canonical(input)
     end if
 
   end function maxpool2d
@@ -758,7 +758,7 @@ contains
        output%requires_grad = .true.
        output%is_forward = input%is_forward
        output%operation = 'maxpool3d'
-       output%left_operand => input
+       output%left_operand => canonical(input)
     end if
 
   end function maxpool3d

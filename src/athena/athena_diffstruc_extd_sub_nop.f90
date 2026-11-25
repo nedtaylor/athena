@@ -108,8 +108,6 @@ contains
        c%operation        = 'gno_kernel_eval'
        c%left_operand     => coords
        c%right_operand    => kernel_params
-       c%owns_left_operand  = coords%is_temporary
-       c%owns_right_operand = kernel_params%is_temporary
     end if
 
   end function gno_kernel_eval
@@ -390,8 +388,6 @@ contains
        c%operation        = 'gno_aggregate'
        c%left_operand     => features
        c%right_operand    => edge_kernels
-       c%owns_left_operand  = features%is_temporary
-       c%owns_right_operand = edge_kernels%is_temporary
     end if
 
   end function gno_aggregate
@@ -599,8 +595,6 @@ contains
        c%operation        = 'lno_encode'
        c%left_operand     => input
        c%right_operand    => poles
-       c%owns_left_operand  = input%is_temporary
-       c%owns_right_operand = poles%is_temporary
     end if
 
   end function lno_encode
@@ -780,8 +774,6 @@ contains
        c%operation        = 'lno_decode'
        c%left_operand     => spectral
        c%right_operand    => poles
-       c%owns_left_operand  = spectral%is_temporary
-       c%owns_right_operand = poles%is_temporary
     end if
 
   end function lno_decode
@@ -932,8 +924,6 @@ contains
        c%operation        = 'elem_scale'
        c%left_operand     => input
        c%right_operand    => scale
-       c%owns_left_operand  = input%is_temporary
-       c%owns_right_operand = scale%is_temporary
     end if
 
   end function elem_scale
@@ -1074,8 +1064,6 @@ contains
        c%operation        = 'ono_encode'
        c%left_operand     => input
        c%right_operand    => basis_weights
-       c%owns_left_operand  = input%is_temporary
-       c%owns_right_operand = basis_weights%is_temporary
     end if
 
   end function ono_encode
@@ -1319,8 +1307,6 @@ contains
        c%operation        = 'ono_decode'
        c%left_operand     => mixed
        c%right_operand    => basis_weights
-       c%owns_left_operand  = mixed%is_temporary
-       c%owns_right_operand = basis_weights%is_temporary
     end if
 
   end function ono_decode

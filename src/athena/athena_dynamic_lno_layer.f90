@@ -338,21 +338,18 @@ contains
     ! mu: learnable poles
     call this%params(1)%allocate([this%num_modes, 1, 1])
     call this%params(1)%set_requires_grad(.true.)
-    this%params(1)%fix_pointer = .true.
     this%params(1)%is_sample_dependent = .false.
     this%params(1)%is_temporary = .false.
 
     ! beta: learnable residues
     call this%params(2)%allocate([this%num_modes, 1, 1])
     call this%params(2)%set_requires_grad(.true.)
-    this%params(2)%fix_pointer = .true.
     this%params(2)%is_sample_dependent = .false.
     this%params(2)%is_temporary = .false.
 
     ! W: local bypass weights
     call this%params(3)%allocate([this%num_outputs, this%num_inputs, 1])
     call this%params(3)%set_requires_grad(.true.)
-    this%params(3)%fix_pointer = .true.
     this%params(3)%is_sample_dependent = .false.
     this%params(3)%is_temporary = .false.
 
@@ -361,7 +358,6 @@ contains
        num_inputs = this%num_inputs + 1
        call this%params(4)%allocate([this%bias_shape, 1])
        call this%params(4)%set_requires_grad(.true.)
-       this%params(4)%fix_pointer = .true.
        this%params(4)%is_sample_dependent = .false.
        this%params(4)%is_temporary = .false.
     end if
@@ -441,7 +437,6 @@ contains
     call bases(1)%allocate( [this%num_modes, this%num_inputs, 1] )
     bases(1)%is_sample_dependent = .false.
     bases(1)%requires_grad = .false.
-    bases(1)%fix_pointer = .true.
     bases(1)%is_temporary = .false.
 
     do j = 1, this%num_inputs
@@ -463,7 +458,6 @@ contains
     call bases(2)%allocate( [this%num_outputs, this%num_modes, 1] )
     bases(2)%is_sample_dependent = .false.
     bases(2)%requires_grad = .false.
-    bases(2)%fix_pointer = .true.
     bases(2)%is_temporary = .false.
 
     do k = 1, this%num_modes

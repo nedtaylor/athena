@@ -51,10 +51,8 @@ contains
        c%requires_grad = .true.
        c%is_forward = vertex_features%is_forward .or. edge_features%is_forward
        c%operation = 'duvenaud_propagate'
-       c%left_operand => vertex_features
-       c%right_operand => edge_features
-       c%owns_left_operand = vertex_features%is_temporary
-       c%owns_right_operand = edge_features%is_temporary
+       c%left_operand => canonical(vertex_features)
+       c%right_operand => canonical(edge_features)
     end if
   end function duvenaud_propagate
 !-------------------------------------------------------------------------------
@@ -219,10 +217,8 @@ contains
        c%requires_grad = .true.
        c%is_forward = a%is_forward .or. weight%is_forward
        c%operation = 'duvenaud_update'
-       c%right_operand => a
-       c%left_operand => weight
-       c%owns_right_operand = a%is_temporary
-       c%owns_left_operand = weight%is_temporary
+       c%right_operand => canonical(a)
+       c%left_operand => canonical(weight)
     end if
 
   end function duvenaud_update
@@ -239,18 +235,8 @@ contains
     type(array_type) :: output
     !! Gradient tensor for right operand (input features)
 
-    ! Local variables
-    logical :: left_is_temporary_local
-    !! Saved temporary-ownership flag for left operand
-    type(array_type), pointer :: ptr
-    !! Intermediate gradient tensor pointer
-
-    left_is_temporary_local = this%left_operand%is_temporary
-    this%left_operand%is_temporary = .false.
-    ptr => duvenaud_update( upstream_grad, this%left_operand, &
-         this%indices, this%left_operand%indices(1), this%left_operand%indices(2) )
-    this%left_operand%is_temporary = left_is_temporary_local
-    call output%assign_and_deallocate_source(ptr)
+    output = this%right_operand%create_result()
+    call this%get_partial_right_val(upstream_grad%val, output%val)
 
   end function get_partial_duvenaud_update
 !-------------------------------------------------------------------------------
@@ -266,18 +252,8 @@ contains
     type(array_type) :: output
     !! Gradient tensor for left operand (weights)
 
-    ! Local variables
-    logical :: right_is_temporary_local
-    !! Saved temporary-ownership flag for right operand
-    type(array_type), pointer :: ptr
-    !! Intermediate gradient tensor pointer
-
-    right_is_temporary_local = this%right_operand%is_temporary
-    this%right_operand%is_temporary = .false.
-    ptr => duvenaud_update( this%right_operand, upstream_grad, &
-         this%indices, this%left_operand%indices(1), this%left_operand%indices(2) )
-    this%right_operand%is_temporary = right_is_temporary_local
-    call output%assign_and_deallocate_source(ptr)
+    output = this%left_operand%create_result()
+    call this%get_partial_left_val(upstream_grad%val, output%val)
 
   end function get_partial_duvenaud_update_weight
 !-------------------------------------------------------------------------------

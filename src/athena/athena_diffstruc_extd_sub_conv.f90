@@ -74,8 +74,8 @@ contains
        output%requires_grad = .true.
        output%is_forward = input%is_forward
        output%operation = 'conv1d'
-       output%left_operand => input
-       output%right_operand => kernel
+       output%left_operand => canonical(input)
+       output%right_operand => canonical(kernel)
     end if
 
   end function conv1d
@@ -304,8 +304,8 @@ contains
        output%requires_grad = .true.
        output%is_forward = input%is_forward
        output%operation = 'conv2d'
-       output%left_operand => input
-       output%right_operand => kernel
+       output%left_operand => canonical(input)
+       output%right_operand => canonical(kernel)
     end if
 
   end function conv2d
@@ -587,8 +587,8 @@ contains
        output%requires_grad = .true.
        output%is_forward = input%is_forward
        output%operation = 'conv3d'
-       output%left_operand => input
-       output%right_operand => kernel
+       output%left_operand => canonical(input)
+       output%right_operand => canonical(kernel)
     end if
 
   end function conv3d

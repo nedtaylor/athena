@@ -16,7 +16,7 @@ program test_batchnorm2d_layer
   type(array_type) :: input(1,1)
   real, allocatable, dimension(:,:,:,:) :: input_4d, output_4d, gradient_4d
   real, allocatable, dimension(:) :: output_1d, params1, params2
-  real, allocatable, dimension(:,:) :: output_2d
+  real, allocatable, dimension(:,:,:,:) :: output_2d
   real, parameter :: tol = 0.5E-3
   logical :: success = .true.
   class(array_type), pointer :: &
@@ -150,8 +150,7 @@ program test_batchnorm2d_layer
 !!!-----------------------------------------------------------------------------
   !! run backward pass
   output => bn_layer%output(1,1)
-  allocate(output%grad)
-  call output%grad%allocate(array_shape=[output%shape, size(output%val, 2)])
+  call output%set_requires_grad(.true.)
   output%grad%val = output%val
   call output%grad%extract(gradient_4d)
   call output%grad_reverse()
@@ -271,7 +270,7 @@ program test_batchnorm2d_layer
   call input(1,1)%set_requires_grad(.true.)
   call random_number(input(1,1)%val)
   allocate(output_1d(width*width*num_channels*batch_size))
-  allocate(output_2d(width*width*num_channels, batch_size))
+  allocate(output_2d(2, 2, 1, batch_size))
   call bn_layer%forward(input)
   call bn_layer%extract_output(output_1d)
   call bn_layer%extract_output(output_2d)

@@ -335,14 +335,12 @@ contains
     ! w_s: spectral filter weights (1D, one per mode)
     call this%params(1)%allocate([this%num_modes, 1])
     call this%params(1)%set_requires_grad(.true.)
-    this%params(1)%fix_pointer = .true.
     this%params(1)%is_sample_dependent = .false.
     this%params(1)%is_temporary = .false.
 
     ! W: local bypass weights
     call this%params(2)%allocate([this%num_outputs, this%num_inputs, 1])
     call this%params(2)%set_requires_grad(.true.)
-    this%params(2)%fix_pointer = .true.
     this%params(2)%is_sample_dependent = .false.
     this%params(2)%is_temporary = .false.
 
@@ -351,7 +349,6 @@ contains
        num_inputs = this%num_inputs + 1
        call this%params(3)%allocate([this%bias_shape, 1])
        call this%params(3)%set_requires_grad(.true.)
-       this%params(3)%fix_pointer = .true.
        this%params(3)%is_sample_dependent = .false.
        this%params(3)%is_temporary = .false.
     end if
@@ -386,7 +383,6 @@ contains
          [this%num_modes, this%num_inputs, 1])
     this%forward_basis%is_sample_dependent = .false.
     this%forward_basis%requires_grad = .false.
-    this%forward_basis%fix_pointer = .true.
     this%forward_basis%is_temporary = .false.
 
     do j = 1, this%num_inputs
@@ -410,7 +406,6 @@ contains
          [this%num_outputs, this%num_modes, 1])
     this%inverse_basis%is_sample_dependent = .false.
     this%inverse_basis%requires_grad = .false.
-    this%inverse_basis%fix_pointer = .true.
     this%inverse_basis%is_temporary = .false.
 
     do k = 1, this%num_modes

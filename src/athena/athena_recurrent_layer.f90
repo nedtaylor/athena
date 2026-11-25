@@ -332,12 +332,10 @@ contains
     end if
     call this%params(1)%allocate([this%weight_shape(:,1), 1])
     call this%params(1)%set_requires_grad(.true.)
-    this%params(1)%fix_pointer = .true.
     this%params(1)%is_sample_dependent = .false.
     this%params(1)%is_temporary = .false.
     call this%params(2)%allocate([this%weight_shape(:,2), 1])
     call this%params(2)%set_requires_grad(.true.)
-    this%params(2)%fix_pointer = .true.
     this%params(2)%is_sample_dependent = .false.
     this%params(2)%is_temporary = .false.
 
@@ -346,12 +344,10 @@ contains
        num_inputs = num_inputs + 2 * this%hidden_size
        call this%params(3)%allocate([this%bias_shape(1), 1])
        call this%params(3)%set_requires_grad(.true.)
-       this%params(3)%fix_pointer = .true.
        this%params(3)%is_sample_dependent = .false.
        this%params(3)%is_temporary = .false.
        call this%params(4)%allocate([this%bias_shape(2), 1])
        call this%params(4)%set_requires_grad(.true.)
-       this%params(4)%fix_pointer = .true.
        this%params(4)%is_sample_dependent = .false.
        this%params(4)%is_temporary = .false.
     end if

@@ -43,7 +43,7 @@ program pinn_chemical_example
   use coreutils, only: real32
   use forces_loss, only: forces_loss_type
   use read_chemical_graphs_extd, only: read_extxyz_db
-  use diffstruc, only: diffstruc__max_recursion_depth
+  use diffstruc, only: default_context, set_max_recursion_depth
 
   implicit none
 
@@ -77,7 +77,7 @@ program pinn_chemical_example
 
   class(*), allocatable, dimension(:,:) :: data_poly
 
-  diffstruc__max_recursion_depth = 5000
+  call set_max_recursion_depth(default_context, 5000)
   loss_method = forces_loss_type()
 
 
@@ -94,7 +94,10 @@ program pinn_chemical_example
      if(.not.graphs_in(1,s)%is_sparse) call graphs_in(1,s)%convert_to_sparse()
      graphs_in(1,s)%num_vertex_features = 6
      graphs_in(1,s)%vertex_features = graphs_in(1,s)%vertex_features(1:6,:)
-     forces(s)%val = graphs_in(1,s)%vertex_features(4:6,:)
+     call forces(s)%allocate( &
+          array_shape=[3, size(graphs_in(1,s)%vertex_features,2)], &
+          source=graphs_in(1,s)%vertex_features(4:6,:) &
+     )
   end do
 
 
@@ -212,7 +215,6 @@ program pinn_chemical_example
 !   )
   call expected(1,1)%allocate(array_shape=[1,batch_size])
   expected(1,1)%is_temporary = .false.
-  expected(1,1)%fix_pointer = .true.
 
   loss_method%network => network
   do i = 1, num_epochs
@@ -226,8 +228,9 @@ program pinn_chemical_example
         do j = 1, batch_size
            loss_method%expected_forces(j) = forces(s + j - 1)
         end do
-        loss_method%expected_forces(:)%is_temporary = .false.
-        loss_method%expected_forces(:)%fix_pointer = .true.
+        do j = 1, batch_size
+           loss_method%expected_forces(j)%is_temporary = .false.
+        end do
         expected(1,1)%val = output(1,1)%val(:,s:s+batch_size-1)
         loss => loss_method%compute(predicted, expected)
         call loss%grad_reverse(reset_graph=.true.)

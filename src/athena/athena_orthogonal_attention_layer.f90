@@ -370,35 +370,30 @@ contains
     ! W_Q
     call this%params(1)%allocate([this%key_dim, this%num_inputs, 1])
     call this%params(1)%set_requires_grad(.true.)
-    this%params(1)%fix_pointer = .true.
     this%params(1)%is_sample_dependent = .false.
     this%params(1)%is_temporary = .false.
 
     ! W_K
     call this%params(2)%allocate([this%key_dim, this%num_inputs, 1])
     call this%params(2)%set_requires_grad(.true.)
-    this%params(2)%fix_pointer = .true.
     this%params(2)%is_sample_dependent = .false.
     this%params(2)%is_temporary = .false.
 
     ! W_V
     call this%params(3)%allocate([this%num_outputs, this%num_inputs, 1])
     call this%params(3)%set_requires_grad(.true.)
-    this%params(3)%fix_pointer = .true.
     this%params(3)%is_sample_dependent = .false.
     this%params(3)%is_temporary = .false.
 
     ! B (basis weights)
     call this%params(4)%allocate([this%num_inputs, this%num_basis, 1])
     call this%params(4)%set_requires_grad(.true.)
-    this%params(4)%fix_pointer = .true.
     this%params(4)%is_sample_dependent = .false.
     this%params(4)%is_temporary = .false.
 
     ! W (bypass)
     call this%params(5)%allocate([this%num_outputs, this%num_inputs, 1])
     call this%params(5)%set_requires_grad(.true.)
-    this%params(5)%fix_pointer = .true.
     this%params(5)%is_sample_dependent = .false.
     this%params(5)%is_temporary = .false.
 
@@ -406,7 +401,6 @@ contains
     if(this%use_bias)then
        call this%params(6)%allocate([this%bias_shape, 1])
        call this%params(6)%set_requires_grad(.true.)
-       this%params(6)%fix_pointer = .true.
        this%params(6)%is_sample_dependent = .false.
        this%params(6)%is_temporary = .false.
     end if
@@ -507,7 +501,6 @@ contains
     call phi%allocate([n, k, 1])
     phi%is_sample_dependent = .false.
     phi%requires_grad = .false.
-    phi%fix_pointer = .true.
     phi%is_temporary = .false.
     phi%val(:,1) = reshape(Q, [n * k])
 

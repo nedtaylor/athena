@@ -1248,7 +1248,7 @@ contains
        output%requires_grad = .true.
        output%is_forward = input%is_forward
        output%operation = 'pad'
-       output%left_operand => input
+       output%left_operand => canonical(input)
     end if
 
   end function pad1d
@@ -1410,7 +1410,7 @@ contains
        output%requires_grad = .true.
        output%is_forward = input%is_forward
        output%operation = 'pad'
-       output%left_operand => input
+       output%left_operand => canonical(input)
     end if
 
   end function pad2d
@@ -1610,7 +1610,7 @@ contains
        output%requires_grad = .true.
        output%is_forward = input%is_forward
        output%operation = 'pad'
-       output%left_operand => input
+       output%left_operand => canonical(input)
     end if
 
   end function pad3d

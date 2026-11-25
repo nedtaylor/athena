@@ -20,7 +20,7 @@ module athena__duvenaud_msgpass_layer
   use graphstruc, only: graph_type
   use athena__misc_types, only: base_actv_type, base_init_type, onnx_attribute_type, &
        onnx_node_type, onnx_initialiser_type, onnx_tensor_type
-  use diffstruc, only: array_type, sum, matmul, operator(+)
+  use diffstruc, only: array_type, sum, matmul, operator(+), canonical
   use athena__base_layer, only: base_layer_type
   use athena__msgpass_layer, only: msgpass_layer_type
   use athena__diffstruc_extd, only: duvenaud_propagate, duvenaud_update
@@ -559,12 +559,12 @@ contains
             [ this%weight_shape(:2,t+this%num_time_steps), 1 ] &
        )
        call this%params(t)%set_requires_grad(.true.)
-       this%params(t)%fix_pointer = .true.
        this%params(t)%is_temporary = .false.
        this%params(t)%is_sample_dependent = .false.
-       this%params(t)%indices = [ this%min_vertex_degree, this%max_vertex_degree ]
+       this%params(t)%self%indices = [ &
+            this%min_vertex_degree, this%max_vertex_degree &
+       ]
        call this%params(t+this%num_time_steps)%set_requires_grad(.true.)
-       this%params(t+this%num_time_steps)%fix_pointer = .true.
        this%params(t+this%num_time_steps)%is_temporary = .false.
        this%params(t+this%num_time_steps)%is_sample_dependent = .false.
     end do
@@ -766,7 +766,7 @@ contains
     integer :: s, t
     !! Batch index, time step
     logical :: has_activation
-    type(array_type), pointer :: ptr1, ptr2, ptr3, ptr_edge, ptr_params
+    type(array_type), pointer :: ptr1, ptr2, ptr3, ptr_edge
     !! Pointers to arrays
 
 
@@ -798,11 +798,11 @@ contains
                this%graph(s)%adj_ia, this%graph(s)%adj_ja &
           )
 
-          ptr_params => this%params(t)
           ptr3 => duvenaud_update( &
-               ptr2, ptr_params, &
-               this%graph(s)%adj_ia, &
-               this%min_vertex_degree, this%max_vertex_degree &
+               a = ptr2, weight = this%params(t), &
+               adj_ia = this%graph(s)%adj_ia, &
+               min_degree = this%min_vertex_degree, &
+               max_degree = this%max_vertex_degree &
           )
           if(has_activation)then
              ptr3 => this%activation%apply( ptr3 )
@@ -1226,10 +1226,10 @@ contains
          '        "attribute": [{"name": "axis", "i": "0", "type": "INT"}]'
     character(len=*), parameter :: onnx_transpose_10_attr = &
          '        "attribute": [{"name": "perm", "ints": ["1", "0"], ' // &
-         '"type": "INTS"}]'
+              '"type": "INTS"}]'
     character(len=*), parameter :: onnx_reduce_sum_attr = &
          '        "attribute": [{"name": "keepdims", "i": "0", ' // &
-         '"type": "INT"}]'
+              '"type": "INT"}]'
 
     write(tp, '(A,"_ro_t",I0)') trim(prefix), t
     call get_timestep_output_name( &

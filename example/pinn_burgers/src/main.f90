@@ -231,7 +231,6 @@ program pinn_burgers_example
 
      ! clean memory
      call loss%nullify_graph()
-     deallocate(loss)
      nullify(loss)
   end do
 

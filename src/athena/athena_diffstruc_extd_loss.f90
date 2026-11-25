@@ -28,17 +28,14 @@ contains
        output%requires_grad = .true.
        output%is_forward = delta%is_forward
        output%operation = 'huber'
-       output%left_operand => delta
-       output%owns_left_operand = delta%is_temporary
+       output%left_operand => canonical(delta)
     end if
-    allocate(b_array)
+    b_array => delta%create_result([1, 1])
     b_array%is_sample_dependent = .false.
     b_array%is_scalar = .true.
     b_array%requires_grad = .false.
-    call b_array%allocate(array_shape=[1, 1])
     b_array%val(1,1) = gamma
-    output%right_operand => b_array
-    output%owns_right_operand = .true.
+    output%right_operand => canonical(b_array)
 
   end function huber_array
 !-------------------------------------------------------------------------------

@@ -7,7 +7,7 @@ program test_activation_layer
   use athena__activation_linear, only: linear_actv_type
   use athena__activation_swish, only: swish_actv_type
   use athena__misc_types, only: base_actv_type
-   use diffstruc, only: array_type
+  use diffstruc, only: array_type
   implicit none
 
   type(actv_layer_type), target :: actv_layer
@@ -22,7 +22,7 @@ program test_activation_layer
 
   ! Test data for different ranks
   type(array_type) :: input(1,1)
-   type(array_type), pointer :: output
+  type(array_type), pointer :: output
 
   integer :: i, j, k, l, m
   integer :: unit
@@ -99,7 +99,7 @@ program test_activation_layer
   input(1,1)%val(:,1) = [-2.0, -1.0, 1.0, 2.0]
   input(1,1)%val(:,2) = [-1.5, 0.5, 1.5, 2.5]
   call input(1,1)%set_requires_grad(.true.)
-  input%is_temporary = .false.
+  input(1,1)%is_temporary = .false.
 
   ! Run forward pass
   call actv_layer%forward(input)
@@ -123,10 +123,8 @@ program test_activation_layer
 ! Test 1D backward pass with ReLU
 !-------------------------------------------------------------------------------
   ! Initialise gradient
-  allocate(output%grad)
-  call output%grad%allocate( &
-     array_shape=[output%shape, size(output%val, 2)], &
-     source=1._real32)
+  call output%set_requires_grad(.true.)
+  output%grad%val = 1._real32
 
   ! Run backward pass
   call output%grad_reverse()
@@ -173,7 +171,7 @@ program test_activation_layer
   call random_number(input(1,1)%val)
   input(1,1)%val = input(1,1)%val * 4.0_real32 - 2.0_real32  ! Scale to [-2, 2]
   call input(1,1)%set_requires_grad(.true.)
-  input%is_temporary = .false.
+  input(1,1)%is_temporary = .false.
 
   call actv_layer%forward(input)
   output => actv_layer%output(1,1)
@@ -185,10 +183,8 @@ program test_activation_layer
   end if
 
   ! Test backward pass
-  allocate(output%grad)
-  call output%grad%allocate( &
-     array_shape=[output%shape, size(output%val, 2)], &
-     source=1._real32)
+  call output%set_requires_grad(.true.)
+  output%grad%val = 1._real32
   call output%grad_reverse()
 
   ! Check that backward pass produces reasonable values
@@ -402,7 +398,7 @@ program test_activation_layer
      call actv_layer%forward(input)
      output => actv_layer%output(1,1)
 
-     if(.not. allocated(output%val))then
+     if(.not. associated(output%val))then
         success = .false.
         write(0,*) 'output not allocated for activation: ', &
              trim(activation_functions(i))

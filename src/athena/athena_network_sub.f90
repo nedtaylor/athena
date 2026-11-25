@@ -2249,7 +2249,10 @@ contains
        allocate(sample(size(input,1), batch_size))
        do i = 1, size(input,1)
           do j = start_index, end_index, 1
-             sample(i, j - start_index + 1)%val = input(i, j)%val
+             call sample(i, j - start_index + 1)%allocate( &
+                  array_shape=[input(i,j)%shape, size(input(i,j)%val,2)], &
+                  source=input(i,j)%val &
+             )
           end do
        end do
     else
@@ -2920,7 +2923,7 @@ contains
              call expected(i,s)%allocate( &
                   array_shape = [ &
                        this%expected_array(i,s)%shape, &
-                       size(this%expected_array(i,s)%val,2) &
+                       end_index - start_index + 1 &
                   ] &
              )
              expected(i,s)%val = this%expected_array(i,s)%val(:, &
@@ -3000,8 +3003,10 @@ contains
                 cycle
              class is(array_type)
                 call layer%forward(input(layer%index:layer%index,:))
-                do concurrent(i=1:size(layer%output,1), j=1:size(layer%output,2))
-                   call layer%output(i,j)%set_requires_grad(.false.)
+                do i = 1, size(layer%output,1)
+                   do j = 1, size(layer%output,2)
+                      call layer%output(i,j)%set_requires_grad(.false.)
+                   end do
                 end do
                 cycle
              type is(real(real32))
@@ -3324,11 +3329,9 @@ contains
     if(num_samples.le.0) return
     num_input_layers = size(this%root_vertices, 1)
     if(allocated(this%input_array))then
-       do i = 1, size(this%input_array, 1)
-          do j = 1, size(this%input_array, 2)
-             call this%input_array(i,j)%deallocate()
-          end do
-       end do
+       ! The stored handles usually view the caller's input records, so do not
+       ! release them here: doing so would invalidate the caller's data. Just
+       ! drop the handle array and let the context manage the storage.
        deallocate(this%input_array)
     end if
     if(allocated(this%input_graph)) deallocate(this%input_graph)
@@ -3982,7 +3985,6 @@ contains
           !---------------------------------------------------------------------
           call this%update()
           call loss%nullify_graph()
-          deallocate(loss)
           nullify(loss)
 
 
@@ -4006,7 +4008,7 @@ contains
                   this%optimiser%lr_decay%get_lr( &
                        this%optimiser%learning_rate, this%optimiser%iter &
                   ), &
-                  trim(loss_str), trim(accuracy_str)
+                       trim(loss_str), trim(accuracy_str)
           end if
 
 
@@ -4086,7 +4088,6 @@ contains
              loss => this%loss_eval(val_sample, val_sample)
              val_loss_sum = val_loss_sum + sum(loss%val)
              call loss%nullify_graph()
-             deallocate(loss)
              nullify(loss)
 
              if(use_accuracy)then
@@ -4167,7 +4168,7 @@ contains
                this%optimiser%lr_decay%get_lr( &
                     this%optimiser%learning_rate, this%optimiser%iter &
                ), &
-               trim(loss_str), trim(accuracy_str), trim(val_str)
+                    trim(loss_str), trim(accuracy_str), trim(val_str)
        end if
 
 
@@ -4349,7 +4350,6 @@ contains
        loss => this%loss_eval(sample, sample)
        loss_val = sum(loss%val)
        call loss%nullify_graph()
-       deallocate(loss)
        nullify(loss)
        if(use_accuracy)then
           acc_val = this%accuracy_eval(output, sample, sample)
@@ -5345,7 +5345,6 @@ contains
 
        ! Clean up computation graph
        call loss%nullify_graph()
-       deallocate(loss)
        nullify(loss)
 
        ! Reset network parameter gradients so they remain unchanged

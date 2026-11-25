@@ -484,7 +484,6 @@ contains
     ptr => pack(input(1,1), dim = 1)
     call this%output(1,1)%assign_and_deallocate_source(ptr)
     this%output(1,1)%is_temporary = .false.
-    this%output(1,1)%fix_pointer = .true.
 
   end subroutine forward_flatten
 !###############################################################################

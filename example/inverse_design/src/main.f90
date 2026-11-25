@@ -113,7 +113,6 @@ program inverse_design_example
      end if
 
      call loss%nullify_graph()
-     deallocate(loss)
      nullify(loss)
 
   end do

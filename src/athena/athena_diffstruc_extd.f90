@@ -1,7 +1,7 @@
 module athena__diffstruc_extd
   !! Module for extended differential structure types for Athena
   use coreutils, only: real32
-  use diffstruc, only: array_type
+  use diffstruc, only: array_type, canonical
   use athena__misc_types, only: facets_type
   implicit none
 

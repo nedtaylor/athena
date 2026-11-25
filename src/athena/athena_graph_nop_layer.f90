@@ -391,14 +391,12 @@ contains
     ! params(1): packed kernel MLP params
     call this%params(1)%allocate([kernel_size, 1])
     call this%params(1)%set_requires_grad(.true.)
-    this%params(1)%fix_pointer = .true.
     this%params(1)%is_sample_dependent = .false.
     this%params(1)%is_temporary = .false.
 
     ! params(2): W [F_out x F_in]
     call this%params(2)%allocate([F_out, F_in, 1])
     call this%params(2)%set_requires_grad(.true.)
-    this%params(2)%fix_pointer = .true.
     this%params(2)%is_sample_dependent = .false.
     this%params(2)%is_temporary = .false.
 
@@ -406,7 +404,6 @@ contains
        ! params(3): b [F_out]
        call this%params(3)%allocate([F_out, 1])
        call this%params(3)%set_requires_grad(.true.)
-       this%params(3)%fix_pointer = .true.
        this%params(3)%is_sample_dependent = .false.
        this%params(3)%is_temporary = .false.
     end if
@@ -550,7 +547,7 @@ contains
        if(stat.ne.0)then
           write(err_msg, &
                '("file encountered error (EoF?) before END ",A)') &
-               to_upper(this%name)
+          to_upper(this%name)
           call stop_program(err_msg)
           return
        end if

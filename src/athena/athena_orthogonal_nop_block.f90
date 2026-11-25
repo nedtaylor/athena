@@ -338,28 +338,24 @@ contains
     ! R: spectral mixing weights
     call this%params(1)%allocate([this%num_basis, this%num_basis, 1])
     call this%params(1)%set_requires_grad(.true.)
-    this%params(1)%fix_pointer = .true.
     this%params(1)%is_sample_dependent = .false.
     this%params(1)%is_temporary = .false.
 
     ! B: basis weights (stored flat for Gram-Schmidt, but allocated shaped)
     call this%params(2)%allocate([this%num_inputs, this%num_basis, 1])
     call this%params(2)%set_requires_grad(.true.)
-    this%params(2)%fix_pointer = .true.
     this%params(2)%is_sample_dependent = .false.
     this%params(2)%is_temporary = .false.
 
     ! W: bypass/output weights
     call this%params(3)%allocate([this%num_outputs, this%num_inputs, 1])
     call this%params(3)%set_requires_grad(.true.)
-    this%params(3)%fix_pointer = .true.
     this%params(3)%is_sample_dependent = .false.
     this%params(3)%is_temporary = .false.
 
     if(this%use_bias)then
        call this%params(4)%allocate([this%bias_shape, 1])
        call this%params(4)%set_requires_grad(.true.)
-       this%params(4)%fix_pointer = .true.
        this%params(4)%is_sample_dependent = .false.
        this%params(4)%is_temporary = .false.
     end if
@@ -448,7 +444,6 @@ contains
     call phi%allocate([n, k, 1])
     phi%is_sample_dependent = .false.
     phi%requires_grad = .false.
-    phi%fix_pointer = .true.
     phi%is_temporary = .false.
     phi%val(:,1) = reshape(Q, [n * k])
 
@@ -470,12 +465,12 @@ contains
     !! Maximum absolute deviation from orthogonality
 
     ! Local variables
-   integer :: n, k, i, j
+    integer :: n, k, i, j
     !! Matrix dimensions and traversal indices
-   real(real32), allocatable :: basis_matrix(:,:), orthogonal_basis(:,:)
-   !! Raw basis weights and orthogonalised basis matrix
-   real(real32) :: norm_val, projection, val
-   !! Gram-Schmidt scalars and current absolute deviation entry
+    real(real32), allocatable :: basis_matrix(:,:), orthogonal_basis(:,:)
+    !! Raw basis weights and orthogonalised basis matrix
+    real(real32) :: norm_val, projection, val
+    !! Gram-Schmidt scalars and current absolute deviation entry
 
     n = this%num_inputs
     k = this%num_basis

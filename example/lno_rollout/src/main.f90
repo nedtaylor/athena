@@ -182,7 +182,6 @@ program lno_rollout
         call loss%grad_reverse()
         call network%update()
         call loss%nullify_graph()
-        deallocate(loss)
         nullify(loss)
      end do
      tr_loss = tr_loss / real(n_train * rollout_train_steps, real32)

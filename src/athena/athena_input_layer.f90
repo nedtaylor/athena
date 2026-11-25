@@ -493,7 +493,7 @@ contains
 
 
 !###############################################################################
-  pure subroutine set_input_real(this, input)
+  subroutine set_input_real(this, input)
     !! Set input values for an input layer
     implicit none
 

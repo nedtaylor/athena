@@ -378,14 +378,12 @@ contains
     ! W: local transform  (n_out x n_in)
     call this%params(1)%allocate([this%weight_shape(:,1), 1])
     call this%params(1)%set_requires_grad(.true.)
-    this%params(1)%fix_pointer = .true.
     this%params(1)%is_sample_dependent = .false.
     this%params(1)%is_temporary = .false.
 
     ! W_k: integral kernel coupling  (n_out x 1)
     call this%params(2)%allocate([this%num_outputs, 1, 1])
     call this%params(2)%set_requires_grad(.true.)
-    this%params(2)%fix_pointer = .true.
     this%params(2)%is_sample_dependent = .false.
     this%params(2)%is_temporary = .false.
 
@@ -394,7 +392,6 @@ contains
        num_inputs = this%num_inputs + 1
        call this%params(3)%allocate([this%bias_shape, 1])
        call this%params(3)%set_requires_grad(.true.)
-       this%params(3)%fix_pointer = .true.
        this%params(3)%is_sample_dependent = .false.
        this%params(3)%is_temporary = .false.
     end if
