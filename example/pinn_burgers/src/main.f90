@@ -282,11 +282,13 @@ contains
     type(array_type), pointer :: input, u0_pred, f_pred, u_left_pred, u_right_pred, u
     type(array_type), pointer :: loss_f, loss_0, loss_b
 
-    ! find what the new input loc is now
+    ! Find the input layer output; it is the variable the PINN differentiates
+    ! with respect to. Mark it as a variable before copying the graph so that
+    ! duplicate_graph shares it instead of copying it.
     u_tmp => this%forward_eval(X_f)
-    this%model(this%root_vertices(1))%layer%output(1,1)%id = 1
+    input => this%model(this%root_vertices(1))%layer%output(1,1)
+    call input%set_requires_grad(.true.)
     u => u_tmp(1,1)%duplicate_graph()
-    input => u%get_ptr_from_id(1)
 
     ! set direction (t,x) to compute u_t, u_x, u_xx
     call input%set_direction([0._real32, 1._real32])

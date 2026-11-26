@@ -43,6 +43,7 @@ contains
 
     c%indices = adj_ia
     c%adj_ja = adj_ja
+    c%value_partial_ok = .true.
     c%get_partial_left => get_partial_duvenaud_propagate_left
     c%get_partial_right => get_partial_duvenaud_propagate_right
     c%get_partial_left_val => get_partial_duvenaud_propagate_left_val
@@ -209,6 +210,7 @@ contains
     end do
     c%indices = adj_ia
 
+    c%value_partial_ok = .true.
     c%get_partial_left => get_partial_duvenaud_update_weight
     c%get_partial_right => get_partial_duvenaud_update
     c%get_partial_left_val => get_partial_duvenaud_update_weight_val

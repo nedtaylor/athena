@@ -115,6 +115,7 @@ contains
 
     ! The context owns the node record, so graph metadata must be written to
     ! the record (output%self), not to the local handle views.
+    output%self%value_partial_ok = .true.
     output%self%get_partial_left => get_partial_batchnorm_left
     output%self%get_partial_left_val => get_partial_batchnorm_left_val
     output%self%get_partial_right => get_partial_batchnorm_right

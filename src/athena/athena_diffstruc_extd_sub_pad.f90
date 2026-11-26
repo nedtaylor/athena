@@ -1242,6 +1242,7 @@ contains
     end if
 
 
+    output%value_partial_ok = .true.
     output%get_partial_left => get_partial_pad1d
     output%get_partial_left_val => get_partial_pad1d_val
     if(input%requires_grad)then
@@ -1404,6 +1405,7 @@ contains
        call fill_edge_region_2d( input, output )
     end if
 
+    output%value_partial_ok = .true.
     output%get_partial_left => get_partial_pad2d
     output%get_partial_left_val => get_partial_pad2d_val
     if(input%requires_grad)then
@@ -1604,6 +1606,7 @@ contains
        call fill_face_region_3d( input, output )
     end if
 
+    output%value_partial_ok = .true.
     output%get_partial_left => get_partial_pad3d
     output%get_partial_left_val => get_partial_pad3d_val
     if(input%requires_grad)then

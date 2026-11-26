@@ -115,6 +115,7 @@ contains
        output%indices(2) = 0
     end if
 
+    output%value_partial_ok = .true.
     output%get_partial_left => get_partial_add
     output%get_partial_right => get_partial_add_bias
     output%get_partial_left_val => get_partial_add_val
@@ -233,6 +234,7 @@ contains
        output%val = input%val
     end where
 
+    output%value_partial_ok = .true.
     output%get_partial_left => get_partial_piecewise
     output%get_partial_left_val => get_partial_piecewise_val
     if(input%requires_grad)then
@@ -315,6 +317,7 @@ contains
     allocate(output%indices(1))
     output%indices(1) = dim
 
+    output%value_partial_ok = .true.
     output%get_partial_left => get_partial_softmax
     output%get_partial_left_val => get_partial_softmax_val
     output%get_partial_left_val_sum => get_partial_softmax_val_sum
@@ -431,6 +434,7 @@ contains
     output => input%create_result()
     output%val = input%val * (1._real32 / (1._real32 + exp(-beta * input%val)))
 
+    output%value_partial_ok = .true.
     output%get_partial_left => get_partial_swish
     output%get_partial_left_val => get_partial_swish_val
     if(input%requires_grad)then
@@ -516,6 +520,7 @@ contains
     output%val = temp_val
     output%indices = [dim]
 
+    output%value_partial_ok = .true.
     output%get_partial_left => get_partial_softmax_reverse_left
     output%get_partial_left_val => get_partial_softmax_reverse_left_val
     output%get_partial_right => get_partial_softmax_reverse_right

@@ -98,6 +98,7 @@ contains
     allocate(c%indices(4))
     c%indices = [d, H, F_in, F_out]
 
+    c%value_partial_ok = .true.
     c%get_partial_left     => get_partial_gno_kernel_coords
     c%get_partial_right    => get_partial_gno_kernel_params
     c%get_partial_left_val => get_partial_gno_kernel_coords_val
@@ -378,6 +379,7 @@ contains
     c%indices = adj_ia
     c%adj_ja  = adj_ja
 
+    c%value_partial_ok = .true.
     c%get_partial_left     => get_partial_gno_agg_features
     c%get_partial_right    => get_partial_gno_agg_kernels
     c%get_partial_left_val => get_partial_gno_agg_features_val
@@ -585,6 +587,7 @@ contains
     allocate(c%indices(2))
     c%indices = [num_inputs, num_modes]
 
+    c%value_partial_ok = .true.
     c%get_partial_left     => get_partial_lno_encode_input
     c%get_partial_right    => get_partial_lno_encode_poles
     c%get_partial_left_val => get_partial_lno_encode_input_val
@@ -764,6 +767,7 @@ contains
     allocate(c%indices(2))
     c%indices = [num_outputs, num_modes]
 
+    c%value_partial_ok = .true.
     c%get_partial_left     => get_partial_lno_decode_spectral
     c%get_partial_right    => get_partial_lno_decode_poles
     c%get_partial_left_val => get_partial_lno_decode_spectral_val
@@ -914,6 +918,7 @@ contains
        c%val(i, s) = input%val(i, s) * scale%val(i, 1)
     end do
 
+    c%value_partial_ok = .true.
     c%get_partial_left     => null()
     c%get_partial_right    => null()
     c%get_partial_left_val  => get_partial_elem_scale_input_val
@@ -1054,6 +1059,7 @@ contains
     allocate(c%indices(2))
     c%indices = [n, k]
 
+    c%value_partial_ok = .true.
     c%get_partial_left     => get_partial_ono_encode_input
     c%get_partial_right    => get_partial_ono_encode_basis
     c%get_partial_left_val => get_partial_ono_encode_input_val
@@ -1297,6 +1303,7 @@ contains
     allocate(c%indices(2))
     c%indices = [n, k]
 
+    c%value_partial_ok = .true.
     c%get_partial_left     => get_partial_ono_decode_mixed
     c%get_partial_right    => get_partial_ono_decode_basis
     c%get_partial_left_val => get_partial_ono_decode_mixed_val

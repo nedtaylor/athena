@@ -66,6 +66,7 @@ contains
     output%adj_ja(1,2) = dilation
     output%adj_ja(1,3) = kernel_h
 
+    output%value_partial_ok = .true.
     output%get_partial_left => get_partial_conv1d_input
     output%get_partial_right => get_partial_conv1d_kernel
     output%get_partial_left_val => get_partial_conv1d_input_val
@@ -296,6 +297,7 @@ contains
     output%adj_ja(2,3) = kernel_w
 
 
+    output%value_partial_ok = .true.
     output%get_partial_left => get_partial_conv2d_input
     output%get_partial_right => get_partial_conv2d_kernel
     output%get_partial_left_val => get_partial_conv2d_input_val
@@ -579,6 +581,7 @@ contains
     output%adj_ja(2,3) = kernel_w
     output%adj_ja(3,3) = kernel_d
 
+    output%value_partial_ok = .true.
     output%get_partial_left => get_partial_conv3d_input
     output%get_partial_right => get_partial_conv3d_kernel
     output%get_partial_left_val => get_partial_conv3d_input_val

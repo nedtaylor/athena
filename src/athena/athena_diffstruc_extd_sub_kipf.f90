@@ -47,6 +47,7 @@ contains
 
     c%indices = adj_ia
     c%adj_ja = adj_ja
+    c%value_partial_ok = .true.
     c%get_partial_left => get_partial_kipf_propagate_left
     c%get_partial_left_val => get_partial_kipf_propagate_left_val
     if(vertex_features%requires_grad)then
@@ -147,6 +148,7 @@ contains
 
     c%indices = adj_ia
     c%adj_ja = adj_ja
+    c%value_partial_ok = .true.
     c%get_partial_left => get_partial_left_reverse_kipf_propagate
     c%get_partial_left_val => get_partial_left_reverse_kipf_propagate_val
     if(a%requires_grad)then

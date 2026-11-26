@@ -33,6 +33,7 @@ contains
     end do
     output%mask = mask
 
+    output%value_partial_ok = .true.
     output%get_partial_left => get_partial_merge_scalar_over_channels
     output%get_partial_left_val => get_partial_merge_scalar_over_channels_val
     if(tsource%requires_grad)then

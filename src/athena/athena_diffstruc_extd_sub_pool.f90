@@ -38,6 +38,7 @@ contains
     output%adj_ja(1,1) = pool_size
     output%adj_ja(1,2) = stride
 
+    output%value_partial_ok = .true.
     output%get_partial_left => get_partial_avgpool1d
     output%get_partial_left_val => get_partial_avgpool1d_val
     if(input%requires_grad)then
@@ -165,6 +166,7 @@ contains
     output%adj_ja(:,1) = pool_size
     output%adj_ja(:,2) = stride
 
+    output%value_partial_ok = .true.
     output%get_partial_left => get_partial_avgpool2d
     output%get_partial_left_val => get_partial_avgpool2d_val
     if(input%requires_grad)then
@@ -315,6 +317,7 @@ contains
     output%adj_ja(:,1) = pool_size
     output%adj_ja(:,2) = stride
 
+    output%value_partial_ok = .true.
     output%get_partial_left => get_partial_avgpool3d
     output%get_partial_left_val => get_partial_avgpool3d_val
     if(input%requires_grad)then
@@ -444,6 +447,7 @@ contains
     output%adj_ja(1,1) = pool_size
     output%adj_ja(1,2) = stride
 
+    output%value_partial_ok = .true.
     output%get_partial_left => get_partial_maxpool1d
     output%get_partial_left_val => get_partial_maxpool1d_val
     if(input%requires_grad)then
@@ -584,6 +588,7 @@ contains
     output%adj_ja(:,1) = pool_size
     output%adj_ja(:,2) = stride
 
+    output%value_partial_ok = .true.
     output%get_partial_left => get_partial_maxpool2d
     output%get_partial_left_val => get_partial_maxpool2d_val
     if(input%requires_grad)then
@@ -752,6 +757,7 @@ contains
     output%adj_ja(:,1) = pool_size
     output%adj_ja(:,2) = stride
 
+    output%value_partial_ok = .true.
     output%get_partial_left => get_partial_maxpool3d
     output%get_partial_left_val => get_partial_maxpool3d_val
     if(input%requires_grad)then

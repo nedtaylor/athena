@@ -22,6 +22,7 @@ contains
        output%val = gamma * (abs(delta%val) - 0.5_real32 * gamma)
     end where
 
+    output%value_partial_ok = .true.
     output%get_partial_left => get_partial_huber
     output%get_partial_left_val => get_partial_huber_val
     if(delta%requires_grad)then
