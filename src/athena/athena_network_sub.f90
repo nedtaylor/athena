@@ -3270,6 +3270,9 @@ contains
 
     !---------------------------------------------------------------------------
     ! Set updated parameters back into layers
+    !
+    ! No gradient zeroing is needed afterwards: the reverse engine tags each
+    ! pass and overwrites an accumulator on its first contribution.
     !---------------------------------------------------------------------------
     if(allocated(this%param_segments) .and. size(this%param_segments) .gt. 0)then
 
@@ -3295,9 +3298,6 @@ contains
        ! Fallback: use set_params method
        call this%set_params(params)
     end if
-
-    ! Reset gradients after update
-    call this%reset_gradients()
 
   end subroutine update
 !###############################################################################

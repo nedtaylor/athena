@@ -460,7 +460,6 @@ contains
     !! Pointer array
 
 
-    call this%output(1,1)%zero_grad()
     select case(allocated(this%pad_layer))
     case(.true.)
        call this%pad_layer%forward(input)
