@@ -20,6 +20,7 @@ contains
     integer :: i_in, k_idx
     integer :: input_h, kernel_h, output_h, num_channels, num_filters
     real(real32) :: conv_sum
+    real(real32), dimension(:), allocatable :: kernel_copy
     integer, dimension(3) :: output_shape
 
     ! Extract dimensions
@@ -38,24 +39,40 @@ contains
     output => input%create_result(array_shape = output_shape)
     output%val = 0._real32
 
-    ! Perform convolution
-    do concurrent(s = 1:output_shape(3), c_out = 1:num_filters, &
-         i = 1:output_h)
-       conv_sum = 0._real32
-       do c_in = 1, num_channels
-          do k = 1, kernel_h
-             i_in = ( i - 1 ) * stride + ( k - 1 ) * dilation + 1
-             if(i_in .ge. 1 .and. i_in .le. input_h)then
-                k_idx = k + ( c_in - 1 ) * kernel_h + &
-                     ( c_out - 1 ) * kernel_h * num_channels
-                conv_sum = conv_sum + &
-                     input%val(i_in + ( c_in - 1 ) * input_h, s) * &
-                     kernel%val(k_idx, 1)
-             end if
-          end do
-       end do
-       output%val(i + (c_out-1)*output_h, s) = conv_sum
+    allocate(kernel_copy(size(kernel%val,1)))
+    kernel_copy(:) = kernel%val(:,1)
+
+    ! Reuse one input patch for all output filters.
+    do concurrent(s = 1:output_shape(3))
+       block
+         real(real32), dimension(num_channels, kernel_h) :: patch
+         integer :: ii, cin, cout, kk
+         integer :: iin
+         real(real32) :: acc
+
+         do ii = 1, output_h
+            do cin = 1, num_channels
+               do kk = 1, kernel_h
+                  iin = (ii - 1) * stride + (kk - 1) * dilation + 1
+                  patch(cin,kk) = &
+                       input%val(iin + (cin - 1) * input_h, s)
+               end do
+            end do
+            do cout = 1, num_filters
+               acc = 0._real32
+               do cin = 1, num_channels
+                  do kk = 1, kernel_h
+                     k_idx = kk + (cin - 1) * kernel_h + &
+                          (cout - 1) * kernel_h * num_channels
+                     acc = acc + patch(cin,kk) * kernel_copy(k_idx)
+                  end do
+               end do
+               output%val(ii + (cout-1)*output_h, s) = acc
+            end do
+         end do
+       end block
     end do
+    deallocate(kernel_copy)
 
     ! Store parameters for backward pass
     allocate(output%indices(2))
@@ -145,14 +162,12 @@ contains
        if(abs(grad_val) .gt. 1.e-30_real32)then
           do k = 1, kernel_h
              i_in = ( i - 1 ) * stride + ( k - 1 ) * dilation + 1
-             if(i_in .ge. 1 .and. i_in .le. input_h)then
-                k_idx = k + ( c_in - 1 ) * kernel_h + &
-                     ( c_out - 1 ) * kernel_h * num_channels
-                kernel_val = this%right_operand%val(k_idx, 1)
-                output(i_in + ( c_in - 1 ) * input_h, s) = &
-                     output(i_in + ( c_in - 1 ) * input_h, s) + &
-                     grad_val * kernel_val
-             end if
+             k_idx = k + ( c_in - 1 ) * kernel_h + &
+                  ( c_out - 1 ) * kernel_h * num_channels
+             kernel_val = this%right_operand%val(k_idx, 1)
+             output(i_in + ( c_in - 1 ) * input_h, s) = &
+                  output(i_in + ( c_in - 1 ) * input_h, s) + &
+                  grad_val * kernel_val
           end do
        end if
     end do
@@ -173,6 +188,8 @@ contains
     integer :: input_h, kernel_h, output_h, num_channels, num_filters
     integer :: stride, dilation
     real(real32) :: grad_sum
+    real(real32), dimension(:), allocatable :: dw
+    real(real32), dimension(:,:), allocatable :: patch
 
 
     ! Unpack parameters
@@ -185,26 +202,36 @@ contains
     input_h = this%left_operand%shape(1)
     output_h = this%shape(1)
 
-    output = 0._real32
+    allocate(dw(size(output,1)))
+    allocate(patch(num_channels, kernel_h))
+    dw = 0._real32
 
-    ! Parallelised over filters, channels, and kernel positions
-    do concurrent(c_out = 1:num_filters, c_in = 1:num_channels, k = 1:kernel_h)
-       k_idx = k + ( c_in - 1 ) * kernel_h + &
-            ( c_out - 1 ) * kernel_h * num_channels
+    do s = 1, size(upstream_grad, dim=2)
+       do i = 1, output_h
+          do c_in = 1, num_channels
+             do k = 1, kernel_h
+                i_in = (i - 1) * stride + (k - 1) * dilation + 1
+                patch(c_in,k) = this%left_operand%val( &
+                     i_in + (c_in - 1) * input_h, s)
+             end do
+          end do
 
-       grad_sum = 0._real32
-       do s = 1, size(upstream_grad, dim=2)
-          do i = 1, output_h
-             i_in = ( i - 1 ) * stride + ( k - 1 ) * dilation + 1
-             if(i_in .ge. 1 .and. i_in .le. input_h)then
-                out_idx = i + ( c_out - 1 ) * output_h
-                grad_sum = grad_sum + upstream_grad(out_idx, s) * &
-                     this%left_operand%val(i_in + ( c_in - 1 ) * input_h, s)
-             end if
+          do c_out = 1, num_filters
+             out_idx = i + (c_out - 1) * output_h
+             grad_sum = upstream_grad(out_idx, s)
+             do c_in = 1, num_channels
+                do k = 1, kernel_h
+                   k_idx = k + (c_in - 1) * kernel_h + &
+                        (c_out - 1) * kernel_h * num_channels
+                   dw(k_idx) = dw(k_idx) + grad_sum * patch(c_in,k)
+                end do
+             end do
           end do
        end do
-       output(k_idx, 1) = grad_sum
     end do
+
+    output(:,1) = dw
+    deallocate(dw, patch)
 
   end subroutine get_partial_conv1d_kernel_val
 !###############################################################################
@@ -230,6 +257,7 @@ contains
     integer :: channel_size_in, channel_size_out, kernel_channel_size
     integer :: dil_kernel_h_m1, dil_kernel_w_m1
     real(real32) :: conv_sum
+    real(real32), dimension(:), allocatable :: kernel_copy
     integer, dimension(4) :: output_shape
 
     ! Extract dimensions
@@ -259,32 +287,59 @@ contains
 
     channel_size_out = output_h * output_w
 
-    ! Perform convolution
-    do concurrent(s = 1:output_shape(4), c_out = 1:num_filters, &
-         j = 1:output_w, i = 1:output_h)
-       conv_sum = 0._real32
-       do c_in = 1, num_channels
-          in_base_idx = (c_in - 1) * channel_size_in
-          k_base_idx = (c_in - 1) * kernel_channel_size + &
-               (c_out - 1) * kernel_channel_size * num_channels
-          do kj = 1, kernel_w
-             j_in = (j - 1) * stride(2) + (kj - 1) * dilation(2) + 1
-             if(j_in .ge. 1 .and. j_in .le. input_w)then
-                do ki = 1, kernel_h
-                   i_in = (i - 1) * stride(1) + (ki - 1) * dilation(1) + 1
-                   if(i_in .ge. 1 .and. i_in .le. input_h)then
-                      in_idx = i_in + (j_in - 1) * input_h + in_base_idx
-                      k_idx = ki + (kj - 1) * kernel_h + k_base_idx
-                      conv_sum = conv_sum + input%val(in_idx, s) * &
-                           kernel%val(k_idx, 1)
-                   end if
-                end do
-             end if
-          end do
-       end do
-       out_idx = i + (j - 1) * output_h + (c_out - 1) * channel_size_out
-       output%val(out_idx, s) = conv_sum
+    ! The kernel is small and read-only: copy it once so the compiler does not
+    ! have to treat every kernel load as an aliased pointer access.
+    allocate(kernel_copy(size(kernel%val,1)))
+    kernel_copy(:) = kernel%val(:,1)
+
+    ! Compute one input patch per (sample, output position) and reuse it for
+    ! every output filter. This cuts the input loads by a factor of num_filters
+    ! and keeps the kernel traversal contiguous.
+    do concurrent(s = 1:output_shape(4))
+       block
+         real(real32), dimension(num_channels, kernel_h, kernel_w) :: patch
+         integer :: ii, jj, cin, cout, ki_, kj_
+         integer :: iin, jin
+         real(real32) :: acc
+
+         do jj = 1, output_w
+            do ii = 1, output_h
+               do cin = 1, num_channels
+                  in_base_idx = (cin - 1) * channel_size_in
+                  do kj_ = 1, kernel_w
+                     jin = (jj - 1) * stride(2) + (kj_ - 1) * dilation(2) + 1
+                     do ki_ = 1, kernel_h
+                        iin = (ii - 1) * stride(1) + &
+                             (ki_ - 1) * dilation(1) + 1
+                        patch(cin,ki_,kj_) = &
+                             input%val(iin + (jin - 1) * input_h + &
+                                  in_base_idx, s)
+                     end do
+                  end do
+               end do
+
+               do cout = 1, num_filters
+                  acc = 0._real32
+                  do cin = 1, num_channels
+                     k_base_idx = (cin - 1) * kernel_channel_size + &
+                          (cout - 1) * kernel_channel_size * num_channels
+                     do kj_ = 1, kernel_w
+                        do ki_ = 1, kernel_h
+                           k_idx = ki_ + (kj_ - 1) * kernel_h + k_base_idx
+                           acc = acc + patch(cin,ki_,kj_) * &
+                                kernel_copy(k_idx)
+                        end do
+                     end do
+                  end do
+                  out_idx = ii + (jj - 1) * output_h + &
+                       (cout - 1) * channel_size_out
+                  output%val(out_idx, s) = acc
+               end do
+            end do
+         end do
+       end block
     end do
+    deallocate(kernel_copy)
 
     ! Store parameters for backward pass
     allocate(output%indices(2))
@@ -390,19 +445,15 @@ contains
 
              do kj = 1, kernel_w
                 j_in = (j - 1) * stride(2) + (kj - 1) * dilation(2) + 1
-                if(j_in .ge. 1 .and. j_in .le. input_w)then
-                   do ki = 1, kernel_h
-                      i_in = (i - 1) * stride(1) + (ki - 1) * dilation(1) + 1
-                      if(i_in .ge. 1 .and. i_in .le. input_h)then
-                         in_idx = i_in + (j_in - 1) * input_h + in_base_idx
-                         k_idx = (kernel_h - ki + 1) + &
-                              (kernel_w - kj) * kernel_h + k_base_idx
-                         kernel_val = this%right_operand%val(k_idx, 1)
-                         output(in_idx, s) = output(in_idx, s) + &
-                              grad_val * kernel_val
-                      end if
-                   end do
-                end if
+                do ki = 1, kernel_h
+                   i_in = (i - 1) * stride(1) + (ki - 1) * dilation(1) + 1
+                   in_idx = i_in + (j_in - 1) * input_h + in_base_idx
+                   k_idx = (kernel_h - ki + 1) + &
+                        (kernel_w - kj) * kernel_h + k_base_idx
+                   kernel_val = this%right_operand%val(k_idx, 1)
+                   output(in_idx, s) = output(in_idx, s) + &
+                        grad_val * kernel_val
+                end do
              end do
           end do
        end if
@@ -427,6 +478,8 @@ contains
     integer, dimension(2) :: stride, dilation
     integer :: channel_size_in, channel_size_out
     real(real32) :: grad_sum
+    real(real32), dimension(:), allocatable :: dw
+    real(real32), dimension(:,:,:), allocatable :: patch
 
 
     ! Unpack parameters
@@ -445,36 +498,51 @@ contains
     channel_size_out = output_h * output_w
     kernel_channel_size = kernel_h * kernel_w
 
-    output = 0._real32
+    allocate(dw(size(output,1)))
+    allocate(patch(num_channels, kernel_h, kernel_w))
+    dw = 0._real32
 
-    ! Parallelised over filters, channels, and kernel dimensions
-    do concurrent(c_out = 1:num_filters, c_in = 1:num_channels, &
-         kj = 1:kernel_w, ki = 1:kernel_h)
-       out_base_idx = (c_out - 1) * channel_size_out
-       in_base_idx = (c_in - 1) * channel_size_in
-       k_base_idx = (c_in - 1) * kernel_channel_size + &
-            (c_out - 1) * kernel_channel_size * num_channels
-       k_idx = ki + (kj - 1) * kernel_h + k_base_idx
-
-       grad_sum = 0._real32
-       do s = 1, size(upstream_grad, dim=2)
-          do j = 1, output_w
-             j_in = (j - 1) * stride(2) + (kj - 1) * dilation(2) + 1
-             if(j_in .ge. 1 .and. j_in .le. input_w)then
-                do i = 1, output_h
-                   i_in = (i - 1) * stride(1) + (ki - 1) * dilation(1) + 1
-                   if(i_in .ge. 1 .and. i_in .le. input_h)then
-                      in_idx  = i_in + (j_in - 1) * input_h + in_base_idx
-                      out_idx = i + (j - 1) * output_h + out_base_idx
-                      grad_sum = grad_sum + &
-                           upstream_grad(out_idx, s) * this%left_operand%val(in_idx, s)
-                   end if
+    ! Accumulate all weights for one input patch while the patch and the
+    ! upstream vector are in cache. For each individual weight the summation
+    ! order over (sample, j, i) is unchanged.
+    do s = 1, size(upstream_grad, dim=2)
+       do j = 1, output_w
+          do i = 1, output_h
+             do c_in = 1, num_channels
+                in_base_idx = (c_in - 1) * channel_size_in
+                do kj = 1, kernel_w
+                   j_in = (j - 1) * stride(2) + (kj - 1) * dilation(2) + 1
+                   do ki = 1, kernel_h
+                      i_in = (i - 1) * stride(1) + &
+                           (ki - 1) * dilation(1) + 1
+                      in_idx = i_in + (j_in - 1) * input_h + in_base_idx
+                      patch(c_in,ki,kj) = this%left_operand%val(in_idx, s)
+                   end do
                 end do
-             end if
+             end do
+
+             do c_out = 1, num_filters
+                out_idx = i + (j - 1) * output_h + &
+                     (c_out - 1) * channel_size_out
+                grad_sum = upstream_grad(out_idx, s)
+                do c_in = 1, num_channels
+                   k_base_idx = (c_in - 1) * kernel_channel_size + &
+                        (c_out - 1) * kernel_channel_size * num_channels
+                   do kj = 1, kernel_w
+                      do ki = 1, kernel_h
+                         k_idx = ki + (kj - 1) * kernel_h + k_base_idx
+                         dw(k_idx) = dw(k_idx) + &
+                              grad_sum * patch(c_in,ki,kj)
+                      end do
+                   end do
+                end do
+             end do
           end do
        end do
-       output(k_idx, 1) = grad_sum
     end do
+
+    output(:,1) = dw
+    deallocate(dw, patch)
 
   end subroutine get_partial_conv2d_kernel_val
 !###############################################################################
@@ -495,11 +563,13 @@ contains
     ! Local variables
     integer :: i, j, k, ki, kj, kk, c_in, c_out, s
     integer :: i_in, j_in, k_in, k_idx, out_idx, in_idx
+    integer :: in_base_idx, k_base_idx
     integer :: input_h, input_w, input_d, kernel_h, kernel_w, kernel_d
     integer :: output_h, output_w, output_d
     integer :: num_channels, num_filters
     integer :: channel_size_in, channel_size_out
     real(real32) :: conv_sum
+    real(real32), dimension(:), allocatable :: kernel_copy
     integer, dimension(5) :: output_shape
 
     ! Extract dimensions
@@ -530,45 +600,70 @@ contains
     channel_size_in = input_h * input_w * input_d
     channel_size_out = output_h * output_w * output_d
 
-    ! Perform convolution - optimised with do concurrent
-    do concurrent(s = 1:output_shape(5), c_out = 1:num_filters, &
-         k = 1:output_d, j = 1:output_w, i = 1:output_h)
+    allocate(kernel_copy(size(kernel%val,1)))
+    kernel_copy(:) = kernel%val(:,1)
 
-       conv_sum = 0._real32
-       do c_in = 1, num_channels
-          do kk = 1, kernel_d
-             k_in = ( k - 1 ) * stride(3) + ( kk - 1 ) * dilation(3) + 1
-             if(k_in .ge. 1 .and. k_in .le. input_d)then
-                do kj = 1, kernel_w
-                   j_in = ( j - 1 ) * stride(2) + (kj - 1) * dilation(2) + 1
-                   if(j_in .ge. 1 .and. j_in .le. input_w)then
-                      do ki = 1, kernel_h
-                         i_in = ( i - 1 ) * stride(1) + &
-                              ( ki - 1 ) * dilation(1) + 1
-                         if(i_in .ge. 1 .and. i_in .le. input_h)then
-                            in_idx = i_in + ( j_in - 1 ) * input_h + &
-                                 ( k_in - 1 ) * input_h * input_w + &
-                                 ( c_in - 1 ) * channel_size_in
-                            k_idx = ki + ( kj - 1 ) * kernel_h + &
-                                 ( kk - 1 ) * kernel_h * kernel_w + &
-                                 ( c_in - 1 ) * kernel_h * kernel_w * &
-                                 kernel_d + &
-                                 ( c_out - 1 ) * kernel_h * kernel_w * &
-                                 kernel_d * num_channels
-                            conv_sum = conv_sum + input%val(in_idx, s) * &
-                                 kernel%val(k_idx, 1)
-                         end if
-                      end do
-                   end if
-                end do
-             end if
-          end do
-       end do
-       out_idx = i + ( j - 1 ) * output_h + &
-            ( k - 1 ) * output_h * output_w + &
-            ( c_out - 1 ) * channel_size_out
-       output%val(out_idx, s) = conv_sum
+    ! Reuse one input patch across all output filters.
+    do concurrent(s = 1:output_shape(5))
+       block
+         real(real32), dimension(num_channels, kernel_h, kernel_w, &
+              kernel_d) :: patch
+         integer :: ii, jj, kk_, cin, cout, ki_, kj_, kk__
+         integer :: iin, jin, kin
+         real(real32) :: acc
+
+         do kk__ = 1, output_d
+            do jj = 1, output_w
+               do ii = 1, output_h
+                  do cin = 1, num_channels
+                     in_base_idx = (cin - 1) * channel_size_in
+                     do kk_ = 1, kernel_d
+                        kin = (kk__ - 1) * stride(3) + &
+                             (kk_ - 1) * dilation(3) + 1
+                        do kj_ = 1, kernel_w
+                           jin = (jj - 1) * stride(2) + &
+                                (kj_ - 1) * dilation(2) + 1
+                           do ki_ = 1, kernel_h
+                              iin = (ii - 1) * stride(1) + &
+                                   (ki_ - 1) * dilation(1) + 1
+                              patch(cin,ki_,kj_,kk_) = input%val( &
+                                   iin + (jin - 1) * input_h + &
+                                   (kin - 1) * input_h * input_w + &
+                                   in_base_idx, s)
+                           end do
+                        end do
+                     end do
+                  end do
+
+                  do cout = 1, num_filters
+                     acc = 0._real32
+                     do cin = 1, num_channels
+                        k_base_idx = (cin - 1) * kernel_h * kernel_w * &
+                             kernel_d + (cout - 1) * kernel_h * kernel_w * &
+                             kernel_d * num_channels
+                        do kk_ = 1, kernel_d
+                           do kj_ = 1, kernel_w
+                              do ki_ = 1, kernel_h
+                                 k_idx = ki_ + (kj_ - 1) * kernel_h + &
+                                      (kk_ - 1) * kernel_h * kernel_w + &
+                                      k_base_idx
+                                 acc = acc + patch(cin,ki_,kj_,kk_) * &
+                                      kernel_copy(k_idx)
+                              end do
+                           end do
+                        end do
+                     end do
+                     out_idx = ii + (jj - 1) * output_h + &
+                          (kk__ - 1) * output_h * output_w + &
+                          (cout - 1) * channel_size_out
+                     output%val(out_idx, s) = acc
+                  end do
+               end do
+            end do
+         end do
+       end block
     end do
+    deallocate(kernel_copy)
 
     ! Store parameters for backward pass
     allocate(output%indices(2))
@@ -677,35 +772,28 @@ contains
                       do kk = 1, kernel_d
                          k_in = ( k - 1 ) * stride(3) + &
                               ( kk - 1 ) * dilation(3) + 1
-                         if( k_in .ge. 1 .and. k_in .le. input_d )then
-                            do kj = 1, kernel_w
-                               j_in = ( j - 1 ) * stride(2) + &
-                                    ( kj - 1 ) * dilation(2) + 1
-                               if( j_in .ge. 1 .and. j_in .le. input_w )then
-                                  do ki = 1, kernel_h
-                                     i_in = ( i - 1 ) * stride(1) + &
-                                          ( ki - 1 ) * dilation(1) + 1
-                                     if( i_in .ge. 1 .and. &
-                                          i_in .le. input_h )then
-                                        in_idx = i_in + &
-                                             ( j_in - 1 ) * input_h + &
-                                             ( k_in - 1 ) * input_h * input_w + &
-                                             ( c_in - 1 ) * channel_size_in
-                                        k_idx = ki + ( kj - 1 ) * kernel_h + &
-                                             ( kk - 1 ) * kernel_h * kernel_w + &
-                                             ( c_in - 1 ) * kernel_h * &
-                                             kernel_w * kernel_d + &
-                                             ( c_out - 1 ) * kernel_h * &
-                                             kernel_w * kernel_d * num_channels
-                                        kernel_val = this%right_operand%val(k_idx, 1)
-                                        output(in_idx, s) = &
-                                             output(in_idx, s) + &
-                                             grad_val * kernel_val
-                                     end if
-                                  end do
-                               end if
+                         do kj = 1, kernel_w
+                            j_in = ( j - 1 ) * stride(2) + &
+                                 ( kj - 1 ) * dilation(2) + 1
+                            do ki = 1, kernel_h
+                               i_in = ( i - 1 ) * stride(1) + &
+                                    ( ki - 1 ) * dilation(1) + 1
+                               in_idx = i_in + &
+                                    ( j_in - 1 ) * input_h + &
+                                    ( k_in - 1 ) * input_h * input_w + &
+                                    ( c_in - 1 ) * channel_size_in
+                               k_idx = ki + ( kj - 1 ) * kernel_h + &
+                                    ( kk - 1 ) * kernel_h * kernel_w + &
+                                    ( c_in - 1 ) * kernel_h * &
+                                    kernel_w * kernel_d + &
+                                    ( c_out - 1 ) * kernel_h * &
+                                    kernel_w * kernel_d * num_channels
+                               kernel_val = this%right_operand%val(k_idx, 1)
+                               output(in_idx, s) = &
+                                    output(in_idx, s) + &
+                                    grad_val * kernel_val
                             end do
-                         end if
+                         end do
                       end do
                    end do
                 end do
@@ -727,12 +815,15 @@ contains
     ! Local variables
     integer :: i, j, k, ki, kj, kk, c_in, c_out, s
     integer :: i_in, j_in, k_in, k_idx, out_idx, in_idx
+    integer :: in_base_idx, k_base_idx
     integer :: input_h, input_w, input_d, kernel_h, kernel_w, kernel_d
     integer :: output_h, output_w, output_d
     integer :: num_channels, num_filters
     integer :: channel_size_in, channel_size_out
     integer, dimension(3) :: stride, dilation
     real(real32) :: grad_sum
+    real(real32), dimension(:), allocatable :: dw
+    real(real32), dimension(:,:,:,:), allocatable :: patch
 
 
     ! Unpack parameters
@@ -751,56 +842,64 @@ contains
     output_w = this%shape(2)
     output_d = this%shape(3)
 
-    output = 0._real32
-
     channel_size_in = input_h * input_w * input_d
     channel_size_out = output_h * output_w * output_d
 
-    do c_out = 1, num_filters
-       do c_in = 1, num_channels
-          do kk = 1, kernel_d
-             do kj = 1, kernel_w
-                do ki = 1, kernel_h
-                   k_idx = ki + (kj-1)*kernel_h + &
-                        (kk-1)*kernel_h*kernel_w + &
-                        (c_in-1)*kernel_h*kernel_w*kernel_d + &
-                        (c_out-1)*kernel_h*kernel_w*kernel_d*num_channels
+    allocate(dw(size(output,1)))
+    allocate(patch(num_channels, kernel_h, kernel_w, kernel_d))
+    dw = 0._real32
 
-                   grad_sum = 0._real32
-                   do s = 1, size(upstream_grad, dim=2)
-                      do k = 1, output_d
-                         k_in = (k-1)*stride(3) + (kk-1)*dilation(3) + 1
-                         if(k_in .ge. 1 .and. k_in .le. input_d)then
-                            do j = 1, output_w
-                               j_in = (j-1)*stride(2) + &
-                                    (kj-1)*dilation(2) + 1
-                               if(j_in .ge. 1 .and. j_in .le. input_w)then
-                                  do i = 1, output_h
-                                     i_in = (i-1)*stride(1) + &
-                                          (ki-1)*dilation(1) + 1
-                                     if(i_in .ge. 1 .and. i_in .le. input_h)then
-                                        in_idx = i_in + (j_in-1)*input_h + &
-                                             (k_in-1)*input_h*input_w + &
-                                             (c_in-1)*channel_size_in
-                                        out_idx = i + (j-1)*output_h + &
-                                             (k-1)*output_h*output_w + &
-                                             (c_out-1)*channel_size_out
-                                        grad_sum = grad_sum + &
-                                             upstream_grad(out_idx, s) * &
-                                             this%left_operand%val(in_idx, s)
-                                     end if
-                                  end do
-                               end if
-                            end do
-                         end if
+    do s = 1, size(upstream_grad, dim=2)
+       do k = 1, output_d
+          do j = 1, output_w
+             do i = 1, output_h
+                do c_in = 1, num_channels
+                   in_base_idx = (c_in - 1) * channel_size_in
+                   do kk = 1, kernel_d
+                      k_in = (k - 1) * stride(3) + (kk - 1) * dilation(3) + 1
+                      do kj = 1, kernel_w
+                         j_in = (j - 1) * stride(2) + &
+                              (kj - 1) * dilation(2) + 1
+                         do ki = 1, kernel_h
+                            i_in = (i - 1) * stride(1) + &
+                                 (ki - 1) * dilation(1) + 1
+                            in_idx = i_in + (j_in - 1) * input_h + &
+                                 (k_in - 1) * input_h * input_w + in_base_idx
+                            patch(c_in,ki,kj,kk) = &
+                                 this%left_operand%val(in_idx, s)
+                         end do
                       end do
                    end do
-                   output(k_idx, 1) = grad_sum
+                end do
+
+                do c_out = 1, num_filters
+                   out_idx = i + (j - 1) * output_h + &
+                        (k - 1) * output_h * output_w + &
+                        (c_out - 1) * channel_size_out
+                   grad_sum = upstream_grad(out_idx, s)
+                   do c_in = 1, num_channels
+                      k_base_idx = (c_in - 1) * kernel_h * kernel_w * &
+                           kernel_d + (c_out - 1) * kernel_h * kernel_w * &
+                           kernel_d * num_channels
+                      do kk = 1, kernel_d
+                         do kj = 1, kernel_w
+                            do ki = 1, kernel_h
+                               k_idx = ki + (kj - 1) * kernel_h + &
+                                    (kk - 1) * kernel_h * kernel_w + k_base_idx
+                               dw(k_idx) = dw(k_idx) + &
+                                    grad_sum * patch(c_in,ki,kj,kk)
+                            end do
+                         end do
+                      end do
+                   end do
                 end do
              end do
           end do
        end do
     end do
+
+    output(:,1) = dw
+    deallocate(dw, patch)
 
   end subroutine get_partial_conv3d_kernel_val
 !###############################################################################
