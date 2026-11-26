@@ -21,6 +21,7 @@ contains
     integer :: input_h, kernel_h, output_h, num_channels, num_filters
     real(real32) :: conv_sum
     real(real32), dimension(:), allocatable :: kernel_copy
+    real(real32), pointer, contiguous :: in_val(:,:), out_val(:,:)
     integer, dimension(3) :: output_shape
 
     ! Extract dimensions
@@ -41,6 +42,8 @@ contains
 
     allocate(kernel_copy(size(kernel%val,1)))
     kernel_copy(:) = kernel%val(:,1)
+    in_val => input%val
+    out_val => output%val
 
     ! Reuse one input patch for all output filters.
     do concurrent(s = 1:output_shape(3))
@@ -135,10 +138,11 @@ contains
 
     ! Local variables
     integer :: i, k, c_in, c_out, s
-    integer :: i_in, k_idx, out_idx
+    integer :: i_in, ii, k_idx, out_idx, in_idx
     integer :: input_h, kernel_h, output_h, num_channels, num_filters
-    integer :: stride, dilation
-    real(real32) :: grad_val, kernel_val
+    integer :: stride, dilation, numerator
+    real(real32) :: acc, kernel_val
+    integer, dimension(:,:), allocatable :: i_map
 
 
     ! Unpack parameters
@@ -151,26 +155,45 @@ contains
     input_h = this%left_operand%shape(1)
     output_h = this%shape(1)
 
-    output = 0._real32
-
-    ! Parallelised over batch, channels, and output positions
-    do concurrent(s = 1:size(upstream_grad, dim=2), c_in = 1:num_channels, &
-         i = 1:output_h, c_out = 1:num_filters)
-       out_idx = i + (c_out-1)*output_h
-       grad_val = upstream_grad(out_idx, s)
-
-       if(abs(grad_val) .gt. 1.e-30_real32)then
-          do k = 1, kernel_h
-             i_in = ( i - 1 ) * stride + ( k - 1 ) * dilation + 1
-             k_idx = k + ( c_in - 1 ) * kernel_h + &
-                  ( c_out - 1 ) * kernel_h * num_channels
-             kernel_val = this%right_operand%val(k_idx, 1)
-             output(i_in + ( c_in - 1 ) * input_h, s) = &
-                  output(i_in + ( c_in - 1 ) * input_h, s) + &
-                  grad_val * kernel_val
-          end do
-       end if
+    allocate(i_map(input_h, kernel_h))
+    do k = 1, kernel_h
+       do i_in = 1, input_h
+          if(stride == 1 .and. dilation == 1) then
+             ii = i_in - (k - 1)
+          else
+             numerator = i_in - 1 - (k - 1) * dilation
+             if(numerator >= 0 .and. mod(numerator, stride) == 0) then
+                ii = numerator / stride + 1
+             else
+                ii = 0
+             end if
+          end if
+          if(ii < 1 .or. ii > output_h) ii = 0
+          i_map(i_in,k) = ii
+       end do
     end do
+
+    do s = 1, size(upstream_grad, dim=2)
+       do c_in = 1, num_channels
+          do i_in = 1, input_h
+             acc = 0._real32
+             do c_out = 1, num_filters
+                do k = 1, kernel_h
+                   ii = i_map(i_in,k)
+                   if(ii == 0) cycle
+                   out_idx = ii + (c_out - 1) * output_h
+                   k_idx = k + (c_in - 1) * kernel_h + &
+                        (c_out - 1) * kernel_h * num_channels
+                   kernel_val = this%right_operand%val(k_idx, 1)
+                   acc = acc + upstream_grad(out_idx, s) * kernel_val
+                end do
+             end do
+             in_idx = i_in + (c_in - 1) * input_h
+             output(in_idx, s) = acc
+          end do
+       end do
+    end do
+    deallocate(i_map)
 
   end subroutine get_partial_conv1d_input_val
 !-------------------------------------------------------------------------------
@@ -258,6 +281,7 @@ contains
     integer :: dil_kernel_h_m1, dil_kernel_w_m1
     real(real32) :: conv_sum
     real(real32), dimension(:), allocatable :: kernel_copy
+    real(real32), pointer, contiguous :: in_val(:,:), out_val(:,:)
     integer, dimension(4) :: output_shape
 
     ! Extract dimensions
@@ -291,6 +315,8 @@ contains
     ! have to treat every kernel load as an aliased pointer access.
     allocate(kernel_copy(size(kernel%val,1)))
     kernel_copy(:) = kernel%val(:,1)
+    in_val => input%val
+    out_val => output%val
 
     ! Compute one input patch per (sample, output position) and reuse it for
     ! every output filter. This cuts the input loads by a factor of num_filters
@@ -404,13 +430,15 @@ contains
 
     ! Local variables
     integer :: i, j, ki, kj, c_in, c_out, s
-    integer :: i_in, j_in, k_idx, out_idx, in_idx
-    integer :: in_base_idx, k_base_idx, kernel_channel_size
+    integer :: i_in, j_in, ii, jj, k_idx, out_idx, in_idx
+    integer :: in_base_idx, out_base_idx, k_base_idx, kernel_channel_size
     integer :: input_h, input_w, kernel_h, kernel_w
     integer :: output_h, output_w, num_channels, num_filters
     integer, dimension(2) :: stride, dilation
     integer :: channel_size_in, channel_size_out
-    real(real32) :: grad_val, kernel_val
+    integer :: numerator
+    real(real32) :: acc, kernel_val
+    integer, dimension(:,:), allocatable :: i_map, j_map
 
 
     ! Unpack parameters
@@ -429,35 +457,76 @@ contains
     channel_size_out = output_h * output_w
     kernel_channel_size = kernel_h * kernel_w
 
-    output = 0._real32
+    ! Gather formulation: each input element is written once. The maps below
+    ! precompute the output position for every (input position, kernel tap),
+    ! avoiding division/modulo in the inner loops.
+    allocate(i_map(input_h, kernel_h))
+    allocate(j_map(input_w, kernel_w))
+    do ki = 1, kernel_h
+       do i_in = 1, input_h
+          if(stride(1) == 1 .and. dilation(1) == 1) then
+             ii = i_in - (ki - 1)
+          else
+             numerator = i_in - 1 - (ki - 1) * dilation(1)
+             if(numerator >= 0 .and. mod(numerator, stride(1)) == 0) then
+                ii = numerator / stride(1) + 1
+             else
+                ii = 0
+             end if
+          end if
+          if(ii < 1 .or. ii > output_h) ii = 0
+          i_map(i_in,ki) = ii
+       end do
+    end do
+    do kj = 1, kernel_w
+       do j_in = 1, input_w
+          if(stride(2) == 1 .and. dilation(2) == 1) then
+             jj = j_in - (kj - 1)
+          else
+             numerator = j_in - 1 - (kj - 1) * dilation(2)
+             if(numerator >= 0 .and. mod(numerator, stride(2)) == 0) then
+                jj = numerator / stride(2) + 1
+             else
+                jj = 0
+             end if
+          end if
+          if(jj < 1 .or. jj > output_w) jj = 0
+          j_map(j_in,kj) = jj
+       end do
+    end do
 
-    ! Parallelised over batch, output channels, output spatial dims
-    do concurrent(s = 1:size(upstream_grad, dim=2), c_out = 1:num_filters, &
-         j = 1:output_w, i = 1:output_h)
-       out_idx = i + (j-1)*output_h + (c_out-1)*channel_size_out
-       grad_val = upstream_grad(out_idx, s)
-
-       if(abs(grad_val) .gt. 1.e-30_real32)then
-          do c_in = 1, num_channels
-             in_base_idx = (c_in - 1) * channel_size_in
-             k_base_idx = (c_in - 1) * kernel_channel_size + &
-                  (c_out - 1) * kernel_channel_size * num_channels
-
-             do kj = 1, kernel_w
-                j_in = (j - 1) * stride(2) + (kj - 1) * dilation(2) + 1
-                do ki = 1, kernel_h
-                   i_in = (i - 1) * stride(1) + (ki - 1) * dilation(1) + 1
-                   in_idx = i_in + (j_in - 1) * input_h + in_base_idx
-                   k_idx = (kernel_h - ki + 1) + &
-                        (kernel_w - kj) * kernel_h + k_base_idx
-                   kernel_val = this%right_operand%val(k_idx, 1)
-                   output(in_idx, s) = output(in_idx, s) + &
-                        grad_val * kernel_val
+    do s = 1, size(upstream_grad, dim=2)
+       do c_in = 1, num_channels
+          in_base_idx = (c_in - 1) * channel_size_in
+          do j_in = 1, input_w
+             do i_in = 1, input_h
+                acc = 0._real32
+                do c_out = 1, num_filters
+                   out_base_idx = (c_out - 1) * channel_size_out
+                   k_base_idx = (c_in - 1) * kernel_channel_size + &
+                        (c_out - 1) * kernel_channel_size * num_channels
+                   do kj = 1, kernel_w
+                      jj = j_map(j_in,kj)
+                      if(jj == 0) cycle
+                      do ki = 1, kernel_h
+                         ii = i_map(i_in,ki)
+                         if(ii == 0) cycle
+                         out_idx = ii + (jj - 1) * output_h + out_base_idx
+                         ! The kernel is applied flipped in the input gradient.
+                         k_idx = (kernel_h - ki + 1) + &
+                              (kernel_w - kj) * kernel_h + k_base_idx
+                         kernel_val = this%right_operand%val(k_idx, 1)
+                         acc = acc + upstream_grad(out_idx, s) * kernel_val
+                      end do
+                   end do
                 end do
+                in_idx = i_in + (j_in - 1) * input_h + in_base_idx
+                output(in_idx, s) = acc
              end do
           end do
-       end if
+       end do
     end do
+    deallocate(i_map, j_map)
 
   end subroutine get_partial_conv2d_input_val
 !-------------------------------------------------------------------------------
@@ -570,6 +639,7 @@ contains
     integer :: channel_size_in, channel_size_out
     real(real32) :: conv_sum
     real(real32), dimension(:), allocatable :: kernel_copy
+    real(real32), pointer, contiguous :: in_val(:,:), out_val(:,:)
     integer, dimension(5) :: output_shape
 
     ! Extract dimensions
@@ -602,6 +672,8 @@ contains
 
     allocate(kernel_copy(size(kernel%val,1)))
     kernel_copy(:) = kernel%val(:,1)
+    in_val => input%val
+    out_val => output%val
 
     ! Reuse one input patch across all output filters.
     do concurrent(s = 1:output_shape(5))
@@ -656,7 +728,7 @@ contains
                      out_idx = ii + (jj - 1) * output_h + &
                           (kk__ - 1) * output_h * output_w + &
                           (cout - 1) * channel_size_out
-                     output%val(out_idx, s) = acc
+                     out_val(out_idx, s) = acc
                   end do
                end do
             end do
@@ -728,13 +800,15 @@ contains
 
     ! Local variables
     integer :: i, j, k, ki, kj, kk, c_in, c_out, s
-    integer :: i_in, j_in, k_in, k_idx, out_idx, in_idx
+    integer :: i_in, j_in, k_in, ii, jj, kin, k_idx, out_idx, in_idx
     integer :: input_h, input_w, input_d, kernel_h, kernel_w, kernel_d
     integer :: output_h, output_w, output_d
     integer :: num_channels, num_filters
     integer :: channel_size_in, channel_size_out
     integer, dimension(3) :: stride, dilation
-    real(real32) :: grad_val, kernel_val
+    integer :: numerator
+    real(real32) :: acc, kernel_val
+    integer, dimension(:,:), allocatable :: i_map, j_map, k_map
 
 
     ! Unpack parameters
@@ -753,54 +827,103 @@ contains
     output_w = this%shape(2)
     output_d = this%shape(3)
 
-    output = 0._real32
-
     channel_size_in = input_h * input_w * input_d
     channel_size_out = output_h * output_w * output_d
 
+    allocate(i_map(input_h, kernel_h))
+    allocate(j_map(input_w, kernel_w))
+    allocate(k_map(input_d, kernel_d))
+    do ki = 1, kernel_h
+       do i_in = 1, input_h
+          if(stride(1) == 1 .and. dilation(1) == 1) then
+             ii = i_in - (ki - 1)
+          else
+             numerator = i_in - 1 - (ki - 1) * dilation(1)
+             if(numerator >= 0 .and. mod(numerator, stride(1)) == 0) then
+                ii = numerator / stride(1) + 1
+             else
+                ii = 0
+             end if
+          end if
+          if(ii < 1 .or. ii > output_h) ii = 0
+          i_map(i_in,ki) = ii
+       end do
+    end do
+    do kj = 1, kernel_w
+       do j_in = 1, input_w
+          if(stride(2) == 1 .and. dilation(2) == 1) then
+             jj = j_in - (kj - 1)
+          else
+             numerator = j_in - 1 - (kj - 1) * dilation(2)
+             if(numerator >= 0 .and. mod(numerator, stride(2)) == 0) then
+                jj = numerator / stride(2) + 1
+             else
+                jj = 0
+             end if
+          end if
+          if(jj < 1 .or. jj > output_w) jj = 0
+          j_map(j_in,kj) = jj
+       end do
+    end do
+    do kk = 1, kernel_d
+       do k_in = 1, input_d
+          if(stride(3) == 1 .and. dilation(3) == 1) then
+             kin = k_in - (kk - 1)
+          else
+             numerator = k_in - 1 - (kk - 1) * dilation(3)
+             if(numerator >= 0 .and. mod(numerator, stride(3)) == 0) then
+                kin = numerator / stride(3) + 1
+             else
+                kin = 0
+             end if
+          end if
+          if(kin < 1 .or. kin > output_d) kin = 0
+          k_map(k_in,kk) = kin
+       end do
+    end do
+
     do s = 1, size(upstream_grad, dim=2)
        do c_in = 1, num_channels
-          do k = 1, output_d
-             do j = 1, output_w
-                do i = 1, output_h
+          do k_in = 1, input_d
+             do j_in = 1, input_w
+                do i_in = 1, input_h
+                   acc = 0._real32
                    do c_out = 1, num_filters
-                      out_idx = i + ( j - 1 ) * output_h + &
-                           ( k - 1 ) * output_h * output_w + &
-                           ( c_out - 1 ) * channel_size_out
-                      grad_val = upstream_grad(out_idx, s)
-
                       do kk = 1, kernel_d
-                         k_in = ( k - 1 ) * stride(3) + &
-                              ( kk - 1 ) * dilation(3) + 1
+                         kin = k_map(k_in,kk)
+                         if(kin == 0) cycle
                          do kj = 1, kernel_w
-                            j_in = ( j - 1 ) * stride(2) + &
-                                 ( kj - 1 ) * dilation(2) + 1
+                            jj = j_map(j_in,kj)
+                            if(jj == 0) cycle
                             do ki = 1, kernel_h
-                               i_in = ( i - 1 ) * stride(1) + &
-                                    ( ki - 1 ) * dilation(1) + 1
-                               in_idx = i_in + &
-                                    ( j_in - 1 ) * input_h + &
-                                    ( k_in - 1 ) * input_h * input_w + &
-                                    ( c_in - 1 ) * channel_size_in
-                               k_idx = ki + ( kj - 1 ) * kernel_h + &
-                                    ( kk - 1 ) * kernel_h * kernel_w + &
-                                    ( c_in - 1 ) * kernel_h * &
-                                    kernel_w * kernel_d + &
-                                    ( c_out - 1 ) * kernel_h * &
-                                    kernel_w * kernel_d * num_channels
+                               ii = i_map(i_in,ki)
+                               if(ii == 0) cycle
+                               out_idx = ii + (jj - 1) * output_h + &
+                                    (kin - 1) * output_h * output_w + &
+                                    (c_out - 1) * channel_size_out
+                               k_idx = ki + (kj - 1) * kernel_h + &
+                                    (kk - 1) * kernel_h * kernel_w + &
+                                    (c_in - 1) * kernel_h * kernel_w * &
+                                    kernel_d + &
+                                    (c_out - 1) * kernel_h * kernel_w * &
+                                    kernel_d * num_channels
                                kernel_val = this%right_operand%val(k_idx, 1)
-                               output(in_idx, s) = &
-                                    output(in_idx, s) + &
-                                    grad_val * kernel_val
+                               acc = acc + upstream_grad(out_idx, s) * &
+                                    kernel_val
                             end do
                          end do
                       end do
                    end do
+                   in_idx = i_in + (j_in - 1) * input_h + &
+                        (k_in - 1) * input_h * input_w + &
+                        (c_in - 1) * channel_size_in
+                   output(in_idx, s) = acc
                 end do
              end do
           end do
        end do
     end do
+    deallocate(i_map, j_map, k_map)
 
   end subroutine get_partial_conv3d_input_val
 !-------------------------------------------------------------------------------

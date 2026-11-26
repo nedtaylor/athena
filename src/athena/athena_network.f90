@@ -89,6 +89,12 @@ module athena__network
      !! Input graph for the network
      type(array_type), dimension(:,:), allocatable :: expected_array
      !! Expected output array for the network
+     type(array_type), dimension(:,:), allocatable :: batch_input
+     !! Reused input records for real-valued batches
+     integer :: batch_input_next = 0
+     !! Next batch-input pool slot to use
+     type(array_type), dimension(:,:), allocatable :: expected_scratch
+     !! Reused expected records for loss evaluation
    contains
      procedure, pass(this) :: print
      !! Print the network to file

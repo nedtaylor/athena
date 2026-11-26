@@ -2527,7 +2527,9 @@ contains
 
 
 !###############################################################################
-  pure recursive subroutine get_params_and_gradients(container, params, gradients, start_idx, end_idx)
+  pure recursive subroutine get_params_and_gradients(container, params, &
+       gradients, start_idx, end_idx &
+  )
     !! Get learnable parameters and gradients from a container layer
     implicit none
 
@@ -2917,15 +2919,33 @@ contains
        expected(1:2, 1: end_index - start_index + 1) => &
             this%expected_array( :, start_index:end_index )
     else
-       allocate(expected(size(this%expected_array,1), size(this%expected_array,2)))
+       if(.not. allocated(this%expected_scratch)) then
+          allocate(this%expected_scratch( &
+               size(this%expected_array,1), size(this%expected_array,2)))
+       else if(size(this%expected_scratch,1) /= size(this%expected_array,1) &
+            .or. size(this%expected_scratch,2) /= size(this%expected_array,2)) then
+          deallocate(this%expected_scratch)
+          allocate(this%expected_scratch( &
+               size(this%expected_array,1), size(this%expected_array,2)))
+       end if
+       expected => this%expected_scratch
        do s = 1, size(this%expected_array,2)
           do i = 1, size(this%expected_array,1)
-             call expected(i,s)%allocate( &
-                  array_shape = [ &
-                       this%expected_array(i,s)%shape, &
-                       end_index - start_index + 1 &
-                  ] &
-             )
+             if(this%expected_scratch(i,s)%allocated) then
+                if(size(this%expected_scratch(i,s)%val,2) /= &
+                     end_index - start_index + 1) then
+                   call this%expected_scratch(i,s)%deallocate()
+                end if
+             end if
+             if(.not. this%expected_scratch(i,s)%allocated) then
+                call this%expected_scratch(i,s)%allocate( &
+                     array_shape = [ &
+                          this%expected_array(i,s)%shape, &
+                          end_index - start_index + 1 &
+                     ] &
+                )
+                this%expected_scratch(i,s)%is_temporary = .false.
+             end if
              expected(i,s)%val = this%expected_array(i,s)%val(:, &
                   start_index:end_index:1)
           end do
@@ -3010,13 +3030,34 @@ contains
                 end do
                 cycle
              type is(real(real32))
-                allocate(input_ptr(1,1))
-                call input_ptr(1,1)%allocate(shape(input))
-                call input_ptr(1,1)%set(input)
-                call layer%forward(input_ptr)
+                ! Reuse a small pool of context records for real batches instead
+                ! of leaking a fresh input record every step. The pool must hold
+                ! every input a single loss uses (PINN evaluates several inputs
+                ! before nullifying the graph).
+                if(.not. allocated(this%batch_input)) then
+                   allocate(this%batch_input(8,1))
+                   this%batch_input_next = 0
+                end if
+                this%batch_input_next = mod(this%batch_input_next, &
+                     size(this%batch_input,1)) + 1
+                if(.not. this%batch_input(this%batch_input_next,1)%allocated) &
+                     then
+                   call this%batch_input(this%batch_input_next,1)%allocate( &
+                        shape(input))
+                   this%batch_input(this%batch_input_next,1)%is_temporary = &
+                        .false.
+                else if(size(this%batch_input(this%batch_input_next,1)%val) &
+                     /= size(input)) then
+                   call this%batch_input(this%batch_input_next,1)%deallocate()
+                   call this%batch_input(this%batch_input_next,1)%allocate( &
+                        shape(input))
+                   this%batch_input(this%batch_input_next,1)%is_temporary = &
+                        .false.
+                end if
+                call this%batch_input(this%batch_input_next,1)%set(input)
+                call layer%forward(this%batch_input( &
+                     this%batch_input_next:this%batch_input_next,:))
                 call layer%output(1,1)%set_requires_grad(.false.)
-                deallocate(input_ptr)
-                input_ptr => null()
                 cycle
              class default
                 call stop_program( &
@@ -4309,6 +4350,10 @@ contains
 
 
     num_samples = this%save_input( input )
+    ! The loss path reads this%expected_array, so it must be refreshed with the
+    ! test labels; otherwise accuracy (which uses the output argument directly)
+    ! and loss are evaluated against different targets.
+    call this%save_output( output )
 
 
     !---------------------------------------------------------------------------
