@@ -11,7 +11,7 @@ module athena__clipper
   public :: clip_type
 
 
-  type clip_type
+  type :: clip_type
      !! Type for clipping gradients
      logical :: l_min_max = .false.
      !! Boolean whether min/max values are set
@@ -77,7 +77,7 @@ contains
        clip%norm = clip_norm
     end if
 
-   end function clip_setup
+  end function clip_setup
 !###############################################################################
 
 
@@ -194,11 +194,12 @@ contains
        bias_   = max(this%min,min(this%max,bias_))
     end if
 
-    ! Clip values to a maximum L2-norm
+    ! Clip values to a maximum L2-norm. `dot_product` avoids the full-size
+    ! temporary that `sum(gradient**2)` materialises every batch.
     if(this%l_norm)then
        scale = min(1._real32, &
-            this%norm/sqrt(sum(gradient**2._real32) + &
-            sum(bias_)**2._real32))
+            this%norm/sqrt(dot_product(gradient, gradient) + &
+                 sum(bias_)**2._real32))
        if(scale.lt.1._real32)then
           gradient = gradient * scale
           bias_   = bias_ * scale
