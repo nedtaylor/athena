@@ -44,8 +44,6 @@ module athena__full_layer
      !! Number of inputs
      integer :: num_outputs
      !! Number of outputs
-     type(array_type), dimension(1) :: z
-     !! Temporary arrays for forward propagation
    contains
      procedure, pass(this) :: get_num_params => get_num_params_full
      !! Get the number of parameters for fully connected layer
@@ -107,7 +105,6 @@ contains
 
     if(allocated(this%input_shape)) deallocate(this%input_shape)
     if(allocated(this%output)) deallocate(this%output)
-    if(this%z(1)%allocated) call this%z(1)%deallocate()
 
   end subroutine finalise_full
 !###############################################################################
@@ -421,7 +418,6 @@ contains
     !---------------------------------------------------------------------------
     if(allocated(this%output)) deallocate(this%output)
     allocate(this%output(1,1))
-    if(this%z(1)%allocated) call this%z(1)%deallocate()
 
   end subroutine init_full
 !###############################################################################
@@ -859,14 +855,13 @@ contains
 
     ! Apply activation function to activation
     !---------------------------------------------------------------------------
-    call this%output(1,1)%zero_grad()
+    ! The output record absorbs the activation node, so its pre-activation
+    ! operand stays reachable for the reverse pass. No separate scratch record
+    ! is needed: assigning the result releases the old output history in place.
     if(trim(this%activation%name) .eq. "none")then
        call this%output(1,1)%assign_replacing_history(ptr)
     else
-       call this%z(1)%zero_grad()
-       call this%z(1)%assign_replacing_history(ptr)
-       this%z(1)%is_temporary = .false.
-       ptr => this%activation%apply(this%z(1))
+       ptr => this%activation%apply(ptr)
        call this%output(1,1)%assign_replacing_history(ptr)
     end if
     this%output(1,1)%is_temporary = .false.
