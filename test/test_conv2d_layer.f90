@@ -5,8 +5,9 @@ program test_conv2d_layer
        base_layer_type, &
        learnable_layer_type
   use athena__conv2d_layer, only: read_conv2d_layer
+  use athena__diffstruc_extd, only: conv2d, add_bias
   use coreutils, only: real32
-  use diffstruc, only: array_type, operator(+), operator(-)
+  use diffstruc, only: array_type, operator(+), operator(-), sum, squared
   implicit none
 
   class(base_layer_type), allocatable, target :: conv_layer
@@ -22,6 +23,22 @@ program test_conv2d_layer
 
   real, allocatable, dimension(:) :: params
   real, allocatable, dimension(:,:) :: outputs
+  character(len=16) :: mode
+
+
+!-------------------------------------------------------------------------------
+! optional modes: `test_conv2d_layer bench | grad`
+!-------------------------------------------------------------------------------
+  mode = ''
+  if(command_argument_count() >= 1) call get_command_argument(1, mode)
+  select case(trim(mode))
+  case('bench')
+     call run_bench()
+     stop
+  case('grad')
+     call run_gradient_check()
+     stop
+  end select
 
 
 !-------------------------------------------------------------------------------
@@ -307,6 +324,234 @@ program test_conv2d_layer
 
 
 contains
+
+!-------------------------------------------------------------------------------
+! finite-difference check of the conv2d value partials
+!-------------------------------------------------------------------------------
+  subroutine run_gradient_check()
+    integer, parameter :: N_CASES = 4
+    integer, parameter :: STRIDES(N_CASES) = [1, 2, 1, 2]
+    integer, parameter :: DILATIONS(N_CASES) = [1, 1, 2, 2]
+    type(conv2d_layer_type) :: layer
+    type(array_type) :: xin(1,1)
+    type(array_type), pointer :: loss
+    real(real32), allocatable :: x0(:,:), w0(:), b0(:), ana_x(:,:), ana_w(:), ana_b(:)
+    real(real32) :: eps, num
+    real(8) :: num_loss
+    integer :: c, i, s, n_w, n_b, fails
+
+    eps = 1.E-2_real32
+    fails = 0
+    do c = 1, N_CASES
+       layer = conv2d_layer_type( &
+            input_shape = [5,5,2], num_filters = 3, kernel_size = 3, &
+            stride = STRIDES(c), dilation = DILATIONS(c), &
+            padding = "none", activation = "none" &
+       )
+       call xin(1,1)%allocate(array_shape=[5,5,2,2])
+       xin(1,1)%is_temporary = .false.
+       call xin(1,1)%set_requires_grad(.true.)
+       call random_number(xin(1,1)%val)
+       call random_number(layer%params(1)%val)
+       layer%params(1)%val = (layer%params(1)%val - 0.5_real32) * 0.2_real32
+       call random_number(layer%params(2)%val)
+       layer%params(2)%val = (layer%params(2)%val - 0.5_real32) * 0.2_real32
+
+       ! analytic gradients
+       call layer%forward(xin)
+       loss => sum(squared(layer%output(1,1)))
+       call loss%grad_reverse()
+       n_w = size(layer%params(1)%val)
+       n_b = size(layer%params(2)%val)
+       allocate(x0(5*5*2,2), ana_x(5*5*2,2), w0(n_w), ana_w(n_w), &
+            b0(n_b), ana_b(n_b))
+       x0 = xin(1,1)%val
+       w0 = layer%params(1)%val(:,1)
+       b0 = layer%params(2)%val(:,1)
+       ana_x = xin(1,1)%grad%val
+       ana_w = layer%params(1)%grad%val(:,1)
+       ana_b = layer%params(2)%grad%val(:,1)
+       call loss%release_expression()
+
+       ! numeric: kernel
+       do i = 1, n_w
+          layer%params(1)%val(i,1) = w0(i) + eps
+          num_loss = numeric_loss(layer, xin)
+          layer%params(1)%val(i,1) = w0(i) - eps
+          num_loss = num_loss - numeric_loss(layer, xin)
+          layer%params(1)%val(i,1) = w0(i)
+          num = real(num_loss / real(2._8 * eps, 8), real32)
+          call check_value(ana_w(i), num, eps, 'kernel', c, fails)
+       end do
+       ! numeric: bias
+       do i = 1, n_b
+          layer%params(2)%val(i,1) = b0(i) + eps
+          num_loss = numeric_loss(layer, xin)
+          layer%params(2)%val(i,1) = b0(i) - eps
+          num_loss = num_loss - numeric_loss(layer, xin)
+          layer%params(2)%val(i,1) = b0(i)
+          num = real(num_loss / real(2._8 * eps, 8), real32)
+          call check_value(ana_b(i), num, eps, 'bias', c, fails)
+       end do
+       ! numeric: input
+       do s = 1, 2
+          do i = 1, 5*5*2
+             xin(1,1)%val(i,s) = x0(i,s) + eps
+             num_loss = numeric_loss(layer, xin)
+             xin(1,1)%val(i,s) = x0(i,s) - eps
+             num_loss = num_loss - numeric_loss(layer, xin)
+             xin(1,1)%val(i,s) = x0(i,s)
+             num = real(num_loss / real(2._8 * eps, 8), real32)
+             call check_value(ana_x(i,s), num, eps, 'input', c, fails)
+          end do
+       end do
+
+       deallocate(x0, ana_x, w0, ana_w, b0, ana_b)
+       call xin(1,1)%deallocate()
+    end do
+
+    if(fails == 0)then
+       write(*,*) 'conv2d finite-difference gradients passed'
+    else
+       write(0,*) 'conv2d finite-difference gradients failed:', fails
+       stop 1
+    end if
+  end subroutine run_gradient_check
+
+!-------------------------------------------------------------------------------
+  real(8) function numeric_loss(layer, xin) result(l)
+    type(conv2d_layer_type), intent(inout) :: layer
+    type(array_type), intent(in) :: xin(1,1)
+    call layer%forward(xin)
+    l = sum(real(layer%output(1,1)%val, 8)**2)
+  end function numeric_loss
+
+!-------------------------------------------------------------------------------
+  subroutine check_value(analytic, numeric, eps, name, case_id, fails)
+    real(real32), intent(in) :: analytic, numeric, eps
+    character(len=*), intent(in) :: name
+    integer, intent(in) :: case_id
+    integer, intent(inout) :: fails
+    real(real32) :: rel
+    rel = abs(analytic - numeric) / max(1.E-4_real32, abs(numeric))
+    if(rel > 5.E-2_real32)then
+       fails = fails + 1
+       if(fails <= 5) &
+            write(0,'("grad mismatch case ",I0," ",A,&
+                 &" analytic=",E12.4," numeric=",E12.4)') &
+            case_id, name, analytic, numeric
+    end if
+  end subroutine check_value
+
+!-------------------------------------------------------------------------------
+! forward/backward timing for a representative conv2d layer
+!-------------------------------------------------------------------------------
+  subroutine run_bench()
+    type(conv2d_layer_type) :: layer
+    type(array_type) :: xin(1,1), kernel, bias
+    type(array_type), pointer :: loss, raw, ab
+    real(8) :: t0, t1, t_fwd, t_rev, t_raw
+    integer :: iter, c
+    integer, parameter :: N_FWD = 200, N_REV = 100
+    character(len=6), parameter :: PADS(4) = [character(len=6) :: &
+         "none", "same", "none", "same"]
+    character(len=6), parameter :: ACTS(4) = [character(len=6) :: &
+         "none", "none", "relu", "relu"]
+
+    call xin(1,1)%allocate(array_shape=[28,28,1,32])
+    xin(1,1)%is_temporary = .false.
+    call xin(1,1)%set_requires_grad(.true.)
+    call random_number(xin(1,1)%val)
+    call kernel%allocate(array_shape=[3,3,1,32,1])
+    call random_number(kernel%val)
+    kernel%is_temporary = .false.
+    call bias%allocate(array_shape=[32,1])
+    call random_number(bias%val)
+    bias%is_temporary = .false.
+    call bias%set_requires_grad(.true.)
+
+    ! raw convolution op
+    raw => conv2d(xin(1,1), kernel, [1,1], [1,1])
+    call raw%release_expression()
+    call cpu_time(t0)
+    do iter = 1, N_FWD
+       raw => conv2d(xin(1,1), kernel, [1,1], [1,1])
+       call raw%release_expression()
+    end do
+    call cpu_time(t1)
+    t_raw = (t1 - t0) / real(N_FWD, 8) * 1000._8
+
+    raw => conv2d(xin(1,1), kernel, [1,1], [1,1])
+    loss => sum(squared(raw))
+    call loss%grad_reverse()
+    call loss%release_expression()
+    call cpu_time(t0)
+    do iter = 1, N_REV
+       raw => conv2d(xin(1,1), kernel, [1,1], [1,1])
+       loss => sum(squared(raw))
+       call loss%grad_reverse()
+       call loss%release_expression()
+    end do
+    call cpu_time(t1)
+    t_rev = (t1 - t0) / real(N_REV, 8) * 1000._8 - t_raw
+
+    ! conv + bias
+    raw => conv2d(xin(1,1), kernel, [1,1], [1,1])
+    ab => add_bias(raw, bias, 3, .true.)
+    loss => sum(squared(ab))
+    call loss%grad_reverse()
+    call loss%release_expression()
+    call cpu_time(t0)
+    do iter = 1, N_FWD
+       raw => conv2d(xin(1,1), kernel, [1,1], [1,1])
+       ab => add_bias(raw, bias, 3, .true.)
+       call ab%release_expression()
+    end do
+    call cpu_time(t1)
+    t_fwd = (t1 - t0) / real(N_FWD, 8) * 1000._8
+    write(*,'(A)') ""
+    write(*,'(A)') "=== conv2d benchmark (28x28, 32 filters, b=32) ==="
+    write(*,'(" raw op(ms)=",F8.3,"  raw rev(ms)=",F8.3, &
+         &"  conv+bias fwd(ms)=",F8.3)') t_raw, t_rev, t_fwd
+    write(*,'(" op GFLOP/s=",F8.1)') &
+         2._8 * 28._8 * 28._8 * 9._8 * 32._8 * 32._8 / (t_raw * 1.E6_8)
+    write(*,'(A)') " layer    pad     act     fwd(ms)   rev(ms)"
+
+    do c = 1, 4
+       layer = conv2d_layer_type( &
+            input_shape = [28,28,1], num_filters = 32, kernel_size = 3, &
+            stride = 1, padding = trim(PADS(c)), activation = trim(ACTS(c)) &
+       )
+       call layer%forward(xin)
+       loss => sum(squared(layer%output(1,1)))
+       call loss%grad_reverse()
+       call loss%release_expression()
+
+       call cpu_time(t0)
+       do iter = 1, N_FWD
+          call layer%forward(xin)
+       end do
+       call cpu_time(t1)
+       t_fwd = (t1 - t0) / real(N_FWD, 8) * 1000._8
+
+       call layer%forward(xin)
+       call cpu_time(t0)
+       do iter = 1, N_REV
+          call layer%forward(xin)
+          loss => sum(squared(layer%output(1,1)))
+          call loss%grad_reverse()
+          call loss%release_expression()
+       end do
+       call cpu_time(t1)
+       t_rev = (t1 - t0) / real(N_REV, 8) * 1000._8 - t_fwd
+
+       write(*,'(I6,2x,A6,2x,A6,2(F9.3))') c, trim(PADS(c)), trim(ACTS(c)), &
+            t_fwd, t_rev
+    end do
+
+    call xin(1,1)%deallocate()
+    call kernel%deallocate()
+  end subroutine run_bench
 
 !-------------------------------------------------------------------------------
 ! compare two or three layers

@@ -29,6 +29,75 @@ contains
        end do
     end do
   end function build_tap_map
+!############################################################################---
+
+!###############################################################################
+  pure subroutine conv2d_im2col(input_val, col, s, input_h, input_w, &
+       num_channels, kernel_h, kernel_w, stride_h, stride_w, dil_h, dil_w, &
+       output_h, output_w)
+    !! Build one sample's patch matrix in the kernel's storage order.
+    !!
+    !! col(k, hw) = input at the tap k feeding output position hw, with
+    !! k = (c_in, k_h, k_w) matching kernel%val.
+    real(real32), dimension(:,:), intent(in) :: input_val
+    real(real32), dimension(:), intent(out) :: col
+    integer, intent(in) :: s, input_h, input_w, num_channels
+    integer, intent(in) :: kernel_h, kernel_w, stride_h, stride_w, dil_h, dil_w
+    integer, intent(in) :: output_h, output_w
+    integer :: hw, ii, jj, cin, ki, kj, k, iin, jin
+
+    do hw = 1, output_h * output_w
+       ii = mod(hw - 1, output_h) + 1
+       jj = (hw - 1) / output_h + 1
+       do cin = 1, num_channels
+          do kj = 1, kernel_w
+             jin = (jj - 1) * stride_w + (kj - 1) * dil_w + 1
+             do ki = 1, kernel_h
+                iin = (ii - 1) * stride_h + (ki - 1) * dil_h + 1
+                k = ki + (kj - 1) * kernel_h + (cin - 1) * kernel_h * kernel_w
+                col(k + (hw - 1) * num_channels * kernel_h * kernel_w) = &
+                     input_val(iin + (jin - 1) * input_h + &
+                          (cin - 1) * input_h * input_w, s)
+             end do
+          end do
+       end do
+    end do
+  end subroutine conv2d_im2col
+!###############################################################################
+
+!###############################################################################
+  pure subroutine conv2d_col2im_add(dcol, xgrad, s, input_h, input_w, &
+       num_channels, kernel_h, kernel_w, stride_h, stride_w, dil_h, dil_w, &
+       output_h, output_w)
+    !! Scatter-add one sample's patch gradients back to the input.
+    real(real32), dimension(:), intent(in) :: dcol
+    real(real32), dimension(:,:), intent(inout) :: xgrad
+    integer, intent(in) :: s, input_h, input_w, num_channels
+    integer, intent(in) :: kernel_h, kernel_w, stride_h, stride_w, dil_h, dil_w
+    integer, intent(in) :: output_h, output_w
+    integer :: hw, ii, jj, cin, ki, kj, k, iin, jin
+
+    do hw = 1, output_h * output_w
+       ii = mod(hw - 1, output_h) + 1
+       jj = (hw - 1) / output_h + 1
+       do cin = 1, num_channels
+          do kj = 1, kernel_w
+             jin = (jj - 1) * stride_w + (kj - 1) * dil_w + 1
+             do ki = 1, kernel_h
+                iin = (ii - 1) * stride_h + (ki - 1) * dil_h + 1
+                if(iin < 1 .or. iin > input_h) cycle
+                if(jin < 1 .or. jin > input_w) cycle
+                k = ki + (kj - 1) * kernel_h + (cin - 1) * kernel_h * kernel_w
+                xgrad(iin + (jin - 1) * input_h + &
+                     (cin - 1) * input_h * input_w, s) = &
+                     xgrad(iin + (jin - 1) * input_h + &
+                          (cin - 1) * input_h * input_w, s) + &
+                     dcol(k + (hw - 1) * num_channels * kernel_h * kernel_w)
+             end do
+          end do
+       end do
+    end do
+  end subroutine conv2d_col2im_add
 !###############################################################################
 
 !###############################################################################
@@ -275,6 +344,15 @@ contains
 !###############################################################################
   module function conv2d(input, kernel, stride, dilation) result(output)
     !! 2D convolution operation
+    !!
+    !! Each sample's input patch matrix is built once and multiplied by the
+    !! kernel with a single dense matrix product:
+    !!
+    !!   out[hw, c_out] = sum_k patch[k, hw] * kernel[k, c_out]
+    !!
+    !! with k = (c_in, k_h, k_w) in the kernel's storage order. This replaces
+    !! the scalar filter loop with a BLAS3 call while keeping the value/graph
+    !! layout unchanged.
     implicit none
 
     ! Arguments
@@ -285,20 +363,15 @@ contains
     type(array_type), pointer :: output
 
     ! Local variables
-    integer :: i, j, ki, kj, c_in, c_out, s
-    integer :: i_in, j_in, k_idx, out_idx, in_idx, in_base_idx, k_base_idx
+    integer :: s
     integer :: input_h, input_w, kernel_h, kernel_w
     integer :: output_h, output_w, num_channels, num_filters
-    integer :: channel_size_in, channel_size_out, kernel_channel_size
+    integer :: channel_size_in, kernel_size, num_positions
     integer :: dil_kernel_h_m1, dil_kernel_w_m1
-    real(real32) :: conv_sum
-    real(real32), dimension(:), allocatable :: kernel_copy
-    real(real32), pointer, contiguous :: in_val(:,:), out_val(:,:)
+    real(real32), dimension(:), allocatable :: col
     integer, dimension(4) :: output_shape
 
-    ! Extract dimensions
-    ! input: [H_in, W_in, C_in, B]
-    ! kernel: [K_h, K_w, C_in, C_out]
+    ! input: [H_in, W_in, C_in, B]; kernel: [K_h, K_w, C_in, C_out]
     input_h = input%shape(1)
     input_w = input%shape(2)
     num_channels = input%shape(3)
@@ -306,80 +379,31 @@ contains
     kernel_w = kernel%shape(2)
     num_filters = kernel%shape(4)
 
-    ! Pre-compute common values
     channel_size_in = input_h * input_w
-    kernel_channel_size = kernel_h * kernel_w
+    kernel_size = kernel_h * kernel_w
     dil_kernel_h_m1 = dilation(1) * (kernel_h - 1)
     dil_kernel_w_m1 = dilation(2) * (kernel_w - 1)
-
-    ! Calculate output dimensions
     output_h = (input_h - dil_kernel_h_m1 - 1) / stride(1) + 1
     output_w = (input_w - dil_kernel_w_m1 - 1) / stride(2) + 1
-    output_shape = [output_h, output_w, num_filters, &
-         size(input%val, dim=2)]
+    num_positions = output_h * output_w
+    output_shape = [output_h, output_w, num_filters, size(input%val, dim=2)]
 
     output => input%create_result(array_shape = output_shape)
-    output%val = 0._real32
 
-    channel_size_out = output_h * output_w
+    allocate(col(num_channels * kernel_size * num_positions))
 
-    ! The kernel is small and read-only: copy it once so the compiler does not
-    ! have to treat every kernel load as an aliased pointer access.
-    allocate(kernel_copy(size(kernel%val,1)))
-    kernel_copy(:) = kernel%val(:,1)
-    in_val => input%val
-    out_val => output%val
-
-    ! Compute one input patch per (sample, output position) and reuse it for
-    ! every output filter. This cuts the input loads by a factor of num_filters
-    ! and keeps the kernel traversal contiguous.
-    do concurrent(s = 1:output_shape(4))
-       block
-         real(real32), dimension(num_channels, kernel_h, kernel_w) :: patch
-         integer :: ii, jj, cin, cout, ki_, kj_
-         integer :: iin, jin
-         real(real32) :: acc
-
-         do jj = 1, output_w
-            do ii = 1, output_h
-               do cin = 1, num_channels
-                  in_base_idx = (cin - 1) * channel_size_in
-                  do kj_ = 1, kernel_w
-                     jin = (jj - 1) * stride(2) + (kj_ - 1) * dilation(2) + 1
-                     do ki_ = 1, kernel_h
-                        iin = (ii - 1) * stride(1) + &
-                             (ki_ - 1) * dilation(1) + 1
-                        patch(cin,ki_,kj_) = &
-                             input%val(iin + (jin - 1) * input_h + &
-                                  in_base_idx, s)
-                     end do
-                  end do
-               end do
-
-               do cout = 1, num_filters
-                  acc = 0._real32
-                  do cin = 1, num_channels
-                     k_base_idx = (cin - 1) * kernel_channel_size + &
-                          (cout - 1) * kernel_channel_size * num_channels
-                     do kj_ = 1, kernel_w
-                        do ki_ = 1, kernel_h
-                           k_idx = ki_ + (kj_ - 1) * kernel_h + k_base_idx
-                           acc = acc + patch(cin,ki_,kj_) * &
-                                kernel_copy(k_idx)
-                        end do
-                     end do
-                  end do
-                  out_idx = ii + (jj - 1) * output_h + &
-                       (cout - 1) * channel_size_out
-                  output%val(out_idx, s) = acc
-               end do
-            end do
-         end do
-       end block
+    do s = 1, size(input%val, dim=2)
+       call conv2d_im2col(input%val, col, s, input_h, input_w, num_channels, &
+            kernel_h, kernel_w, stride(1), stride(2), dilation(1), dilation(2), &
+            output_h, output_w)
+       call gemm('T', 'N', num_positions, num_filters, &
+            num_channels*kernel_size, col, num_channels*kernel_size, &
+            kernel%val(:,1), num_channels*kernel_size, 0.0_real32, &
+            output%val(1:num_positions*num_filters,s), num_positions)
     end do
-    deallocate(kernel_copy)
+    deallocate(col)
 
-    ! Store parameters for backward pass
+    ! Store parameters for the partials
     allocate(output%indices(2))
     output%indices(1) = num_channels
     output%indices(2) = num_filters
@@ -389,12 +413,12 @@ contains
     output%adj_ja(1,3) = kernel_h
     output%adj_ja(2,3) = kernel_w
 
-
     output%value_partial_ok = .true.
     output%get_partial_left => get_partial_conv2d_input
     output%get_partial_right => get_partial_conv2d_kernel
     output%get_partial_left_val => get_partial_conv2d_input_val
     output%get_partial_right_val => get_partial_conv2d_kernel_val
+    output%get_partial_right_val_sum => get_partial_conv2d_kernel_val_sum
     if(input%requires_grad .or. kernel%requires_grad)then
        output%requires_grad = .true.
        output%is_forward = input%is_forward
@@ -402,7 +426,6 @@ contains
        output%left_operand => canonical(input)
        output%right_operand => canonical(kernel)
     end if
-
   end function conv2d
 !-------------------------------------------------------------------------------
   function get_partial_conv2d_input(this, upstream_grad) result(output)
@@ -432,8 +455,10 @@ contains
 
   end function get_partial_conv2d_kernel
 !-------------------------------------------------------------------------------
-  pure subroutine get_partial_conv2d_input_val(this, upstream_grad, output)
-    !! Get partial derivative wrt input for 2D convolution (subroutine version)
+  subroutine get_partial_conv2d_input_val(this, upstream_grad, output)
+    !! Gradient with respect to the input: one dense product per sample
+    !! followed by a scatter-add of the patch gradients (the transpose of the
+    !! forward im2col).
     implicit none
 
     class(array_type), intent(in) :: this
@@ -441,19 +466,13 @@ contains
     real(real32), dimension(:,:), intent(out) :: output
 
     ! Local variables
-    integer :: i, j, ki, kj, c_in, c_out, s
-    integer :: i_in, j_in, ii, jj, k_idx, out_idx, in_idx
-    integer :: in_base_idx, out_base_idx, k_base_idx, kernel_channel_size
+    integer :: s
     integer :: input_h, input_w, kernel_h, kernel_w
     integer :: output_h, output_w, num_channels, num_filters
+    integer :: kernel_size, num_positions, channel_size_in
     integer, dimension(2) :: stride, dilation
-    integer :: channel_size_in, channel_size_out
-    integer :: numerator
-    real(real32) :: acc, kernel_val
-    integer, dimension(:,:), allocatable :: i_map, j_map
+    real(real32), dimension(:), allocatable :: dcol
 
-
-    ! Unpack parameters
     num_channels = this%indices(1)
     num_filters = this%indices(2)
     stride = this%adj_ja(1:2,1)
@@ -465,73 +484,61 @@ contains
     input_w = this%left_operand%shape(2)
     output_h = this%shape(1)
     output_w = this%shape(2)
-    channel_size_in  = input_h * input_w
-    channel_size_out = output_h * output_w
-    kernel_channel_size = kernel_h * kernel_w
+    num_positions = output_h * output_w
+    kernel_size = kernel_h * kernel_w
+    channel_size_in = input_h * input_w
 
-    ! Gather formulation: each input element is written once. The maps below
-    ! precompute the output position for every (input position, kernel tap),
-    ! avoiding division/modulo in the inner loops.
-    i_map = build_tap_map(input_h, kernel_h, stride(1), dilation(1), output_h)
-    j_map = build_tap_map(input_w, kernel_w, stride(2), dilation(2), output_w)
+    allocate(dcol(num_channels*kernel_size * num_positions))
 
+    output = 0.0_real32
     do s = 1, size(upstream_grad, dim=2)
-       do c_in = 1, num_channels
-          in_base_idx = (c_in - 1) * channel_size_in
-          do j_in = 1, input_w
-             do i_in = 1, input_h
-                acc = 0._real32
-                do c_out = 1, num_filters
-                   out_base_idx = (c_out - 1) * channel_size_out
-                   k_base_idx = (c_in - 1) * kernel_channel_size + &
-                        (c_out - 1) * kernel_channel_size * num_channels
-                   do kj = 1, kernel_w
-                      jj = j_map(j_in,kj)
-                      if(jj == 0) cycle
-                      do ki = 1, kernel_h
-                         ii = i_map(i_in,ki)
-                         if(ii == 0) cycle
-                         out_idx = ii + (jj - 1) * output_h + out_base_idx
-                         ! The kernel is applied flipped in the input gradient.
-                         k_idx = (kernel_h - ki + 1) + &
-                              (kernel_w - kj) * kernel_h + k_base_idx
-                         kernel_val = this%right_operand%val(k_idx, 1)
-                         acc = acc + upstream_grad(out_idx, s) * kernel_val
-                      end do
-                   end do
-                end do
-                in_idx = i_in + (j_in - 1) * input_h + in_base_idx
-                output(in_idx, s) = acc
-             end do
-          end do
-       end do
+       call gemm('N', 'T', num_channels*kernel_size, num_positions, &
+            num_filters, this%right_operand%val(:,1), &
+            num_channels*kernel_size, &
+            upstream_grad(1:num_positions*num_filters,s), num_positions, &
+            0.0_real32, dcol, num_channels*kernel_size)
+       call conv2d_col2im_add(dcol, output, s, input_h, input_w, num_channels, &
+            kernel_h, kernel_w, stride(1), stride(2), dilation(1), dilation(2), &
+            output_h, output_w)
     end do
-    deallocate(i_map, j_map)
-
+    deallocate(dcol)
   end subroutine get_partial_conv2d_input_val
 !-------------------------------------------------------------------------------
-  pure subroutine get_partial_conv2d_kernel_val(this, upstream_grad, output)
-    !! Get partial derivative wrt kernel for 2D convolution (subroutine version)
+  subroutine get_partial_conv2d_kernel_val(this, upstream_grad, output)
+    !! Gradient with respect to the kernel for one buffered call.
+    !!
+    !! The reduced form is evaluated once across the batch and stored in the
+    !! first column; remaining columns are left untouched, matching the layout
+    !! the reverse engine supplies for a non-sample-dependent operand.
     implicit none
 
     class(array_type), intent(in) :: this
     real(real32), dimension(:,:), intent(in) :: upstream_grad
     real(real32), dimension(:,:), intent(out) :: output
 
+    call get_partial_conv2d_kernel_val_sum(this, upstream_grad, output(:,1))
+  end subroutine get_partial_conv2d_kernel_val
+!-------------------------------------------------------------------------------
+  subroutine get_partial_conv2d_kernel_val_sum(this, upstream_grad, output)
+    !! Batch-summed gradient with respect to the kernel.
+    !!
+    !! dW[k, c_out] += sum_{s, hw} patch_s[k, hw] * upstream_s[hw, c_out],
+    !! accumulated with one dense product per sample straight into the
+    !! caller's accumulator.
+    implicit none
+
+    class(array_type), intent(in) :: this
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    real(real32), dimension(:), intent(out) :: output
+
     ! Local variables
-    integer :: i, j, ki, kj, c_in, c_out, s
-    integer :: i_in, j_in, k_idx, out_idx, in_idx
-    integer :: in_base_idx, out_base_idx, k_base_idx, kernel_channel_size
+    integer :: s
     integer :: input_h, input_w, kernel_h, kernel_w
     integer :: output_h, output_w, num_channels, num_filters
+    integer :: kernel_size, num_positions
     integer, dimension(2) :: stride, dilation
-    integer :: channel_size_in, channel_size_out
-    real(real32) :: grad_sum
-    real(real32), dimension(:), allocatable :: dw
-    real(real32), dimension(:,:,:), allocatable :: patch
+    real(real32), dimension(:), allocatable :: col
 
-
-    ! Unpack parameters
     num_channels = this%indices(1)
     num_filters = this%indices(2)
     stride = this%adj_ja(1:2,1)
@@ -543,57 +550,23 @@ contains
     input_w = this%left_operand%shape(2)
     output_h = this%shape(1)
     output_w = this%shape(2)
-    channel_size_in  = input_h * input_w
-    channel_size_out = output_h * output_w
-    kernel_channel_size = kernel_h * kernel_w
+    num_positions = output_h * output_w
+    kernel_size = kernel_h * kernel_w
 
-    allocate(dw(size(output,1)))
-    allocate(patch(num_channels, kernel_h, kernel_w))
-    dw = 0._real32
+    allocate(col(num_channels*kernel_size * num_positions))
+    output = 0.0_real32
 
-    ! Accumulate all weights for one input patch while the patch and the
-    ! upstream vector are in cache. For each individual weight the summation
-    ! order over (sample, j, i) is unchanged.
     do s = 1, size(upstream_grad, dim=2)
-       do j = 1, output_w
-          do i = 1, output_h
-             do c_in = 1, num_channels
-                in_base_idx = (c_in - 1) * channel_size_in
-                do kj = 1, kernel_w
-                   j_in = (j - 1) * stride(2) + (kj - 1) * dilation(2) + 1
-                   do ki = 1, kernel_h
-                      i_in = (i - 1) * stride(1) + &
-                           (ki - 1) * dilation(1) + 1
-                      in_idx = i_in + (j_in - 1) * input_h + in_base_idx
-                      patch(c_in,ki,kj) = this%left_operand%val(in_idx, s)
-                   end do
-                end do
-             end do
-
-             do c_out = 1, num_filters
-                out_idx = i + (j - 1) * output_h + &
-                     (c_out - 1) * channel_size_out
-                grad_sum = upstream_grad(out_idx, s)
-                do c_in = 1, num_channels
-                   k_base_idx = (c_in - 1) * kernel_channel_size + &
-                        (c_out - 1) * kernel_channel_size * num_channels
-                   do kj = 1, kernel_w
-                      do ki = 1, kernel_h
-                         k_idx = ki + (kj - 1) * kernel_h + k_base_idx
-                         dw(k_idx) = dw(k_idx) + &
-                              grad_sum * patch(c_in,ki,kj)
-                      end do
-                   end do
-                end do
-             end do
-          end do
-       end do
+       call conv2d_im2col(this%left_operand%val, col, s, input_h, input_w, &
+            num_channels, kernel_h, kernel_w, stride(1), stride(2), &
+            dilation(1), dilation(2), output_h, output_w)
+       call gemm('N', 'N', num_channels*kernel_size, num_filters, &
+            num_positions, col, num_channels*kernel_size, &
+            upstream_grad(1:num_positions*num_filters,s), num_positions, &
+            1.0_real32, output, num_channels*kernel_size)
     end do
-
-    output(:,1) = dw
-    deallocate(dw, patch)
-
-  end subroutine get_partial_conv2d_kernel_val
+    deallocate(col)
+  end subroutine get_partial_conv2d_kernel_val_sum
 !###############################################################################
 
 

@@ -817,21 +817,17 @@ contains
     case default
        ptr => conv2d(input(1,1), this%params(1), this%stp, this%dil)
     end select
-    call this%z(1)%zero_grad()
-    call this%z(1)%assign_replacing_history(ptr)
-    this%z(1)%is_temporary = .false.
-    ptr => add_bias(this%z(1), this%params(2), dim=3, dim_act_on_shape=.true.)
+    ptr => add_bias(ptr, this%params(2), dim=3, dim_act_on_shape=.true.)
 
     ! Apply activation function to activation
     !---------------------------------------------------------------------------
-    call this%output(1,1)%zero_grad()
+    ! The output record absorbs the activation node, so its pre-activation
+    ! operand stays reachable for the reverse pass. No scratch record or
+    ! gradient reset is needed: the assignment replaces the old history.
     if(trim(this%activation%name) .eq. "none")then
        call this%output(1,1)%assign_replacing_history(ptr)
     else
-       call this%z(2)%zero_grad()
-       call this%z(2)%assign_replacing_history(ptr)
-       this%z(2)%is_temporary = .false.
-       ptr => this%activation%apply(this%z(2))
+       ptr => this%activation%apply(ptr)
        call this%output(1,1)%assign_replacing_history(ptr)
     end if
     this%output(1,1)%is_temporary = .false.

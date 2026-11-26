@@ -103,9 +103,8 @@ contains
           do k = 1, num_elements_post
              do j = 1, bias%shape(1)
                 idx = (j - 1) * num_elements_pre + (k - 1) * itmp1
-                do i = 1, num_elements_pre
-                   output%val(idx + i, s) = input%val(idx + i, s) + bias%val(j,1)
-                end do
+                output%val(idx+1:idx+num_elements_pre, s) = &
+                     input%val(idx+1:idx+num_elements_pre, s) + bias%val(j,1)
              end do
           end do
        end do
@@ -120,6 +119,7 @@ contains
     output%get_partial_right => get_partial_add_bias
     output%get_partial_left_val => get_partial_add_val
     output%get_partial_right_val => get_partial_add_bias_val
+    output%get_partial_right_val_sum => get_partial_add_bias_val_sum
     if(input%requires_grad .or. bias%requires_grad)then
        output%requires_grad = .true.
        output%is_forward = input%is_forward .or. bias%is_forward
@@ -202,14 +202,48 @@ contains
        do k = 1, num_elements_post
           do j = 1, this%right_operand%shape(1)
              idx = (j - 1) * num_elements_pre + (k - 1) * itmp1
-             do i = 1, num_elements_pre
-                output(j,1) = output(j,1) + upstream_grad(idx + i, s)
-             end do
+             output(j,1) = output(j,1) + &
+                  sum(upstream_grad(idx+1:idx+num_elements_pre, s))
           end do
        end do
     end do
 
   end subroutine get_partial_add_bias_val
+!-------------------------------------------------------------------------------
+  pure subroutine get_partial_add_bias_val_sum(this, upstream_grad, output)
+    !! Sum-reduced bias gradient, written straight into the accumulator.
+    implicit none
+
+    class(array_type), intent(in) :: this
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    real(real32), dimension(:), intent(out) :: output
+
+    integer :: j, k, s, idx, itmp1
+    integer :: num_elements_pre, num_elements_post, num_dims
+
+    num_dims = size(this%left_operand%shape)
+    num_elements_pre = 1
+    num_elements_post = 1
+    do j = 1, num_dims
+       if(j .lt. this%indices(1))then
+          num_elements_pre = num_elements_pre * this%left_operand%shape(j)
+       elseif(j .gt. this%indices(1))then
+          num_elements_post = num_elements_post * this%left_operand%shape(j)
+       end if
+    end do
+
+    itmp1 = num_elements_pre * this%left_operand%shape(this%indices(1))
+    output = 0._real32
+    do s = 1, size(upstream_grad, 2)
+       do k = 1, num_elements_post
+          do j = 1, this%right_operand%shape(1)
+             idx = (j - 1) * num_elements_pre + (k - 1) * itmp1
+             output(j) = output(j) + &
+                  sum(upstream_grad(idx+1:idx+num_elements_pre, s))
+          end do
+       end do
+    end do
+  end subroutine get_partial_add_bias_val_sum
 !###############################################################################
 
 

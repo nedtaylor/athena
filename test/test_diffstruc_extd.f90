@@ -117,9 +117,11 @@ program test_diffstruc_extd
 
   call output%grad_reverse(reset_graph=.true.)
 
+  ! dOut/dIn for a correlation is the kernel itself (no flip), matching the
+  ! forward mapping and the conv1d/conv3d implementations.
   if(.not. associated(input%grad) .or. &
-       any(abs(input%grad%val(:,1) - [4._real32, 3._real32, 2._real32, &
-            1._real32]) .gt. 1.e-6_real32))then
+       any(abs(input%grad%val(:,1) - [1._real32, 2._real32, 3._real32, &
+            4._real32]) .gt. 1.e-6_real32))then
      success = .false.
      write(0,*) 'conv2d returned the wrong input gradient'
   end if
