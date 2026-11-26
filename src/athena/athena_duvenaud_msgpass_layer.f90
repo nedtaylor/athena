@@ -808,7 +808,7 @@ contains
              ptr3 => this%activation%apply( ptr3 )
           end if
           call this%z(t,s)%zero_grad()
-          call this%z(t,s)%assign_and_deallocate_source(ptr3)
+          call this%z(t,s)%assign_replacing_history(ptr3)
           this%z(t,s)%is_temporary = .false.
           ptr1 => this%z(t,s)
        end do
@@ -853,7 +853,7 @@ contains
           end if
        end do
     end do
-    call this%output(1,1)%assign_and_deallocate_source(ptr3)
+    call this%output(1,1)%assign_replacing_history(ptr3)
     this%output(1,1)%is_temporary = .false.
 
   end subroutine update_readout_duvenaud

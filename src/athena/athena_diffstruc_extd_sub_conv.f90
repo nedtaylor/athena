@@ -3,6 +3,34 @@ submodule (athena__diffstruc_extd) athena__diffstruc_extd_submodule_conv
 
 contains
 
+!-------------------------------------------------------------------------------
+  pure function build_tap_map(input_n, kernel_n, stride, dilation, output_n) &
+       result(map)
+    !! Map an input position and kernel tap to the output position it feeds.
+    !! A zero entry means the tap does not contribute to this input position.
+    integer, intent(in) :: input_n, kernel_n, stride, dilation, output_n
+    integer, dimension(input_n, kernel_n) :: map
+    integer :: pos, tap, out_pos, numerator
+
+    do tap = 1, kernel_n
+       do pos = 1, input_n
+          if(stride == 1 .and. dilation == 1) then
+             out_pos = pos - (tap - 1)
+          else
+             numerator = pos - 1 - (tap - 1) * dilation
+             if(numerator >= 0 .and. mod(numerator, stride) == 0) then
+                out_pos = numerator / stride + 1
+             else
+                out_pos = 0
+             end if
+          end if
+          if(out_pos < 1 .or. out_pos > output_n) out_pos = 0
+          map(pos,tap) = out_pos
+       end do
+    end do
+  end function build_tap_map
+!###############################################################################
+
 !###############################################################################
   module function conv1d(input, kernel, stride, dilation) result(output)
     !! 1D convolution operation
@@ -155,23 +183,7 @@ contains
     input_h = this%left_operand%shape(1)
     output_h = this%shape(1)
 
-    allocate(i_map(input_h, kernel_h))
-    do k = 1, kernel_h
-       do i_in = 1, input_h
-          if(stride == 1 .and. dilation == 1) then
-             ii = i_in - (k - 1)
-          else
-             numerator = i_in - 1 - (k - 1) * dilation
-             if(numerator >= 0 .and. mod(numerator, stride) == 0) then
-                ii = numerator / stride + 1
-             else
-                ii = 0
-             end if
-          end if
-          if(ii < 1 .or. ii > output_h) ii = 0
-          i_map(i_in,k) = ii
-       end do
-    end do
+    i_map = build_tap_map(input_h, kernel_h, stride, dilation, output_h)
 
     do s = 1, size(upstream_grad, dim=2)
        do c_in = 1, num_channels
@@ -460,40 +472,8 @@ contains
     ! Gather formulation: each input element is written once. The maps below
     ! precompute the output position for every (input position, kernel tap),
     ! avoiding division/modulo in the inner loops.
-    allocate(i_map(input_h, kernel_h))
-    allocate(j_map(input_w, kernel_w))
-    do ki = 1, kernel_h
-       do i_in = 1, input_h
-          if(stride(1) == 1 .and. dilation(1) == 1) then
-             ii = i_in - (ki - 1)
-          else
-             numerator = i_in - 1 - (ki - 1) * dilation(1)
-             if(numerator >= 0 .and. mod(numerator, stride(1)) == 0) then
-                ii = numerator / stride(1) + 1
-             else
-                ii = 0
-             end if
-          end if
-          if(ii < 1 .or. ii > output_h) ii = 0
-          i_map(i_in,ki) = ii
-       end do
-    end do
-    do kj = 1, kernel_w
-       do j_in = 1, input_w
-          if(stride(2) == 1 .and. dilation(2) == 1) then
-             jj = j_in - (kj - 1)
-          else
-             numerator = j_in - 1 - (kj - 1) * dilation(2)
-             if(numerator >= 0 .and. mod(numerator, stride(2)) == 0) then
-                jj = numerator / stride(2) + 1
-             else
-                jj = 0
-             end if
-          end if
-          if(jj < 1 .or. jj > output_w) jj = 0
-          j_map(j_in,kj) = jj
-       end do
-    end do
+    i_map = build_tap_map(input_h, kernel_h, stride(1), dilation(1), output_h)
+    j_map = build_tap_map(input_w, kernel_w, stride(2), dilation(2), output_w)
 
     do s = 1, size(upstream_grad, dim=2)
        do c_in = 1, num_channels
@@ -830,57 +810,9 @@ contains
     channel_size_in = input_h * input_w * input_d
     channel_size_out = output_h * output_w * output_d
 
-    allocate(i_map(input_h, kernel_h))
-    allocate(j_map(input_w, kernel_w))
-    allocate(k_map(input_d, kernel_d))
-    do ki = 1, kernel_h
-       do i_in = 1, input_h
-          if(stride(1) == 1 .and. dilation(1) == 1) then
-             ii = i_in - (ki - 1)
-          else
-             numerator = i_in - 1 - (ki - 1) * dilation(1)
-             if(numerator >= 0 .and. mod(numerator, stride(1)) == 0) then
-                ii = numerator / stride(1) + 1
-             else
-                ii = 0
-             end if
-          end if
-          if(ii < 1 .or. ii > output_h) ii = 0
-          i_map(i_in,ki) = ii
-       end do
-    end do
-    do kj = 1, kernel_w
-       do j_in = 1, input_w
-          if(stride(2) == 1 .and. dilation(2) == 1) then
-             jj = j_in - (kj - 1)
-          else
-             numerator = j_in - 1 - (kj - 1) * dilation(2)
-             if(numerator >= 0 .and. mod(numerator, stride(2)) == 0) then
-                jj = numerator / stride(2) + 1
-             else
-                jj = 0
-             end if
-          end if
-          if(jj < 1 .or. jj > output_w) jj = 0
-          j_map(j_in,kj) = jj
-       end do
-    end do
-    do kk = 1, kernel_d
-       do k_in = 1, input_d
-          if(stride(3) == 1 .and. dilation(3) == 1) then
-             kin = k_in - (kk - 1)
-          else
-             numerator = k_in - 1 - (kk - 1) * dilation(3)
-             if(numerator >= 0 .and. mod(numerator, stride(3)) == 0) then
-                kin = numerator / stride(3) + 1
-             else
-                kin = 0
-             end if
-          end if
-          if(kin < 1 .or. kin > output_d) kin = 0
-          k_map(k_in,kk) = kin
-       end do
-    end do
+    i_map = build_tap_map(input_h, kernel_h, stride(1), dilation(1), output_h)
+    j_map = build_tap_map(input_w, kernel_w, stride(2), dilation(2), output_w)
+    k_map = build_tap_map(input_d, kernel_d, stride(3), dilation(3), output_d)
 
     do s = 1, size(upstream_grad, dim=2)
        do c_in = 1, num_channels

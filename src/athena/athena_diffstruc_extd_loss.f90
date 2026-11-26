@@ -55,7 +55,7 @@ contains
          abs(this%left_operand) .le. this%right_operand%val(1,1) &
     )
 
-    call output%assign_and_deallocate_source(ptr)
+    call output%assign_replacing_history(ptr)
   end function get_partial_huber
 !-------------------------------------------------------------------------------
   pure subroutine get_partial_huber_val(this, upstream_grad, output)

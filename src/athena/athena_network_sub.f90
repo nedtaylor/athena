@@ -2924,6 +2924,12 @@ contains
                size(this%expected_array,1), size(this%expected_array,2)))
        else if(size(this%expected_scratch,1) /= size(this%expected_array,1) &
             .or. size(this%expected_scratch,2) /= size(this%expected_array,2)) then
+          do s = 1, size(this%expected_scratch,2)
+             do i = 1, size(this%expected_scratch,1)
+                if(this%expected_scratch(i,s)%allocated) &
+                     call this%expected_scratch(i,s)%deallocate(recycle=.true.)
+             end do
+          end do
           deallocate(this%expected_scratch)
           allocate(this%expected_scratch( &
                size(this%expected_array,1), size(this%expected_array,2)))
@@ -2934,7 +2940,7 @@ contains
              if(this%expected_scratch(i,s)%allocated) then
                 if(size(this%expected_scratch(i,s)%val,2) /= &
                      end_index - start_index + 1) then
-                   call this%expected_scratch(i,s)%deallocate()
+                   call this%expected_scratch(i,s)%deallocate(recycle=.true.)
                 end if
              end if
              if(.not. this%expected_scratch(i,s)%allocated) then
@@ -2987,6 +2993,10 @@ contains
     type(array_ptr_type), dimension(:), allocatable :: input_list
     logical :: use_precomp
 
+    ! Layer outputs keep their expression history alive between calls. That
+    ! history has been consumed by the previous backward pass (or is about to
+    ! be overwritten), so release it before this forward pass builds anew.
+    call discard_forward_history(this)
 
     select type(input)
     type is(graph_type)
@@ -3048,7 +3058,8 @@ contains
                         .false.
                 else if(size(this%batch_input(this%batch_input_next,1)%val) &
                      /= size(input)) then
-                   call this%batch_input(this%batch_input_next,1)%deallocate()
+                   call this%batch_input(this%batch_input_next,1)%deallocate( &
+                        recycle=.true.)
                    call this%batch_input(this%batch_input_next,1)%allocate( &
                         shape(input))
                    this%batch_input(this%batch_input_next,1)%is_temporary = &
@@ -3369,12 +3380,25 @@ contains
     num_samples = get_num_samples(this, input)
     if(num_samples.le.0) return
     num_input_layers = size(this%root_vertices, 1)
+    ! Setting a new input ends the previous forward pass. Release the history
+    ! it left on the layer outputs first, so no live record still points at
+    ! the input records that are about to be released.
+    call discard_forward_history(this)
     if(allocated(this%input_array))then
-       ! The stored handles usually view the caller's input records, so do not
-       ! release them here: doing so would invalidate the caller's data. Just
-       ! drop the handle array and let the context manage the storage.
+       ! Records created here from plain arrays are owned by the network and
+       ! must be released; records bound to caller data are only views and
+       ! must be left alone.
+       if(this%input_array_owned)then
+          do j = 1, size(this%input_array,2)
+             do i = 1, size(this%input_array,1)
+                if(this%input_array(i,j)%allocated) &
+                     call this%input_array(i,j)%deallocate(recycle=.true.)
+             end do
+          end do
+       end if
        deallocate(this%input_array)
     end if
+    this%input_array_owned = .false.
     if(allocated(this%input_graph)) deallocate(this%input_graph)
 
     ! Determine the rank of the input
@@ -3398,12 +3422,14 @@ contains
           num_inputs = size(input) / num_samples
           allocate(this%input_array(1,1))
           call this%input_array(1,1)%allocate(array_shape=[num_inputs, num_samples])
+          this%input_array_owned = .true.
        end select
     rank default
        input_rank = rank(input)
        num_inputs = size(input) / num_samples
        allocate(this%input_array(1,1))
        call this%input_array(1,1)%allocate(array_shape=shape(input))
+       this%input_array_owned = .true.
     end select
     l_valid_rank_type = .false.
 
@@ -3661,7 +3687,7 @@ contains
     if(allocated(this%expected_array))then
        do i = 1, size(this%expected_array, 1)
           do j = 1, size(this%expected_array, 2)
-             call this%expected_array(i,j)%deallocate()
+             call this%expected_array(i,j)%deallocate(recycle=.true.)
           end do
        end do
        deallocate(this%expected_array)
@@ -3672,9 +3698,9 @@ contains
        allocate(this%expected_array(2,size(output,2)))
        do s = 1, size(output,2)
           if(this%expected_array(1,s)%allocated) &
-               call this%expected_array(1,s)%deallocate()
+               call this%expected_array(1,s)%deallocate(recycle=.true.)
           if(this%expected_array(2,s)%allocated) &
-               call this%expected_array(2,s)%deallocate()
+               call this%expected_array(2,s)%deallocate(recycle=.true.)
           call this%expected_array(1,s)%allocate( &
                array_shape = [ &
                     output(1,s)%num_vertex_features, output(1,s)%num_vertices &
@@ -3995,8 +4021,6 @@ contains
              )
           end select
           call this%forward(data_poly)
-          deallocate(data_poly)
-
 
           ! Backward pass
           !---------------------------------------------------------------------
@@ -4025,8 +4049,9 @@ contains
           ! Update weights and biases using optimisation algorithm
           !---------------------------------------------------------------------
           call this%update()
-          call loss%nullify_graph()
-          nullify(loss)
+          call release_loss(loss)
+          call discard_forward_history(this)
+          call release_sample_data(data_poly)
 
 
           ! Print batch results
@@ -4087,7 +4112,7 @@ contains
                    call saved_expected_array(i,j)%allocate( &
                         source=this%expected_array(i,j) &
                    )
-                   call this%expected_array(i,j)%deallocate()
+                   call this%expected_array(i,j)%deallocate(recycle=.true.)
                 end do
              end do
              deallocate(this%expected_array)
@@ -4124,12 +4149,12 @@ contains
                 )
              end select
              call this%forward(data_poly)
-             deallocate(data_poly)
 
              loss => this%loss_eval(val_sample, val_sample)
              val_loss_sum = val_loss_sum + sum(loss%val)
-             call loss%nullify_graph()
-             nullify(loss)
+             call release_loss(loss)
+             call discard_forward_history(this)
+             call release_sample_data(data_poly)
 
              if(use_accuracy)then
                 val_accuracy_sum = val_accuracy_sum + &
@@ -4155,7 +4180,7 @@ contains
           if(allocated(this%expected_array))then
              do i = 1, size(this%expected_array, 1)
                 do j = 1, size(this%expected_array, 2)
-                   call this%expected_array(i,j)%deallocate()
+                   call this%expected_array(i,j)%deallocate(recycle=.true.)
                 end do
              end do
              deallocate(this%expected_array)
@@ -4387,15 +4412,14 @@ contains
           )
        end select
        call this%forward(data_poly)
-       deallocate(data_poly)
-
 
        ! Compute loss and accuracy (for monitoring)
        !------------------------------------------------------------------------
        loss => this%loss_eval(sample, sample)
        loss_val = sum(loss%val)
-       call loss%nullify_graph()
-       nullify(loss)
+       call release_loss(loss)
+       call discard_forward_history(this)
+       call release_sample_data(data_poly)
        if(use_accuracy)then
           acc_val = this%accuracy_eval(output, sample, sample)
           this%metrics(2)%val = this%metrics(2)%val + acc_val
@@ -5389,8 +5413,8 @@ contains
        end if
 
        ! Clean up computation graph
-       call loss%nullify_graph()
-       nullify(loss)
+       call release_loss(loss)
+       call discard_forward_history(this)
 
        ! Reset network parameter gradients so they remain unchanged
        call this%reset_gradients()
@@ -5410,6 +5434,63 @@ contains
     call this%set_params(saved_params)
 
   end function inverse_design_array_2d
+!###############################################################################
+
+
+!###############################################################################
+  subroutine discard_forward_history(this)
+    !! Release the forward expression trees held by layer outputs.
+    !!
+    !! Layer outputs are persistent records, so they keep their operands alive.
+    !! Once a backward pass has been applied, that history is dead and can be
+    !! returned to the context. Callers must invoke this only after the graph
+    !! rooted at the outputs has been fully consumed.
+    class(network_type), intent(inout) :: this
+    integer :: l, i, j
+
+    do l = 1, size(this%model)
+       if(.not. allocated(this%model(l)%layer%output)) cycle
+       do j = 1, size(this%model(l)%layer%output,2)
+          do i = 1, size(this%model(l)%layer%output,1)
+             call discard_sources(this%model(l)%layer%output(i,j), leaves=.true.)
+          end do
+       end do
+    end do
+  end subroutine discard_forward_history
+!###############################################################################
+
+
+!###############################################################################
+  subroutine release_sample_data(data)
+    !! Release context records owned by a per-sample input container.
+    class(*), allocatable, dimension(:,:), intent(inout) :: data
+    integer :: i, j
+
+    select type(data)
+    class is(array_type)
+       do j = 1, size(data,2)
+          do i = 1, size(data,1)
+             if(data(i,j)%allocated) then
+                call data(i,j)%deallocate(recycle=.true.)
+             end if
+          end do
+       end do
+    end select
+    deallocate(data)
+  end subroutine release_sample_data
+!###############################################################################
+
+
+!###############################################################################
+  subroutine release_loss(loss)
+    !! Release a loss graph and its root record, recycling the root slot.
+    type(array_type), pointer, intent(inout) :: loss
+
+    if(associated(loss)) then
+       call loss%release_expression()
+       nullify(loss)
+    end if
+  end subroutine release_loss
 !###############################################################################
 
 end submodule athena__network_submodule

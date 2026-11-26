@@ -461,7 +461,7 @@ contains
     case default
        ptr => avgpool2d(input(1,1), this%pool, this%strd)
     end select
-    call this%output(1,1)%assign_and_deallocate_source(ptr)
+    call this%output(1,1)%assign_replacing_history(ptr)
     this%output(1,1)%is_temporary = .false.
 
   end subroutine forward_avgpool2d

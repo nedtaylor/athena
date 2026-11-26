@@ -230,7 +230,7 @@ program pinn_burgers_example
      write(*,'("epoch: ",I0,"/",I0," loss: ",F0.5)') i, num_epochs, loss%val(1,1)
 
      ! clean memory
-     call loss%nullify_graph()
+     call loss%release_expression()
      nullify(loss)
   end do
 

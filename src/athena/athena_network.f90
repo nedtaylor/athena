@@ -15,7 +15,7 @@ module athena__network
   use athena__loss, only: base_loss_type
   use athena__accuracy, only: comp_acc_func => compute_accuracy_function
   use athena__base_layer, only: base_layer_type, learnable_layer_type
-  use diffstruc, only: array_type
+  use diffstruc, only: array_type, discard_sources
   use athena__misc_types, only: &
        onnx_node_type, onnx_initialiser_type, onnx_tensor_type
   use athena__container_layer, only: container_layer_type
@@ -85,6 +85,8 @@ module athena__network
 
      type(array_type), dimension(:,:), allocatable :: input_array
      !! Input array for the network
+     logical :: input_array_owned = .false.
+     !! Whether the input records were created here and must be released
      type(graph_type), dimension(:,:), allocatable :: input_graph
      !! Input graph for the network
      type(array_type), dimension(:,:), allocatable :: expected_array

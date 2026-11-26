@@ -268,7 +268,7 @@ contains
          this%left_operand%val.lt.-this%right_operand%val(2,1) .or. &
          this%left_operand%val.gt.this%right_operand%val(2,1) &
     )
-    call output%assign_and_deallocate_source(ptr)
+    call output%assign_replacing_history(ptr)
 
   end function get_partial_piecewise
 !-------------------------------------------------------------------------------
@@ -348,7 +348,7 @@ contains
     ! ptr => this * upstream_grad
     ! ptr => ptr - this * sum(ptr, dim=dim)
     ptr => softmax_reverse_array(this, upstream_grad, this%indices(1))
-    call output%assign_and_deallocate_source(ptr)
+    call output%assign_replacing_history(ptr)
 
   end function get_partial_softmax
 !-------------------------------------------------------------------------------
@@ -469,7 +469,7 @@ contains
          exp_term + 1._real32 &
     ) / ( ( exp_term + 1._real32 )**2._real32 )
 
-    call output%assign_and_deallocate_source(ptr)
+    call output%assign_replacing_history(ptr)
   end function get_partial_swish
 !-------------------------------------------------------------------------------
   pure subroutine get_partial_swish_val(this, upstream_grad, output)
@@ -549,7 +549,7 @@ contains
     sum_yu => sum(this%left_operand * upstream_grad, dim=this%indices(1))
 
     ptr => upstream_grad * (this%right_operand - sum_yg) - this%right_operand * sum_yu
-    call output%assign_and_deallocate_source(ptr)
+    call output%assign_replacing_history(ptr)
 
   end function get_partial_softmax_reverse_left
 !-------------------------------------------------------------------------------
@@ -566,7 +566,7 @@ contains
          upstream_grad - &
          sum(this%left_operand * upstream_grad, dim=this%indices(1)) &
     ) * this%left_operand
-    call output%assign_and_deallocate_source(ptr)
+    call output%assign_replacing_history(ptr)
 
   end function get_partial_softmax_reverse_right
 !-------------------------------------------------------------------------------

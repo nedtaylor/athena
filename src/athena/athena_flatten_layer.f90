@@ -482,7 +482,7 @@ contains
     !---------------------------------------------------------------------------
     call this%output(1,1)%zero_grad()
     ptr => pack(input(1,1), dim = 1)
-    call this%output(1,1)%assign_and_deallocate_source(ptr)
+    call this%output(1,1)%assign_replacing_history(ptr)
     this%output(1,1)%is_temporary = .false.
 
   end subroutine forward_flatten

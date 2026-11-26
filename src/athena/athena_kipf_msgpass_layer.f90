@@ -951,7 +951,7 @@ contains
           ptr1 => this%activation%apply( ptr3 )
        end do
        call this%output(1,s)%zero_grad()
-       call this%output(1,s)%assign_and_deallocate_source(ptr1)
+       call this%output(1,s)%assign_replacing_history(ptr1)
        this%output(1,s)%is_temporary = .false.
     end do
 

@@ -512,7 +512,7 @@ contains
     do s = 1, size(input, 2)
        do i = 1, size(input, 1)
           ptr => this%activation%apply(input(i,s))
-          call this%output(i,s)%assign_and_deallocate_source(ptr)
+          call this%output(i,s)%assign_replacing_history(ptr)
        end do
     end do
 

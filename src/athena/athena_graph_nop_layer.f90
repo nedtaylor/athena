@@ -772,7 +772,7 @@ contains
 
        ! Store output
        call this%output(1,s)%zero_grad()
-       call this%output(1,s)%assign_and_deallocate_source(ptr4)
+       call this%output(1,s)%assign_replacing_history(ptr4)
        this%output(1,s)%is_temporary = .false.
 
        if(this%output(2,s)%allocated) call this%output(2,s)%deallocate()

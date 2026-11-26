@@ -80,7 +80,7 @@ contains
     ptr => duvenaud_propagate( upstream_grad, this%right_operand, &
          this%indices, this%adj_ja )
     this%right_operand%is_temporary = right_is_temporary_local
-    call output%assign_and_deallocate_source(ptr)
+    call output%assign_replacing_history(ptr)
 
   end function get_partial_duvenaud_propagate_left
 !-------------------------------------------------------------------------------
@@ -107,7 +107,7 @@ contains
     ptr => duvenaud_propagate( this%left_operand, upstream_grad, &
          this%indices, this%adj_ja )
     this%left_operand%is_temporary = left_is_temporary_local
-    call output%assign_and_deallocate_source(ptr)
+    call output%assign_replacing_history(ptr)
 
   end function get_partial_duvenaud_propagate_right
 !-------------------------------------------------------------------------------

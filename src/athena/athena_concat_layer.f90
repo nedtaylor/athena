@@ -448,7 +448,7 @@ contains
           end do
           ptr => concat_layers(input_list, i, s, dim = 1)
           call this%output(i,s)%zero_grad()
-          call this%output(i,s)%assign_and_deallocate_source(ptr)
+          call this%output(i,s)%assign_replacing_history(ptr)
           this%output(i,s)%is_temporary = .false.
        end do index_loop
     end do

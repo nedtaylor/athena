@@ -523,7 +523,7 @@ contains
        rtmp1 = 1._real32 / rtmp1
        ptr => merge_over_channels( input(1,1), 0._real32, this%mask) * rtmp1
     end select
-    call this%output(1,1)%assign_and_deallocate_source(ptr)
+    call this%output(1,1)%assign_replacing_history(ptr)
     this%output(1,1)%is_temporary = .false.
 
   end subroutine forward_dropout
