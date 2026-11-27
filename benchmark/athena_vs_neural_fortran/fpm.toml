@@ -1,0 +1,12 @@
+name = "athena_vs_neural_fortran_benchmark"
+version = "0.1.0"
+license = "MIT"
+
+[dependencies]
+athena = { path = "../.." }
+neural-fortran = { git = "https://github.com/modern-fortran/neural-fortran", branch = "main" }
+
+[fortran]
+implicit-typing = false
+implicit-external = false
+source-form = "free"
