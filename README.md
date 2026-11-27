@@ -107,6 +107,22 @@ Run the following command in the repository main directory:
 fpm build --profile release
 ```
 
+Athena enables diffstruc's `DIFFSTRUC_FAST_REDUCTION` reduction path through
+the dependency macros in `fpm.toml`. That path is threaded only when OpenMP is
+enabled, so for the fastest build pass the OpenMP flags to both stages:
+
+```bash
+fpm build --profile release --flag "-fopenmp" --link-flag "-fopenmp"
+```
+
+Without `-fopenmp` the reductions still use the reassociated column-wise order
+but run serially. The fast path only engages for full-array `sum`/`mean`
+reductions above diffstruc's per-kernel work threshold (262144 elements), so
+small-batch CNN training such as the MNIST example sees no measurable change:
+that workload is convolution/matrix-product bound. Set
+`-DATHENA_FAST_REDUCTION=OFF` in a CMake build (or remove the macro from
+`fpm.toml`) to get the strictly ordered reduction instead.
+
 To build with the built-in Weights & Biases integration enabled, use the `wandb` feature:
 
 ```bash
@@ -131,9 +147,15 @@ Run the following commands in the directory containing _CMakeLists.txt_:
 ```bash
 mkdir build
 cd build
-cmake [-DCMAKE_BUILD_TYPE="Release"] ..
+cmake [-DCMAKE_BUILD_TYPE="Release"] \
+     [-DATHENA_USE_OPENMP=ON] [-DATHENA_FAST_REDUCTION=ON] ..
 make install
 ```
+
+Both options default to `ON`. They are forwarded to the fetched diffstruc as
+`USE_OPENMP`/`USE_FAST_REDUCTION` (with `USE_BLAS=ON`), so the CMake build gets
+the BLAS kernels and the threaded fast reductions. Use
+`-DATHENA_FAST_REDUCTION=OFF` for the strictly ordered reduction.
 
 This will build the library in the build/ directory. All library files will then be found in:
 

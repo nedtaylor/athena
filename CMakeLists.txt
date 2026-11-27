@@ -71,11 +71,33 @@ find_package(Git REQUIRED)
 set(GIT_EXECUTABLE "${GIT_EXECUTABLE}" CACHE FILEPATH "Path to git executable" FORCE)
 include(cmake/CPM.cmake)
 
+# Performance options forwarded to the diffstruc dependency. Fast reductions
+# reassociate the reductions (last-bit change) and are threaded when OpenMP is
+# available.
+option(ATHENA_USE_BLAS "Use BLAS in diffstruc" ON)
+option(ATHENA_USE_OPENMP "Enable OpenMP in Athena and diffstruc" ON)
+option(ATHENA_FAST_REDUCTION "Enable diffstruc fast reductions" ON)
+if(ATHENA_USE_BLAS)
+  set(USE_BLAS ON CACHE BOOL "Use BLAS in diffstruc" FORCE)
+else()
+  set(USE_BLAS OFF CACHE BOOL "Use BLAS in diffstruc" FORCE)
+endif()
+if(ATHENA_USE_OPENMP)
+  set(USE_OPENMP ON CACHE BOOL "Use OpenMP in diffstruc" FORCE)
+else()
+  set(USE_OPENMP OFF CACHE BOOL "Use OpenMP in diffstruc" FORCE)
+endif()
+if(ATHENA_FAST_REDUCTION)
+  set(USE_FAST_REDUCTION ON CACHE BOOL "Enable diffstruc fast reductions" FORCE)
+else()
+  set(USE_FAST_REDUCTION OFF CACHE BOOL "Enable diffstruc fast reductions" FORCE)
+endif()
+
 # add dependencies
 CPMAddPackage(
   NAME coreutils
-  VERSION 0.1.0
   GITHUB_REPOSITORY nedtaylor/coreutils
+  GIT_TAG development
 )
 CPMAddPackage(
   NAME diffstruc
@@ -213,6 +235,15 @@ set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${PPFLAGS}")
 
 # create the library
 add_library(${PROJECT_NAME} STATIC ${ALL_SOURCES})
+
+# Athena's own !$omp directives (SIMD and the opt-in conv sample loop) need the
+# OpenMP compile flag as well; the dependency only provides the runtime.
+if(ATHENA_USE_OPENMP)
+  find_package(OpenMP REQUIRED)
+  target_link_libraries(${PROJECT_NAME} OpenMP::OpenMP_Fortran)
+  message(STATUS "Athena OpenMP enabled")
+endif()
+
 set(MODULE_DIR ${CMAKE_BUILD_PREFIX}/mod)
 set_target_properties(${PROJECT_NAME} PROPERTIES Fortran_MODULE_DIRECTORY ${MODULE_DIR})
 

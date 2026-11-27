@@ -17,7 +17,7 @@ module-naming = false
 
 [dependencies]
 coreutils = { git = "https://github.com/nedtaylor/coreutils", branch = "development" }
-diffstruc = { git = "https://github.com/nedtaylor/diffstruc", branch = "reference_count" }
+diffstruc = { git = "https://github.com/nedtaylor/diffstruc", branch = "reference_count", preprocess.cpp.macros = ["USE_BLAS", "DIFFSTRUC_FAST_REDUCTION"] }
 graphstruc = { git = "https://github.com/nedtaylor/graphstruc", tag = "v0.2.1" }
 
 [features]
