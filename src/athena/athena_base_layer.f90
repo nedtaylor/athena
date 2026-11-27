@@ -545,8 +545,6 @@ module athena__base_layer
      !! Optional preprocess padding layer
      class(array_type), allocatable :: di_padded
      !! Padded input gradients
-     type(array_type), dimension(2) :: z
-     !! Temporary arrays for forward propagation
    contains
      procedure, pass(this) :: get_num_params => get_num_params_conv
      !! Get the number of parameters in the layer

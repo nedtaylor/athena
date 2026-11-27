@@ -121,8 +121,6 @@ contains
     if(allocated(this%input_shape)) deallocate(this%input_shape)
     if(allocated(this%output)) deallocate(this%output)
     if(allocated(this%pad_layer)) deallocate(this%pad_layer)
-    if(this%z(1)%allocated) call this%z(1)%deallocate()
-    if(this%z(2)%allocated) call this%z(2)%deallocate()
 
   end subroutine finalise_conv3d
 !###############################################################################
@@ -910,21 +908,14 @@ contains
     case default
        ptr => conv3d(input(1,1), this%params(1), this%stp, this%dil)
     end select
-    call this%z(1)%zero_grad()
-    call this%z(1)%assign_replacing_history(ptr)
-    this%z(1)%is_temporary = .false.
-    ptr => add_bias(this%z(1), this%params(2), dim=4, dim_act_on_shape=.true.)
+    ptr => add_bias(ptr, this%params(2), dim=4, dim_act_on_shape=.true.)
 
     ! Apply activation function to activation
     !---------------------------------------------------------------------------
-    call this%output(1,1)%zero_grad()
     if(trim(this%activation%name) .eq. "none")then
        call this%output(1,1)%assign_replacing_history(ptr)
     else
-       call this%z(2)%zero_grad()
-       call this%z(2)%assign_replacing_history(ptr)
-       this%z(2)%is_temporary = .false.
-       ptr => this%activation%apply(this%z(2))
+       ptr => this%activation%apply(ptr)
        call this%output(1,1)%assign_replacing_history(ptr)
     end if
     this%output(1,1)%is_temporary = .false.

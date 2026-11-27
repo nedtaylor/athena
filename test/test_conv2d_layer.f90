@@ -7,7 +7,8 @@ program test_conv2d_layer
   use athena__conv2d_layer, only: read_conv2d_layer
   use athena__diffstruc_extd, only: conv2d, add_bias
   use coreutils, only: real32
-  use diffstruc, only: array_type, operator(+), operator(-), sum, squared
+  use diffstruc, only: array_type, operator(+), operator(-), sum, squared, &
+       context_of, set_num_threads
   implicit none
 
   class(base_layer_type), allocatable, target :: conv_layer
@@ -451,7 +452,8 @@ contains
     type(array_type) :: xin(1,1), kernel, bias
     type(array_type), pointer :: loss, raw, ab
     real(8) :: t0, t1, t_fwd, t_rev, t_raw
-    integer :: iter, c
+    integer :: iter, c, nth_arg
+    character(len=16) :: arg
     integer, parameter :: N_FWD = 200, N_REV = 100
     character(len=6), parameter :: PADS(4) = [character(len=6) :: &
          "none", "same", "none", "same"]
@@ -461,6 +463,12 @@ contains
     call xin(1,1)%allocate(array_shape=[28,28,1,32])
     xin(1,1)%is_temporary = .false.
     call xin(1,1)%set_requires_grad(.true.)
+    nth_arg = 0
+    if(command_argument_count() >= 2)then
+       call get_command_argument(2, arg)
+       read(arg,*) nth_arg
+    end if
+    if(nth_arg > 0) call set_num_threads(context_of(xin(1,1)), nth_arg)
     call random_number(xin(1,1)%val)
     call kernel%allocate(array_shape=[3,3,1,32,1])
     call random_number(kernel%val)

@@ -1,10 +1,12 @@
 module athena__diffstruc_extd
   !! Module for extended differential structure types for Athena
   use coreutils, only: real32
-  use diffstruc, only: array_type, canonical, gemm
+  use diffstruc, only: array_type, canonical, gemm, context_of, get_num_threads
   use athena__misc_types, only: facets_type
+#ifdef _OPENMP
+  use omp_lib, only: omp_set_num_threads
+#endif
   implicit none
-
 
   private
 

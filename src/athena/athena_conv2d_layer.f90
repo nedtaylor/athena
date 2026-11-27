@@ -114,8 +114,6 @@ contains
     if(allocated(this%input_shape)) deallocate(this%input_shape)
     if(allocated(this%output)) deallocate(this%output)
     if(allocated(this%pad_layer)) deallocate(this%pad_layer)
-    if(this%z(1)%allocated) call this%z(1)%deallocate()
-    if(this%z(2)%allocated) call this%z(2)%deallocate()
 
   end subroutine finalise_conv2d
 !###############################################################################
