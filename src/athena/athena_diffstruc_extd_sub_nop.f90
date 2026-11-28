@@ -1064,6 +1064,7 @@ contains
     c%get_partial_right    => get_partial_ono_encode_basis
     c%get_partial_left_val => get_partial_ono_encode_input_val
     c%get_partial_right_val => get_partial_ono_encode_basis_val
+    c%get_partial_right_val_sum => get_partial_ono_encode_basis_val_sum
     if(input%requires_grad .or. basis_weights%requires_grad)then
        c%requires_grad    = .true.
        c%is_forward       = input%is_forward .or. basis_weights%is_forward
@@ -1142,8 +1143,9 @@ contains
     type(array_type) :: output
     !! Gradient tensor for basis weights
 
-    call output%allocate(array_shape=shape(this%right_operand%val))
-    call this%get_partial_right_val(upstream_grad%val, output%val)
+    call output%allocate(array_shape=[ this%indices(1)*this%indices(2), 1 ])
+    call get_partial_ono_encode_basis_val_sum( &
+         this, upstream_grad%val, output%val(:,1))
 
   end function get_partial_ono_encode_basis
 !-------------------------------------------------------------------------------
@@ -1163,7 +1165,7 @@ contains
     real(real32), allocatable :: B(:,:), Q(:,:), R(:,:)
     real(real32), allocatable :: dQ(:,:), dQ_work(:,:), dB(:,:)
     real(real32), allocatable :: dv(:), v_recon(:)
-    real(real32) :: norm_j, dprod, dR_ij, proj
+    real(real32) :: norm_j, dprod, dR_ij
 
     n = this%indices(1)
     k = this%indices(2)
@@ -1237,6 +1239,35 @@ contains
     deallocate(B, Q, R, dQ, dQ_work, dB, dv, v_recon)
 
   end subroutine get_partial_ono_encode_basis_val
+!-------------------------------------------------------------------------------
+  pure subroutine get_partial_ono_encode_basis_val_sum( &
+       this, upstream_grad, output)
+    !! Batch-summed gradient of ono_encode with respect to basis weights.
+    implicit none
+
+    ! Arguments
+    class(array_type), intent(in) :: this
+    !! Forward result node containing saved operands
+    real(real32), dimension(:,:), intent(in)  :: upstream_grad
+    !! Upstream gradient values
+    real(real32), dimension(:), intent(out) :: output
+    !! Reduced gradient values for basis weights
+
+    ! Local variables
+    integer :: n, k
+    !! Basis dimensions
+    real(real32), allocatable :: tmp(:,:)
+    !! Per-sample basis gradients
+
+    n = this%indices(1)
+    k = this%indices(2)
+
+    allocate(tmp(n*k, size(upstream_grad, 2)))
+    call get_partial_ono_encode_basis_val(this, upstream_grad, tmp)
+    output = sum(tmp, dim=2)
+    deallocate(tmp)
+
+  end subroutine get_partial_ono_encode_basis_val_sum
 !###############################################################################
 
 
@@ -1308,6 +1339,7 @@ contains
     c%get_partial_right    => get_partial_ono_decode_basis
     c%get_partial_left_val => get_partial_ono_decode_mixed_val
     c%get_partial_right_val => get_partial_ono_decode_basis_val
+    c%get_partial_right_val_sum => get_partial_ono_decode_basis_val_sum
     if(mixed%requires_grad .or. basis_weights%requires_grad)then
        c%requires_grad    = .true.
        c%is_forward       = mixed%is_forward .or. basis_weights%is_forward
@@ -1392,8 +1424,9 @@ contains
     type(array_type) :: output
     !! Gradient tensor for basis weights
 
-    call output%allocate(array_shape=shape(this%right_operand%val))
-    call this%get_partial_right_val(upstream_grad%val, output%val)
+    call output%allocate(array_shape=[ this%indices(1)*this%indices(2), 1 ])
+    call get_partial_ono_decode_basis_val_sum( &
+         this, upstream_grad%val, output%val(:,1))
 
   end function get_partial_ono_decode_basis
 !-------------------------------------------------------------------------------
@@ -1413,7 +1446,7 @@ contains
     real(real32), allocatable :: B(:,:), Q(:,:), R(:,:)
     real(real32), allocatable :: dQ(:,:), dQ_work(:,:), dB(:,:)
     real(real32), allocatable :: dv(:), v_recon(:)
-    real(real32) :: norm_j, dprod, dR_ij, proj
+    real(real32) :: norm_j, dprod, dR_ij
 
     n = this%indices(1)
     k = this%indices(2)
@@ -1487,6 +1520,35 @@ contains
     deallocate(B, Q, R, dQ, dQ_work, dB, dv, v_recon)
 
   end subroutine get_partial_ono_decode_basis_val
+!-------------------------------------------------------------------------------
+  pure subroutine get_partial_ono_decode_basis_val_sum( &
+       this, upstream_grad, output)
+    !! Batch-summed gradient of ono_decode with respect to basis weights.
+    implicit none
+
+    ! Arguments
+    class(array_type), intent(in) :: this
+    !! Forward result node containing saved operands
+    real(real32), dimension(:,:), intent(in)  :: upstream_grad
+    !! Upstream gradient values
+    real(real32), dimension(:), intent(out) :: output
+    !! Reduced gradient values for basis weights
+
+    ! Local variables
+    integer :: n, k
+    !! Basis dimensions
+    real(real32), allocatable :: tmp(:,:)
+    !! Per-sample basis gradients
+
+    n = this%indices(1)
+    k = this%indices(2)
+
+    allocate(tmp(n*k, size(upstream_grad, 2)))
+    call get_partial_ono_decode_basis_val(this, upstream_grad, tmp)
+    output = sum(tmp, dim=2)
+    deallocate(tmp)
+
+  end subroutine get_partial_ono_decode_basis_val_sum
 !###############################################################################
 
 end submodule athena__diffstruc_extd_submodule_nop

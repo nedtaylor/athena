@@ -13,7 +13,7 @@ module athena__orthogonal_nop_block
   !! The layer computes:
   !! \[
   !!   \mathbf{v} = \sigma\!\bigl(
-  !!     \mathbf{W}_V\,\mathbf{\Phi}\,(\mathbf{\Phi}^T\,\mathbf{u})
+  !!     \mathbf{W}\,\mathbf{\Phi}\,\mathbf{R}\,(\mathbf{\Phi}^T\,\mathbf{u})
   !!   + \mathbf{W}\,\mathbf{u}
   !!   + \mathbf{b}\bigr)
   !! \]
@@ -25,7 +25,7 @@ module athena__orthogonal_nop_block
   !! Parameters (learnable):
   !!   - \(\mathbf{R} \in \mathbb{R}^{k \times k}\) spectral mixing
   !!   - \(\mathbf{B} \in \mathbb{R}^{n_{in} \times k}\) basis (orthogonalised)
-  !!   - \(\mathbf{W} \in \mathbb{R}^{n_{out} \times n_{in}}\) bypass
+  !!   - \(\mathbf{W} \in \mathbb{R}^{n_{out} \times n_{in}}\) bypass and output projection
   !!   - \(\mathbf{b} \in \mathbb{R}^{n_{out}}\) bias (optional)
   !!
   !! The spectral path is: decode( R * encode(u) )
@@ -33,7 +33,7 @@ module athena__orthogonal_nop_block
   !!   mix    = R @ encoded      [k, batch]
   !!   decode = Phi @ mix        [n_in, batch]
   !!
-  !! Then a linear projection to the output: W_out @ decode -> [n_out, batch]
+  !! Then a linear projection to the output: W @ decode -> [n_out, batch]
   !! Plus bypass: W @ u -> [n_out, batch]
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: learnable_layer_type, base_layer_type
@@ -42,6 +42,10 @@ module athena__orthogonal_nop_block
   use diffstruc, only: array_type, matmul, operator(+)
   use athena__diffstruc_extd, only: ono_encode, ono_decode
   implicit none
+
+
+  private
+
   public :: read_orthogonal_nop_block
 
 
@@ -122,7 +126,7 @@ contains
 
     ! R:     num_basis^2         (spectral mixing)
     ! B:     num_inputs * num_basis (basis weights)
-    ! W_out: num_outputs * num_inputs (output projection / bypass)
+    ! W:     num_outputs * num_inputs (output projection / bypass)
     ! b:     num_outputs (optional)
     num_params = this%num_basis * this%num_basis + &
          this%num_inputs * this%num_basis + &
@@ -297,9 +301,10 @@ contains
     ! Local variables
     integer :: num_inputs
     !! Effective fan-in size used for initialisation
-    integer :: verbose_ = 0
+    integer :: verbose_
     !! Effective verbosity level
 
+    verbose_ = 0
     if(present(verbose)) verbose_ = verbose
 
 
@@ -308,6 +313,32 @@ contains
     !---------------------------------------------------------------------------
     if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
     this%num_inputs = this%input_shape(1)
+
+    if(this%num_inputs .le. 0)then
+       call stop_program("orthogonal_nop: num_inputs must be positive")
+       return
+    end if
+    if(this%num_outputs .le. 0)then
+       call stop_program("orthogonal_nop: num_outputs must be positive")
+       return
+    end if
+    if(this%num_basis .le. 0)then
+       call stop_program("orthogonal_nop: num_basis must be positive")
+       return
+    end if
+    if(this%num_basis .gt. this%num_inputs)then
+       call stop_program("orthogonal_nop: num_basis must not exceed num_inputs")
+       return
+    end if
+
+    ! Release any existing storage so a repeated init reinitialises cleanly
+    if(allocated(this%output)) deallocate(this%output)
+    if(this%z(1)%allocated) call this%z(1)%deallocate()
+    if(allocated(this%params)) deallocate(this%params)
+    if(allocated(this%weight_shape)) deallocate(this%weight_shape)
+    if(allocated(this%bias_shape)) deallocate(this%bias_shape)
+    if(allocated(this%output_shape)) deallocate(this%output_shape)
+
     this%output_shape = [this%num_outputs]
     this%num_params = this%get_num_params()
 
@@ -390,9 +421,7 @@ contains
     !---------------------------------------------------------------------------
     ! Allocate output arrays
     !---------------------------------------------------------------------------
-    if(allocated(this%output)) deallocate(this%output)
     allocate(this%output(1,1))
-    if(this%z(1)%allocated) call this%z(1)%deallocate()
 
   end subroutine init_ono
 !###############################################################################
@@ -517,7 +546,6 @@ contains
 !###############################################################################
   subroutine print_to_unit_ono(this, unit)
     !! Print orthogonal neural operator settings and parameters to a unit
-    use coreutils, only: to_upper
     implicit none
 
     ! Arguments
@@ -549,8 +577,8 @@ contains
 
 !###############################################################################
   subroutine read_ono(this, unit, verbose)
-    use athena__tools_infile, only: assign_val, assign_vec, move
-    use coreutils, only: to_lower, to_upper, icount
+    use athena__tools_infile, only: assign_val
+    use coreutils, only: to_lower, to_upper
     use athena__activation, only: read_activation
     use athena__initialiser, only: initialiser_setup
     implicit none
@@ -564,48 +592,54 @@ contains
     !! Verbosity level
 
     ! Local variables
-    integer :: stat, verbose_ = 0
+    integer :: stat, verbose_
     !! I/O status and effective verbosity level
-    integer :: j, k, c, itmp1, iline
-    !! Loop counters and parser scratch integers
+    integer :: itmp1, num_vals
+    !! Parser scratch integers and current block size
     integer :: num_inputs, num_outputs, num_basis
-    !! Parsed layer dimensions
-    logical :: use_bias = .true.
+    !! Parsed layer dimensions (validated during init)
+    logical :: use_bias
     !! Parsed bias flag
-    character(14) :: kernel_initialiser_name='', bias_initialiser_name=''
+    logical :: found_weights
+    !! Whether a WEIGHTS card was encountered
+    character(14) :: kernel_initialiser_name, bias_initialiser_name
     !! Parsed initialiser names
     class(base_actv_type), allocatable :: activation
     !! Parsed activation object
     class(base_init_type), allocatable :: kernel_initialiser, bias_initialiser
     !! Parsed initialiser objects
-    character(256) :: buffer, tag, err_msg
-    !! Input buffer, parsed tag and formatted error message
+    character(256) :: buffer, line
+    !! Input record buffers
+    character(256) :: tag, err_msg
+    !! Parsed tag and formatted error message
     real(real32), allocatable, dimension(:) :: data_list
     !! Temporary storage for flattened parameter blocks
-    integer :: param_line, final_line, num_vals
-    !! Weights-section line markers and current block size
 
+    verbose_ = 0
     if(present(verbose)) verbose_ = verbose
 
-    iline = 0
-    param_line = 0
-    final_line = 0
+    num_inputs = -1
+    num_outputs = -1
+    num_basis = -1
+    use_bias = .true.
+    found_weights = .false.
+    itmp1 = 0
+    kernel_initialiser_name = ''
+    bias_initialiser_name = ''
+
     tag_loop: do
        read(unit,'(A)',iostat=stat) buffer
        if(stat.ne.0)then
           write(err_msg,'("file encountered error (EoF?) before END ",A)') &
-               to_upper(this%name)
+               to_upper(trim(this%name))
           call stop_program(err_msg)
           return
        end if
        if(trim(adjustl(buffer)).eq."") cycle tag_loop
 
        if(trim(adjustl(buffer)).eq."END "//to_upper(trim(this%name)))then
-          final_line = iline
-          backspace(unit)
           exit tag_loop
        end if
-       iline = iline + 1
 
        tag=trim(adjustl(buffer))
        if(scan(buffer,"=").ne.0) tag=trim(tag(:scan(tag,"=")-1))
@@ -620,9 +654,8 @@ contains
        case("USE_BIAS")
           call assign_val(buffer, use_bias, itmp1)
        case("ACTIVATION")
-          iline = iline - 1
           backspace(unit)
-          activation = read_activation(unit, iline)
+          activation = read_activation(unit)
        case("KERNEL_INITIALISER", "KERNEL_INIT", "KERNEL_INITIALIZER")
           call assign_val(buffer, kernel_initialiser_name, itmp1)
        case("BIAS_INITIALISER", "BIAS_INIT", "BIAS_INITIALIZER")
@@ -630,7 +663,8 @@ contains
        case("WEIGHTS")
           kernel_initialiser_name = 'zeros'
           bias_initialiser_name   = 'zeros'
-          param_line = iline
+          found_weights = .true.
+          exit tag_loop
        case default
           if(scan(to_lower(trim(adjustl(buffer))),&
                'abcdfghijklmnopqrstuvwxyz').eq.0)then
@@ -644,8 +678,13 @@ contains
           return
        end select
     end do tag_loop
-    kernel_initialiser = initialiser_setup(kernel_initialiser_name)
-    bias_initialiser = initialiser_setup(bias_initialiser_name)
+
+    if(len_trim(kernel_initialiser_name) .gt. 0)then
+       kernel_initialiser = initialiser_setup(kernel_initialiser_name)
+    end if
+    if(len_trim(bias_initialiser_name) .gt. 0)then
+       bias_initialiser = initialiser_setup(bias_initialiser_name)
+    end if
 
     call this%set_hyperparams( &
          num_outputs = num_outputs, &
@@ -658,84 +697,148 @@ contains
     )
     call this%init(input_shape=[num_inputs])
 
-    if(param_line.eq.0)then
-       write(0,*) "WARNING: WEIGHTS card in " // trim(this%name) // " not found"
-    else
-       call move(unit, param_line - iline, iostat=stat)
+    if(.not.found_weights) return
 
-       ! Read R (num_basis^2)
-       num_vals = num_basis * num_basis
-       allocate(data_list(num_vals), source=0._real32)
-       c = 1; k = 1
-       do while(c.le.num_vals)
-          read(unit,'(A)',iostat=stat) buffer
-          if(stat.ne.0) exit
-          k = icount(buffer)
-          read(buffer,*,iostat=stat) (data_list(j),j=c,c+k-1)
-          c = c + k
-       end do
-       this%params(1)%val(:,1) = data_list
-       deallocate(data_list)
+    ! Read R (num_basis^2)
+    num_vals = num_basis * num_basis
+    allocate(data_list(num_vals), source=0._real32)
+    call read_ono_values(unit, data_list, stat, err_msg)
+    if(stat.ne.0)then
+       call stop_program(err_msg)
+       return
+    end if
+    this%params(1)%val(:,1) = data_list
+    deallocate(data_list)
 
-       ! Read B (num_inputs * num_basis)
-       num_vals = num_inputs * num_basis
-       allocate(data_list(num_vals), source=0._real32)
-       c = 1; k = 1
-       do while(c.le.num_vals)
-          read(unit,'(A)',iostat=stat) buffer
-          if(stat.ne.0) exit
-          k = icount(buffer)
-          read(buffer,*,iostat=stat) (data_list(j),j=c,c+k-1)
-          c = c + k
-       end do
-       this%params(2)%val(:,1) = data_list
-       deallocate(data_list)
+    ! Read B (num_inputs * num_basis)
+    num_vals = num_inputs * num_basis
+    allocate(data_list(num_vals), source=0._real32)
+    call read_ono_values(unit, data_list, stat, err_msg)
+    if(stat.ne.0)then
+       call stop_program(err_msg)
+       return
+    end if
+    this%params(2)%val(:,1) = data_list
+    deallocate(data_list)
 
-       ! Read W (num_outputs * num_inputs)
-       num_vals = num_outputs * num_inputs
-       allocate(data_list(num_vals), source=0._real32)
-       c = 1; k = 1
-       do while(c.le.num_vals)
-          read(unit,'(A)',iostat=stat) buffer
-          if(stat.ne.0) exit
-          k = icount(buffer)
-          read(buffer,*,iostat=stat) (data_list(j),j=c,c+k-1)
-          c = c + k
-       end do
-       this%params(3)%val(:,1) = data_list
-       deallocate(data_list)
+    ! Read W (num_outputs * num_inputs)
+    num_vals = num_outputs * num_inputs
+    allocate(data_list(num_vals), source=0._real32)
+    call read_ono_values(unit, data_list, stat, err_msg)
+    if(stat.ne.0)then
+       call stop_program(err_msg)
+       return
+    end if
+    this%params(3)%val(:,1) = data_list
+    deallocate(data_list)
 
-       ! Read b if use_bias
-       if(use_bias)then
-          allocate(data_list(num_outputs), source=0._real32)
-          c = 1; k = 1
-          do while(c.le.num_outputs)
-             read(unit,'(A)',iostat=stat) buffer
-             if(stat.ne.0) exit
-             k = icount(buffer)
-             read(buffer,*,iostat=stat) (data_list(j),j=c,c+k-1)
-             c = c + k
-          end do
-          this%params(4)%val(:,1) = data_list(1:num_outputs)
-          deallocate(data_list)
-       end if
-
-       read(unit,'(A)') buffer
-       if(trim(adjustl(buffer)).ne."END WEIGHTS")then
-          call stop_program("END WEIGHTS not where expected")
+    ! Read b if use_bias
+    if(use_bias)then
+       allocate(data_list(num_outputs), source=0._real32)
+       call read_ono_values(unit, data_list, stat, err_msg)
+       if(stat.ne.0)then
+          call stop_program(err_msg)
           return
        end if
+       this%params(4)%val(:,1) = data_list
+       deallocate(data_list)
     end if
 
-    call move(unit, final_line - iline, iostat=stat)
-    read(unit,'(A)') buffer
-    if(trim(adjustl(buffer)).ne."END "//to_upper(trim(this%name)))then
-       write(err_msg,'("END ",A," not where expected")') to_upper(this%name)
+    ! Verify the block terminators
+    do
+       read(unit,'(A)',iostat=stat) line
+       if(stat.ne.0)then
+          call stop_program("END WEIGHTS not found in orthogonal_nop block")
+          return
+       end if
+       if(trim(adjustl(line)).ne."") exit
+    end do
+    if(trim(adjustl(line)).ne."END WEIGHTS")then
+       call stop_program("END WEIGHTS not where expected")
+       return
+    end if
+
+    do
+       read(unit,'(A)',iostat=stat) line
+       if(stat.ne.0)then
+          write(err_msg,'("END ",A," not found")') to_upper(trim(this%name))
+          call stop_program(err_msg)
+          return
+       end if
+       if(trim(adjustl(line)).ne."") exit
+    end do
+    if(trim(adjustl(line)).ne."END "//to_upper(trim(this%name)))then
+       write(err_msg,'("END ",A," not where expected")') to_upper(trim(this%name))
        call stop_program(err_msg)
        return
     end if
 
   end subroutine read_ono
+!###############################################################################
+
+
+!###############################################################################
+  subroutine read_ono_values(unit, values, stat, err_msg)
+    !! Read a fixed number of list-directed values from consecutive records
+    use coreutils, only: icount
+    implicit none
+
+    ! Arguments
+    integer, intent(in) :: unit
+    !! Input unit number
+    real(real32), dimension(:), intent(out) :: values
+    !! Values to fill
+    integer, intent(out) :: stat
+    !! I/O status (zero on success)
+    character(*), intent(out) :: err_msg
+    !! Error message
+
+    ! Local variables
+    character(256) :: line
+    !! Record buffer
+    real(real32), allocatable, dimension(:) :: record
+    !! Values parsed from the current record
+    integer :: num_read, num_values, num_record
+    !! Running and per-record counters
+
+    values = 0.0_real32
+    stat = 0
+    err_msg = ""
+    num_read = 0
+    num_values = size(values)
+
+    do while(num_read .lt. num_values)
+       read(unit,'(A)',iostat=stat) line
+       if(stat.ne.0)then
+          err_msg = "unexpected end of file in orthogonal_nop weights"
+          return
+       end if
+       if(trim(adjustl(line)).eq."") cycle
+       if(index(trim(adjustl(line)),"END").eq.1)then
+          err_msg = "unexpected END in orthogonal_nop weights"
+          stat = -1
+          return
+       end if
+       num_record = icount(line)
+       if(num_record .le. 0) cycle
+       if(num_read + num_record .gt. num_values)then
+          err_msg = "too many values in orthogonal_nop weight record"
+          stat = -1
+          return
+       end if
+       allocate(record(num_record))
+       read(line,*,iostat=stat) record
+       if(stat.ne.0)then
+          err_msg = "failed to read orthogonal_nop weight record"
+          deallocate(record)
+          return
+       end if
+       values(num_read+1:num_read+num_record) = record
+       deallocate(record)
+       num_read = num_read + num_record
+    end do
+
+  end subroutine read_ono_values
 !###############################################################################
 
 
