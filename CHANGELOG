@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Fixed activation layer rank-1 file I/O
+- Fixed DropBlock mask generation, normalisation, and inference-mode handling
+- Fixed shared merge-layer operand handling
 
 ## [2.1.1] - 2026-04-15
 

@@ -9,12 +9,13 @@ program test_dropout_layer
 
   class(base_layer_type), allocatable, target :: drop_layer
   class(base_layer_type), allocatable :: read_layer
+  type(dropout_layer_type), target :: rank1_layer
   integer, parameter :: num_channels = 3, num_inputs = 6
   integer :: unit
   type(array_type) :: input(1,1)
   real, allocatable, dimension(:,:) :: output_data
   real, allocatable, dimension(:,:,:) :: input_3d, output_3d, gradient_3d
-  real, allocatable, dimension(:) :: output_1d
+  real, allocatable, dimension(:) :: output_1d, rank1_input, rank1_output
   real, parameter :: tol = 1.E-7
   logical :: success = .true.
   class(array_type), pointer :: output => null()
@@ -149,6 +150,30 @@ program test_dropout_layer
      write(0,*) 'output_1d and output_2d are not consistent'
   end if
   deallocate(output_1d, output_data)
+
+!-------------------------------------------------------------------------------
+! rank-1 regression: merge_over_channels must cover every element
+!-------------------------------------------------------------------------------
+  allocate(rank1_input(num_inputs))
+  do i = 1, num_inputs
+     rank1_input(i) = real(i)
+  end do
+  rank1_layer = dropout_layer_type( &
+       rate = 0.0_real32, &
+       num_masks = 1, &
+       input_shape = [num_inputs] &
+  )
+  call input(1,1)%allocate(array_shape=[num_inputs, 1])
+  input(1,1)%val(:,1) = rank1_input
+  call rank1_layer%forward(input)
+  call rank1_layer%extract_output(rank1_output)
+  if(any(abs(rank1_input - rank1_output) .gt. tol))then
+     success = .false.
+     write(0,*) 'dropout layer rank-1 forward pass failed'
+  end if
+  deallocate(rank1_input, rank1_output)
+  call input(1,1)%deallocate()
+  call input(1,1)%reset_graph()
 
 !-------------------------------------------------------------------------------
 ! Test file I/O operations

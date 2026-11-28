@@ -41,8 +41,8 @@ module athena__dropblock3d_layer
 
   type, extends(drop_layer_type) :: dropblock3d_layer_type
      !! Type for 3D dropblock layer with overloaded procedures
-     integer :: block_size, half
-     !! Block size and half block size
+     integer :: block_size, half, upper
+     !! Block size, number of elements below and above the block centre
      !! Block size is the width of the block to drop (typical = 5)
      real(real32) :: gamma
      !! Number of activation units to drop
@@ -158,6 +158,7 @@ contains
     this%rate = rate
     this%block_size = block_size
     this%half = (this%block_size-1)/2
+    this%upper = this%block_size - 1 - this%half
 
   end subroutine set_hyperparams_dropblock3d
 !###############################################################################
@@ -179,6 +180,9 @@ contains
     ! Local variables
     integer :: verbose_ = 0
     !! Verbosity level
+    character(len=100) :: err_msg
+    !! Error message
+
 
     !---------------------------------------------------------------------------
     ! initialise optional arguments
@@ -187,41 +191,62 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! initialise input shape
+    ! validate input shape and hyperparameters
     !---------------------------------------------------------------------------
-    if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
+    if(size(input_shape) .ne. 4)then
+       write(err_msg,'("Invalid input_shape in ",A,&
+            &" expected 4 values (width, height, depth, channels), got ",I0)') &
+            trim(this%name), size(input_shape)
+       call stop_program(err_msg)
+       return
+    end if
+    call this%set_shape(input_shape)
+
+    if(any(this%input_shape .le. 0))then
+       write(err_msg,'("Invalid input_shape in ",A,&
+            &" dimensions must be positive")') trim(this%name)
+       call stop_program(err_msg)
+       return
+    end if
+
+    if(this%rate .lt. 0._real32 .or. this%rate .ge. 1._real32)then
+       write(err_msg,'("Invalid rate in ",A," expected [0,1), got ",F0.6)') &
+            trim(this%name), this%rate
+       call stop_program(err_msg)
+       return
+    end if
+    if(this%block_size .lt. 1 .or. &
+         this%block_size .gt. minval(this%input_shape(1:3)))then
+       write(err_msg,'("Invalid block_size in ",A,&
+            &" expected 1 <= block_size <= ",I0," got ",I0)') &
+            trim(this%name), minval(this%input_shape(1:3)), this%block_size
+       call stop_program(err_msg)
+       return
+    end if
 
 
     !---------------------------------------------------------------------------
     ! set up number of channels, width, height
     !---------------------------------------------------------------------------
     this%num_channels = this%input_shape(4)
-    allocate(this%output_shape(2))
-    this%output_shape = this%input_shape
+    if(allocated(this%output_shape)) deallocate(this%output_shape)
+    allocate(this%output_shape, source=this%input_shape)
 
 
     !---------------------------------------------------------------------------
     ! set gamma
     !---------------------------------------------------------------------------
-    ! original paper uses keep_prob, we use drop_rate
-    ! drop_rate = 1 - keep_prob
-    this%gamma = ( this%rate/this%block_size**3._real32 ) * &
-         this%input_shape(1) / &
-         (this%input_shape(1) - this%block_size + 1._real32) * &
-         this%input_shape(2) / &
-         (this%input_shape(2) - this%block_size + 1._real32) * &
-         this%input_shape(3) / &
-         (this%input_shape(3) - this%block_size + 1._real32)
+    call update_gamma_dropblock3d(this)
+
+
+    !---------------------------------------------------------------------------
+    ! allocate mask (sample on the first training forward, not here)
+    !---------------------------------------------------------------------------
+    if(allocated(this%mask)) deallocate(this%mask)
     allocate(this%mask( &
          this%input_shape(1), &
          this%input_shape(2), &
          this%input_shape(3)), source=.true.)
-
-
-    !---------------------------------------------------------------------------
-    ! generate mask
-    !---------------------------------------------------------------------------
-    call this%generate_mask()
 
 
     !---------------------------------------------------------------------------
@@ -237,6 +262,29 @@ contains
     allocate( this%output(1,1) )
 
   end subroutine init_dropblock3d
+!###############################################################################
+
+
+!###############################################################################
+  pure subroutine update_gamma_dropblock3d(this)
+    !! Recompute gamma from the current rate, block size and input shape
+    implicit none
+
+    ! Arguments
+    class(dropblock3d_layer_type), intent(inout) :: this
+    !! Instance of the 3D dropblock layer
+
+    ! original paper uses keep_prob, we use drop_rate
+    ! drop_rate = 1 - keep_prob
+    this%gamma = ( this%rate/real(this%block_size,real32)**3 ) * &
+         real(this%input_shape(1),real32) / &
+         real(this%input_shape(1) - this%block_size + 1,real32) * &
+         real(this%input_shape(2),real32) / &
+         real(this%input_shape(2) - this%block_size + 1,real32) * &
+         real(this%input_shape(3),real32) / &
+         real(this%input_shape(3) - this%block_size + 1,real32)
+
+  end subroutine update_gamma_dropblock3d
 !###############################################################################
 
 
@@ -258,6 +306,13 @@ contains
     !! Limits for mask
 
 
+    ! Recompute parameters so direct hyperparameter changes take effect
+    !---------------------------------------------------------------------------
+    call update_gamma_dropblock3d(this)
+    this%half = (this%block_size-1)/2
+    this%upper = this%block_size - 1 - this%half
+
+
     ! Generate Bernoulli mask
     !---------------------------------------------------------------------------
     ! assume random number already seeded and don't need to again
@@ -268,19 +323,19 @@ contains
 
     !! Apply threshold to create binary mask
     !---------------------------------------------------------------------------
-    do k = 1 + this%half, size(this%mask, dim=3) - this%half
-       do j = 1 + this%half, size(this%mask, dim=2) - this%half
-          do i = 1 + this%half, size(this%mask, dim=1) - this%half
+    do k = 1 + this%half, size(this%mask, dim=3) - this%upper
+       do j = 1 + this%half, size(this%mask, dim=2) - this%upper
+          do i = 1 + this%half, size(this%mask, dim=1) - this%upper
              if(mask_real(i, j, k).lt.this%gamma)then
                 ilim(:) = [ &
                      max(i - this%half, lbound(this%mask,1)), &
-                     min(i + this%half, ubound(this%mask,1)) ]
+                     min(i + this%upper, ubound(this%mask,1)) ]
                 jlim(:) = [ &
                      max(j - this%half, lbound(this%mask,2)), &
-                     min(j + this%half, ubound(this%mask,2)) ]
+                     min(j + this%upper, ubound(this%mask,2)) ]
                 klim(:) = [ &
                      max(k - this%half, lbound(this%mask,3)), &
-                     min(k + this%half, ubound(this%mask,3)) ]
+                     min(k + this%upper, ubound(this%mask,3)) ]
                 this%mask( &
                      ilim(1):ilim(2), &
                      jlim(1):jlim(2), &
@@ -325,7 +380,7 @@ contains
 !###############################################################################
   subroutine read_dropblock3d(this, unit, verbose)
     !! Read 3D dropblock layer from file
-    use athena__tools_infile, only: assign_val, assign_vec
+    use athena__tools_infile, only: get_val, assign_val, assign_vec
     use coreutils, only: to_lower, to_upper, icount
     implicit none
 
@@ -355,6 +410,12 @@ contains
     ! Initialise optional arguments
     !---------------------------------------------------------------------------
     if(present(verbose)) verbose_ = verbose
+
+    ! Set sentinel values so that init can detect missing parameters
+    rate = -1._real32
+    block_size = -1
+    input_shape = 0
+    itmp1 = 0
 
 
     ! Loop over tags in layer card
@@ -386,6 +447,12 @@ contains
        !------------------------------------------------------------------------
        select case(trim(tag))
        case("INPUT_SHAPE")
+          if(icount(get_val(buffer)) .ne. 4)then
+             write(err_msg,'("INPUT_SHAPE for ",A,&
+                  &" must have exactly 4 values")') to_upper(this%name)
+             call stop_program(err_msg)
+             return
+          end if
           call assign_vec(buffer, input_shape, itmp1)
        case("RATE")
           call assign_val(buffer, rate, itmp1)
@@ -538,24 +605,54 @@ contains
     !! Input values
 
     ! Local variables
-    real(real32) :: rtmp1
-    !! Temporary variable
+    real(real32) :: scale
+    !! Normalisation factor
+    integer :: keep
+    !! Number of retained mask elements
     type(array_type), pointer :: ptr
     !! Pointer array
 
 
-    rtmp1 = 1._real32 - this%rate
+    !---------------------------------------------------------------------------
+    ! Validate layer state and input shape
+    !---------------------------------------------------------------------------
+    if(.not.allocated(this%mask))then
+       call stop_program( &
+            "3D dropblock layer mask is not allocated: call init first" &
+       )
+       return
+    end if
+    if(size(input(1,1)%shape) .ne. size(this%input_shape))then
+       call stop_program( &
+            "3D dropblock layer input rank does not match input_shape" &
+       )
+       return
+    end if
+    if(any(input(1,1)%shape .ne. this%input_shape))then
+       call stop_program( &
+            "3D dropblock layer input shape does not match input_shape" &
+       )
+       return
+    end if
+
+
     select case(this%inference)
     case(.true.)
        ! Do not perform the drop operation
-       ptr => input(1,1) * rtmp1
+       ptr => input(1,1) * 1._real32
     case default
-       ! Perform the drop operation
-       rtmp1 = 1._real32 / rtmp1
+       ! Sample a fresh mask and normalise by the retained count
+       call this%generate_mask()
+       keep = count(this%mask)
+       if(keep.gt.0)then
+          scale = real(size(this%mask),real32) / real(keep,real32)
+       else
+          scale = 0._real32
+       end if
        ptr => merge_over_channels( &
             input(1,1), 0._real32, &
-            reshape(this%mask, shape = [product(shape(this%mask)), 1]) &
-       ) * rtmp1
+            reshape(this%mask, shape = [size(this%mask), 1]) &
+       ) * scale
     end select
     call this%output(1,1)%assign_replacing_history(ptr)
     this%output(1,1)%is_temporary = .false.

@@ -5,7 +5,7 @@ contains
 
 !###############################################################################
   module function merge_scalar_over_channels(tsource, fsource, mask) result(output)
-    !! 1D average pooling operation
+    !! Merge a scalar into masked elements, broadcasting over channels
     implicit none
 
     ! Arguments
@@ -16,16 +16,25 @@ contains
 
     ! Local variables
     integer :: i, m, s
-    integer :: num_elements, num_dims
+    integer :: num_elements, num_dims, num_channels
 
 
     output => tsource%create_result()
     num_dims = size(tsource%shape)
-    num_elements = product(tsource%shape(1:num_dims - 1))
-    do concurrent(s = 1:size(tsource%val,2), m = 1: tsource%shape(num_dims))
+    if(num_dims.eq.1)then
+       ! Rank-1 arrays have a single dimension containing all elements
+       num_elements = tsource%shape(1)
+       num_channels = 1
+    else
+       ! The final dimension is treated as channels
+       num_elements = product(tsource%shape(1:num_dims - 1))
+       num_channels = tsource%shape(num_dims)
+    end if
+    do concurrent(s = 1:size(tsource%val,2), m = 1:num_channels)
        do concurrent(i=1:num_elements)
           if(mask(i,1))then
-             output%val(i + (m-1) * num_elements,s) = tsource%val(i,s)
+             output%val(i + (m-1) * num_elements,s) = &
+                  tsource%val(i + (m-1) * num_elements,s)
           else
              output%val(i + (m-1) * num_elements,s) = fsource
           end if
@@ -73,13 +82,21 @@ contains
     integer :: num_elements, num_dims, num_channels
 
     num_dims = size(this%left_operand%shape)
-    num_elements = product(this%left_operand%shape(1:num_dims - 1))
-    num_channels = this%left_operand%shape(num_dims)
+    if(num_dims.eq.1)then
+       ! Rank-1 arrays have a single dimension containing all elements
+       num_elements = this%left_operand%shape(1)
+       num_channels = 1
+    else
+       ! The final dimension is treated as channels
+       num_elements = product(this%left_operand%shape(1:num_dims - 1))
+       num_channels = this%left_operand%shape(num_dims)
+    end if
 
     do concurrent(s = 1:size(upstream_grad,2), m = 1: num_channels)
        do concurrent(i=1:num_elements)
           if(this%mask(i,1))then
-             output(i + (m-1) * num_elements,s) = upstream_grad(i,s)
+             output(i + (m-1) * num_elements,s) = &
+                  upstream_grad(i + (m-1) * num_elements,s)
           else
              output(i + (m-1) * num_elements,s) = 0._real32
           end if

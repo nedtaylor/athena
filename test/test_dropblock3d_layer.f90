@@ -19,9 +19,11 @@ program test_dropblock3d_layer
   logical :: success = .true.
   class(array_type), pointer :: output => null()
   class(array_type), pointer :: gradient => null()
+  logical, allocatable, dimension(:,:,:) :: mask_first, mask_second
+  type(dropblock3d_layer_type), target :: extra_layer
+  real(real32) :: scale = 0._real32, gamma_expected = 0._real32
 
-  integer :: i, j, output_width
-  real, parameter :: max_value = 3.0
+  integer :: c
 
   integer :: seed_size
   integer, allocatable, dimension(:) :: seed
@@ -76,12 +78,14 @@ program test_dropblock3d_layer
   end select
 
 
-!!!-----------------------------------------------------------------------------
-!!! test forward pass and check expected output
-!!! use existing layer
-!!!-----------------------------------------------------------------------------
-  !! initialise sample input
-  allocate(input_5d(width, width, width, num_channels, 1), source = max_value)
+!-------------------------------------------------------------------------------
+! test forward pass and check expected output
+! use varied per-channel inputs so channel mapping errors are caught
+!-------------------------------------------------------------------------------
+  allocate(input_5d(width, width, width, num_channels, 1))
+  do c = 1, num_channels
+     input_5d(:,:,:,c,1) = real(c)
+  end do
 
   db_layer = dropblock3d_layer_type( &
        rate = 0.5, &
@@ -97,19 +101,47 @@ program test_dropblock3d_layer
   call db_layer%forward(input)
   call db_layer%extract_output(output_5d)
 
-  !! check outputs have expected value
+  !! check outputs have expected value for every channel
   select type(db_layer)
   type is(dropblock3d_layer_type)
-     if(any( &
-          abs( &
-               merge(input_5d(:,:,:,1,1),0.0,db_layer%mask) / &
-               ( 1.E0 - db_layer%rate ) - &
-               output_5d(:,:,:,1,1) &
-          ) .gt. tol) &
-     )then
+     if(count(db_layer%mask) .gt. 0)then
+        scale = real(product(shape(db_layer%mask)),real32) / &
+             real(count(db_layer%mask),real32)
+     else
+        scale = 0._real32
+     end if
+     do c = 1, num_channels
+        if(any( &
+             abs( &
+                  merge(input_5d(:,:,:,c,1),0.0,db_layer%mask) * scale - &
+                  output_5d(:,:,:,c,1) &
+             ) .gt. tol) &
+        )then
+           success = .false.
+           write(0,*) &
+                'dropblock3d layer forward pass failed: mask incorrectly applied'
+        end if
+     end do
+  end select
+
+  !! check gamma matches the documented formula
+  select type(db_layer)
+  type is(dropblock3d_layer_type)
+     gamma_expected = ( db_layer%rate / &
+          real(db_layer%block_size,real32)**3 ) * &
+          real(db_layer%input_shape(1),real32) / &
+          real(db_layer%input_shape(1) - db_layer%block_size + 1,real32) * &
+          real(db_layer%input_shape(2),real32) / &
+          real(db_layer%input_shape(2) - db_layer%block_size + 1,real32) * &
+          real(db_layer%input_shape(3),real32) / &
+          real(db_layer%input_shape(3) - db_layer%block_size + 1,real32)
+     if(abs(db_layer%gamma - gamma_expected) .gt. tol)then
         success = .false.
-        write(0,*) &
-             'dropblock3d layer forward pass failed: mask incorrectly applied'
+        write(0,*) 'dropblock3d layer gamma does not match expected formula'
+     end if
+     if(abs(db_layer%gamma - 0.108_real32) .gt. 1.0E-6_real32)then
+        success = .false.
+        write(0,*) 'dropblock3d layer gamma does not match expected constant'
      end if
   end select
 
@@ -117,33 +149,52 @@ program test_dropblock3d_layer
 !-------------------------------------------------------------------------------
 ! test backward pass and check expected output
 !-------------------------------------------------------------------------------
-  !! run backward pass
+  !! run backward pass with unit upstream gradient
   output => db_layer%output(1,1)
   call output%set_requires_grad(.true.)
-  output%grad%val = output%val
+  output%grad%val = 1._real32
   call output%grad_reverse()
   gradient => input(1,1)%grad
   call gradient%extract(gradient_5d)
 
-  !! check gradient has expected value
+  !! check gradient has expected value for every channel
   select type(db_layer)
   type is(dropblock3d_layer_type)
-     if(any( &
-          abs( &
-               merge(output_5d(:,:,:,1,1),0.0,db_layer%mask) / &
-               (1.E0 - db_layer%rate) - &
-               gradient_5d(:,:,:,1,1) &
-          ) .gt. tol ) &
-     )then
-        success = .false.
-        write(*,*) 'dropblock3d layer backward pass failed: &
-             &mask incorrectly applied'
-     end if
+     do c = 1, num_channels
+        if(any( &
+             abs( &
+                  merge(1.0_real32,0.0_real32,db_layer%mask) * scale - &
+                  gradient_5d(:,:,:,c,1) &
+             ) .gt. tol ) &
+        )then
+           success = .false.
+           write(0,*) 'dropblock3d layer backward pass failed: mask &
+                &incorrectly applied'
+        end if
+     end do
   end select
 
 
 !-------------------------------------------------------------------------------
-! check output request using rank 1 and rank 2 arrays is consistent
+! test inference is the identity (no scaling)
+!-------------------------------------------------------------------------------
+  deallocate(output_5d)
+  db_layer%inference = .true.
+  call db_layer%forward(input)
+  call db_layer%extract_output(output_5d)
+  if(any(abs(input_5d - output_5d) .gt. tol))then
+     success = .false.
+     write(0,*) 'dropblock3d layer inference pass is not the identity'
+  end if
+  db_layer%inference = .false.
+
+  deallocate(output_5d, gradient_5d, input_5d)
+  call input(1,1)%deallocate()
+  call input(1,1)%reset_graph()
+
+
+!-------------------------------------------------------------------------------
+! check output request using rank 1 and rank 2 arrays is consistent
 !-------------------------------------------------------------------------------
   call db_layer%extract_output(output_1d)
   call db_layer%extract_output(output_2d)
@@ -152,6 +203,127 @@ program test_dropblock3d_layer
      write(0,*) 'output_1d and output_2d are not consistent'
   end if
   deallocate(output_1d, output_2d)
+
+
+!-------------------------------------------------------------------------------
+! check rate=0 training forward is the identity (inference is false)
+!-------------------------------------------------------------------------------
+  extra_layer = dropblock3d_layer_type( &
+       rate = 0.0, &
+       block_size = 5, &
+       input_shape = [width, width, width, num_channels] &
+  )
+  allocate(input_5d(width, width, width, num_channels, 1))
+  do c = 1, num_channels
+     input_5d(:,:,:,c,1) = real(c)
+  end do
+  call input(1,1)%allocate(array_shape=[width, width, width, num_channels, 1])
+  call input(1,1)%set(input_5d)
+  call extra_layer%forward(input)
+  call extra_layer%extract_output(output_5d)
+  do c = 1, num_channels
+     if(any(abs(output_5d(:,:,:,c,1) - input_5d(:,:,:,c,1)) .gt. tol))then
+        success = .false.
+        write(0,*) 'dropblock3d layer rate=0 training pass is not the identity'
+     end if
+  end do
+  deallocate(output_5d, input_5d)
+  call input(1,1)%deallocate()
+  call input(1,1)%reset_graph()
+
+
+!-------------------------------------------------------------------------------
+! check a fresh mask is sampled on every training forward
+!-------------------------------------------------------------------------------
+  extra_layer = dropblock3d_layer_type( &
+       rate = 0.5, &
+       block_size = 1, &
+       input_shape = [width, width, width, 1] &
+  )
+  call input(1,1)%allocate( &
+       array_shape=[width, width, width, 1, 1], source=1._real32)
+  call extra_layer%forward(input)
+  mask_first = extra_layer%mask
+  call extra_layer%forward(input)
+  mask_second = extra_layer%mask
+  if(.not. any(mask_first .neqv. mask_second))then
+     success = .false.
+     write(0,*) 'dropblock3d layer did not resample the mask on forward'
+  end if
+  deallocate(mask_first, mask_second)
+  call input(1,1)%deallocate()
+  call input(1,1)%reset_graph()
+
+
+!-------------------------------------------------------------------------------
+! check even and odd block extents and repeat initialisation
+!-------------------------------------------------------------------------------
+  extra_layer = dropblock3d_layer_type( &
+       rate = 0.5, &
+       block_size = 4, &
+       input_shape = [width, width, width, num_channels] &
+  )
+  if(extra_layer%half + extra_layer%upper + 1 .ne. 4)then
+     success = .false.
+     write(0,*) 'dropblock3d layer block extent is wrong for block_size = 4'
+  end if
+  call extra_layer%init(input_shape=[width, width, width, num_channels])
+  call extra_layer%init(input_shape=[width, width, width, num_channels])
+  if(.not. allocated(extra_layer%output_shape))then
+     success = .false.
+     write(0,*) 'dropblock3d layer output_shape not allocated after init'
+  else if(any( &
+       extra_layer%output_shape .ne. [width,width,width,num_channels]))then
+     success = .false.
+     write(0,*) 'dropblock3d layer output_shape wrong after repeated init'
+  end if
+  if(any( &
+       extra_layer%input_shape .ne. [width,width,width,num_channels]))then
+     success = .false.
+     write(0,*) 'dropblock3d layer input_shape wrong after repeated init'
+  end if
+  if(.not. allocated(extra_layer%mask))then
+     success = .false.
+     write(0,*) 'dropblock3d layer mask not allocated after init'
+  else if(any(shape(extra_layer%mask) .ne. [width,width,width]))then
+     success = .false.
+     write(0,*) 'dropblock3d layer mask shape wrong after repeated init'
+  else if(any(.not. extra_layer%mask))then
+     success = .false.
+     write(0,*) 'dropblock3d layer mask wrong after repeated init'
+  end if
+
+  extra_layer = dropblock3d_layer_type( &
+       rate = 0.5, &
+       block_size = 5, &
+       input_shape = [width, width, width, num_channels] &
+  )
+  if(extra_layer%half + extra_layer%upper + 1 .ne. 5)then
+     success = .false.
+     write(0,*) 'dropblock3d layer block extent is wrong for block_size = 5'
+  end if
+  call extra_layer%init(input_shape=[width, width, width, num_channels])
+  call extra_layer%init(input_shape=[width, width, width, num_channels])
+  if(.not. allocated(extra_layer%output_shape))then
+     success = .false.
+     write(0,*) 'dropblock3d layer output_shape not allocated after init'
+  else if(any( &
+       extra_layer%output_shape .ne. [width,width,width,num_channels]))then
+     success = .false.
+     write(0,*) 'dropblock3d layer output_shape wrong after repeated init'
+  end if
+  if(any( &
+       extra_layer%input_shape .ne. [width,width,width,num_channels]))then
+     success = .false.
+     write(0,*) 'dropblock3d layer input_shape wrong after repeated init'
+  end if
+  if(.not. allocated(extra_layer%mask))then
+     success = .false.
+     write(0,*) 'dropblock3d layer mask not allocated after init'
+  else if(any(shape(extra_layer%mask) .ne. [width,width,width]))then
+     success = .false.
+     write(0,*) 'dropblock3d layer mask shape wrong after repeated init'
+  end if
 
 
 !-------------------------------------------------------------------------------
@@ -182,6 +354,19 @@ program test_dropblock3d_layer
      if(.not. read_layer%name .eq. 'dropblock3d')then
         success = .false.
         write(0,*) 'read dropblock3d layer has wrong name'
+     end if
+     if(abs(read_layer%rate - 0.5_real32) .gt. tol)then
+        success = .false.
+        write(0,*) 'read dropblock3d layer has wrong rate'
+     end if
+     if(read_layer%block_size .ne. 5)then
+        success = .false.
+        write(0,*) 'read dropblock3d layer has wrong block_size'
+     end if
+     if(any(read_layer%input_shape .ne. &
+          [width,width,width,num_channels]))then
+        success = .false.
+        write(0,*) 'read dropblock3d layer has wrong input_shape'
      end if
   class default
      success = .false.
