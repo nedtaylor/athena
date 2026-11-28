@@ -57,6 +57,8 @@ module athena__dropout_layer
      !! Print dropout layer to unit
      procedure, pass(this) :: read => read_dropout
      !! Read dropout layer from file
+     procedure, pass(this) :: build_from_onnx => build_from_onnx_dropout
+     !! Build dropout layer from ONNX node and initialiser
 
      procedure, pass(this) :: forward => forward_dropout
      !! Forward propagation derived type handler
