@@ -372,6 +372,50 @@ program test_activation_layer
 
 
 !-------------------------------------------------------------------------------
+! Test rank-1 file I/O
+!-------------------------------------------------------------------------------
+  write(*,*) "Testing rank-1 file I/O..."
+
+  actv_layer = actv_layer_type( &
+       activation = "relu", &
+       input_shape = [6] &
+  )
+
+  open(newunit=unit, file='test_actv_layer.tmp', &
+       status='replace', action='write')
+  write(unit,'("ACTV")')
+  call actv_layer%print_to_unit(unit)
+  write(unit,'("END ACTV")')
+  close(unit)
+
+  open(newunit=unit, file='test_actv_layer.tmp', status='old', action='read')
+  read(unit,*) ! Skip first line
+  read_layer = read_actv_layer(unit)
+  close(unit)
+
+  select type(read_layer)
+  type is (actv_layer_type)
+     if(.not.allocated(read_layer%input_shape))then
+        success = .false.
+        write(0,*) 'read rank-1 activation layer has no input_shape'
+     elseif(any(read_layer%input_shape.ne.[6]))then
+        success = .false.
+        write(0,*) 'read rank-1 activation layer has wrong input_shape'
+     end if
+     if(read_layer%input_rank.ne.1)then
+        success = .false.
+        write(0,*) 'read rank-1 activation layer has wrong input_rank'
+     end if
+  class default
+     success = .false.
+     write(0,*) 'read rank-1 layer is not actv_layer_type'
+  end select
+
+  open(newunit=unit, file='test_actv_layer.tmp', status='old')
+  close(unit, status='delete')
+
+
+!-------------------------------------------------------------------------------
 ! Test with different activation functions
 !-------------------------------------------------------------------------------
   write(*,*) "Testing different activation functions..."

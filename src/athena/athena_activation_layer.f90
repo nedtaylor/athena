@@ -279,10 +279,16 @@ contains
     integer, intent(in) :: unit
     !! File unit
 
+    ! Local variables
+    character(100) :: fmt
+    !! Format string
+
 
     ! Write initial parameters
     !---------------------------------------------------------------------------
-    write(unit,'(3X,"INPUT_SHAPE = ",3(1X,I0))') this%input_shape
+    write(fmt,'("(3X,""INPUT_SHAPE ="",",I0,"(1X,I0))")') &
+         size(this%input_shape)
+    write(unit,fmt) this%input_shape
     if(this%activation%name .ne. 'none')then
        call this%activation%print_to_unit(unit)
     end if
@@ -294,8 +300,8 @@ contains
 !###############################################################################
   subroutine read_actv(this, unit, verbose)
     !! Read activation layer from file
-    use athena__tools_infile, only: assign_val, assign_vec
-    use coreutils, only: to_lower, to_upper
+    use athena__tools_infile, only: assign_vec, get_val
+    use coreutils, only: to_lower, to_upper, icount
     use athena__activation, only: read_activation
     implicit none
 
@@ -318,10 +324,12 @@ contains
     !! Activation function name
     class(base_actv_type), allocatable :: activation
     !! Activation function
-    integer, dimension(3) :: input_shape
+    integer, dimension(:), allocatable :: input_shape
     !! Input shape
     character(256) :: buffer, tag, err_msg
     !! Buffer for reading lines, tag for identifying lines, error message
+    logical :: shape_found
+    !! Whether an input shape was found
 
 
     ! Initialise optional arguments
@@ -332,6 +340,7 @@ contains
     ! Loop over tags in layer card
     !---------------------------------------------------------------------------
     iline = 0
+    shape_found = .false.
     tag_loop: do
 
        ! Check for end of file
@@ -360,7 +369,17 @@ contains
        !------------------------------------------------------------------------
        select case(trim(tag))
        case("INPUT_SHAPE")
+          itmp1 = icount(get_val(buffer))
+          if(itmp1.lt.1)then
+             call stop_program( &
+                  "Invalid INPUT_SHAPE in activation layer card" &
+             )
+             return
+          end if
+          if(allocated(input_shape)) deallocate(input_shape)
+          allocate(input_shape(itmp1), source=0)
           call assign_vec(buffer, input_shape, itmp1)
+          shape_found = .true.
        case("ACTIVATION")
           iline = iline - 1
           backspace(unit)
@@ -384,6 +403,12 @@ contains
 
     ! Set hyperparameters and initialise layer
     !---------------------------------------------------------------------------
+    if(.not.shape_found)then
+       call stop_program( &
+            "INPUT_SHAPE not found in activation layer card" &
+       )
+       return
+    end if
     call this%set_hyperparams( &
          activation = activation &
     )
@@ -513,6 +538,7 @@ contains
        do i = 1, size(input, 1)
           ptr => this%activation%apply(input(i,s))
           call this%output(i,s)%assign_replacing_history(ptr)
+          this%output(i,s)%is_temporary = .false.
        end do
     end do
 
