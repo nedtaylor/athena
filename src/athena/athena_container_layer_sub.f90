@@ -13,6 +13,7 @@ submodule(athena__container_layer) athena__container_layer_submodule
   use athena__batchnorm1d_layer, only: read_batchnorm1d_layer
   use athena__batchnorm2d_layer, only: read_batchnorm2d_layer
   use athena__batchnorm3d_layer, only: read_batchnorm3d_layer
+  use athena__block_layer, only: read_block_layer
   use athena__conv1d_layer, only: read_conv1d_layer
   use athena__conv2d_layer, only: read_conv2d_layer
   use athena__conv3d_layer, only: read_conv3d_layer
@@ -128,6 +129,7 @@ contains
          read_layer_container('batchnorm1d', read_batchnorm1d_layer), &
          read_layer_container('batchnorm2d', read_batchnorm2d_layer), &
          read_layer_container('batchnorm3d', read_batchnorm3d_layer), &
+         read_layer_container('block', read_block_layer), &
          read_layer_container('conv1d', read_conv1d_layer), &
          read_layer_container('conv2d', read_conv2d_layer), &
          read_layer_container('conv3d', read_conv3d_layer), &
