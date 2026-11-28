@@ -111,6 +111,13 @@ contains
 
 
     !---------------------------------------------------------------------------
+    ! Initialise optional padding layer
+    !---------------------------------------------------------------------------
+    if(allocated(this%pad_layer)) &
+         call this%pad_layer%init(this%input_shape, verbose_)
+
+
+    !---------------------------------------------------------------------------
     ! Set up number of channels, width, height
     !---------------------------------------------------------------------------
     this%num_channels = this%input_shape(this%input_rank)

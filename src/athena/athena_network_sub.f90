@@ -50,10 +50,33 @@ contains
 
     this%metrics(1)%val = this%metrics(1)%val + source%metrics(1)%val
     this%metrics(2)%val = this%metrics(2)%val + source%metrics(2)%val
+    if(.not.allocated(this%model).or..not.allocated(source%model))then
+       call stop_program("network reduce: unallocated model")
+       return
+    end if
+    if(size(this%model).ne.size(source%model))then
+       call stop_program("network reduce: incompatible model sizes")
+       return
+    end if
     do i=1,size(this%model)
        select type(layer_this => this%model(i)%layer)
+       class is(block_layer_type)
+          select type(layer_source => source%model(i)%layer)
+          class is(block_layer_type)
+             call layer_this%reduce(layer_source)
+          class default
+             call stop_program( &
+                  "network reduce: block and non-block layers are incompatible" &
+             )
+             return
+          end select
        class is(learnable_layer_type)
           select type(layer_source => source%model(i)%layer)
+          class is(block_layer_type)
+             call stop_program( &
+                  "network reduce: block and non-block layers are incompatible" &
+             )
+             return
           class is(learnable_layer_type)
              call layer_this%reduce(layer_source)
           end select

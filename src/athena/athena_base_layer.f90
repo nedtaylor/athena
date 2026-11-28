@@ -89,9 +89,11 @@ module athena__base_layer
 
      procedure, pass(this) :: nullify_graph => nullify_graph_base
      !! Nullify the forward pass data of the layer to free memory
+     procedure, pass(this) :: discard_history => discard_history_base
+     !! Release the expression history retained by the layer output
+     procedure, pass(this) :: reset_state => reset_state_base
+     !! Reset any persistent runtime state held by the layer
 
-
-     !! Forward pass of layer using derived array_type
      procedure(read_layer), deferred, pass(this) :: read
      !! Read layer from file
      procedure, pass(this) :: build_from_onnx => build_from_onnx_base
@@ -221,6 +223,18 @@ module athena__base_layer
        class(base_layer_type), intent(inout) :: this
        !! Instance of the layer
      end subroutine nullify_graph_base
+
+     module subroutine discard_history_base(this)
+       !! Release the expression history retained by the layer output
+       class(base_layer_type), intent(inout) :: this
+       !! Instance of the layer
+     end subroutine discard_history_base
+
+     module subroutine reset_state_base(this)
+       !! Reset any persistent runtime state held by the layer
+       class(base_layer_type), intent(inout) :: this
+       !! Instance of the layer
+     end subroutine reset_state_base
   end interface
 
   interface
@@ -469,6 +483,8 @@ module athena__base_layer
      !! Get parameter gradients of layer
      procedure, pass(this) :: set_gradients => set_gradients
      !! Set learnable parameters of layer
+     procedure, pass(this) :: reset_gradients => reset_gradients_learnable
+     !! Reset parameter gradients of layer
 
      procedure, pass(this) :: reduce => reduce_learnable
      !! Merge another learnable layer into this one
@@ -530,6 +546,12 @@ module athena__base_layer
        real(real32), dimension(..), intent(in) :: gradients
        !! Learnable parameters
      end subroutine set_gradients
+
+     module subroutine reset_gradients_learnable(this)
+       !! Reset parameter gradients of layer
+       class(learnable_layer_type), intent(inout) :: this
+       !! Instance of the layer
+     end subroutine reset_gradients_learnable
   end interface
 
   type, abstract, extends(learnable_layer_type) :: conv_layer_type

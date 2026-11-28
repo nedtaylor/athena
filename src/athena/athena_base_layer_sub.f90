@@ -17,6 +17,7 @@ submodule(athena__base_layer) athena__base_layer_submodule
   !! - get_gradients*
   !! - set_gradients*
   use coreutils, only: stop_program, print_warning
+  use diffstruc, only: discard_sources
 
 contains
 
@@ -465,6 +466,43 @@ contains
 
 
 !###############################################################################
+  module subroutine discard_history_base(this)
+    !! Release the expression history retained by the layer output
+    implicit none
+
+    ! Arguments
+    class(base_layer_type), intent(inout) :: this
+    !! Instance of the layer
+
+    ! Local variables
+    integer :: i, j
+    !! Loop indices
+
+    if(.not.allocated(this%output)) return
+    do i = 1, size(this%output,1)
+       do j = 1, size(this%output,2)
+          call discard_sources(this%output(i,j), leaves=.true.)
+       end do
+    end do
+
+  end subroutine discard_history_base
+!###############################################################################
+
+
+!###############################################################################
+  module subroutine reset_state_base(this)
+    !! Reset any persistent runtime state held by the layer
+    implicit none
+
+    ! Arguments
+    class(base_layer_type), intent(inout) :: this
+    !! Instance of the layer
+
+  end subroutine reset_state_base
+!###############################################################################
+
+
+!###############################################################################
   module subroutine reduce_learnable(this, input)
     !! Merge two learnable layers via summation
     implicit none
@@ -501,6 +539,28 @@ contains
     end if
 
   end subroutine reduce_learnable
+!###############################################################################
+
+
+!###############################################################################
+  module subroutine reset_gradients_learnable(this)
+    !! Reset the parameter gradients of a learnable layer
+    implicit none
+
+    ! Arguments
+    class(learnable_layer_type), intent(inout) :: this
+    !! Instance of the layer
+
+    ! Local variables
+    integer :: i
+    !! Loop index
+
+    if(.not.allocated(this%params)) return
+    do i = 1, size(this%params)
+       if(this%params(i)%allocated) call this%params(i)%zero_grad()
+    end do
+
+  end subroutine reset_gradients_learnable
 !###############################################################################
 
 

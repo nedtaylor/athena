@@ -9,6 +9,7 @@ module athena__block_layer
        list_of_layer_types, allocate_list_of_layer_types
   use athena__diffstruc_extd, only: batchnorm_array_type
   use diffstruc, only: array_type, operator(*)
+  use diffstruc, only: array_type, discard_sources
   implicit none
 
 
@@ -27,13 +28,17 @@ module athena__block_layer
      procedure, pass(this) :: get_num_params => get_num_params_block
      !! Get the number of parameters for block container
      procedure, pass(this) :: get_params => get_params_block
-     !! Get parameters for block container
+     !! Get the parameters of all child layers
      procedure, pass(this) :: set_params => set_params_block
-     !! Set parameters for block container
+     !! Set the parameters of all child layers
      procedure, pass(this) :: get_gradients => get_gradients_block
-     !! Get gradients for block container
+     !! Get the gradients of all child layers
      procedure, pass(this) :: set_gradients => set_gradients_block
-     !! Set gradients for block container
+     !! Set the gradients of all child layers
+     procedure, pass(this) :: reset_gradients => reset_gradients_block
+     !! Reset the gradients of all child layers
+     procedure, pass(this) :: reduce => reduce_block
+     !! Merge another block into this one
      procedure, pass(this) :: set_hyperparams => set_hyperparams_block
      !! Set the hyperparameters for block container
      procedure, pass(this) :: init => init_block
@@ -45,6 +50,13 @@ module athena__block_layer
 
      procedure, pass(this) :: forward => forward_block
      !! Forward propagation derived type handler
+
+     procedure, pass(this) :: discard_history => discard_history_block
+     !! Release expression history held by the block and its children
+     procedure, pass(this) :: nullify_graph => nullify_graph_block
+     !! Release graph data held by the block and its children
+     procedure, pass(this) :: reset_state => reset_state_block
+     !! Reset persistent state in the block and its children
 
      final :: finalise_block
      !! Finalise block container
@@ -70,6 +82,198 @@ module athena__block_layer
 
 
 contains
+
+!###############################################################################
+  subroutine reduce_block(this, input)
+    !! Merge another block into this one
+    implicit none
+
+    ! Arguments
+    class(block_layer_type), intent(inout) :: this
+    !! Instance of the block container
+    class(learnable_layer_type), intent(in) :: input
+    !! Other layer to merge
+
+    ! Local variables
+    integer :: l
+    !! Loop index
+
+    select type(source => input)
+    class is(block_layer_type)
+       if(.not.allocated(this%layers).or..not.allocated(source%layers))then
+          call stop_program("reduce_block: unallocated layer lists")
+          return
+       end if
+       if(size(this%layers).ne.size(source%layers))then
+          call stop_program("reduce_block: incompatible block sizes")
+          return
+       end if
+       do l = 1, size(this%layers)
+          if(.not.allocated(this%layers(l)%layer).or. &
+               .not.allocated(source%layers(l)%layer))then
+             call stop_program("reduce_block: unallocated child layer")
+             return
+          end if
+          select type(child => this%layers(l)%layer)
+          class is(learnable_layer_type)
+             select type(other => source%layers(l)%layer)
+             class is(block_layer_type)
+                select type(child)
+                class is(block_layer_type)
+                   call child%reduce(other)
+                class default
+                   call stop_program( &
+                        "reduce_block: child layer types are incompatible" &
+                   )
+                   return
+                end select
+             class is(learnable_layer_type)
+                call child%reduce(other)
+             class default
+                call stop_program( &
+                     "reduce_block: child layer types are incompatible" &
+                )
+                return
+             end select
+          class default
+             select type(other => source%layers(l)%layer)
+             class is(learnable_layer_type)
+                call stop_program( &
+                     "reduce_block: child layer types are incompatible" &
+                )
+                return
+             end select
+          end select
+       end do
+    class default
+       call stop_program("reduce_block: cannot reduce a block with a non-block")
+       return
+    end select
+
+  end subroutine reduce_block
+!###############################################################################
+
+
+!###############################################################################
+  subroutine discard_history_block(this)
+    !! Release expression history held by the block and its children
+    implicit none
+
+    ! Arguments
+    class(block_layer_type), intent(inout) :: this
+    !! Instance of the block container
+
+    ! Local variables
+    integer :: l, last_child
+    !! Loop index and final child index
+    logical :: aliases_last_child
+    !! Whether the block output is the last child's view
+
+    if(allocated(this%layers))then
+       do l = 1, size(this%layers)
+          if(allocated(this%layers(l)%layer)) &
+               call this%layers(l)%layer%discard_history()
+       end do
+    end if
+
+    ! The sequential block publishes a non-owning view of the last child. That
+    ! child has just been cleaned up above, so cleaning the view again would
+    ! double-release the same operands.
+    aliases_last_child = .false.
+    if(allocated(this%output))then
+       if(size(this%output,1).ge.1 .and. size(this%output,2).ge.1)then
+          if(allocated(this%layers))then
+             last_child = size(this%layers)
+             if(last_child.gt.0)then
+                if(allocated(this%layers(last_child)%layer))then
+                   if(allocated(this%layers(last_child)%layer%output))then
+                      aliases_last_child = &
+                           this%output(1,1)%id.ne.0 .and. &
+                           this%output(1,1)%id.eq. &
+                           this%layers(last_child)%layer%output(1,1)%id
+                   end if
+                end if
+             end if
+          end if
+          if(.not.aliases_last_child) &
+               call discard_sources(this%output(1,1), leaves=.true.)
+       end if
+    end if
+
+  end subroutine discard_history_block
+!###############################################################################
+
+
+!###############################################################################
+  subroutine nullify_graph_block(this)
+    !! Release graph data held by the block and its children
+    implicit none
+
+    ! Arguments
+    class(block_layer_type), intent(inout) :: this
+    !! Instance of the block container
+
+    ! Local variables
+    integer :: l, last_child
+    !! Loop index and final child index
+    logical :: aliases_last_child
+    !! Whether the block output is the last child's view
+
+    if(allocated(this%layers))then
+       do l = 1, size(this%layers)
+          if(allocated(this%layers(l)%layer)) &
+               call this%layers(l)%layer%nullify_graph()
+       end do
+    end if
+
+    ! The block output may be the last child's view; that graph has already
+    ! been released above.
+    aliases_last_child = .false.
+    if(allocated(this%output))then
+       if(size(this%output,1).ge.1 .and. size(this%output,2).ge.1)then
+          if(allocated(this%layers))then
+             last_child = size(this%layers)
+             if(last_child.gt.0)then
+                if(allocated(this%layers(last_child)%layer))then
+                   if(allocated(this%layers(last_child)%layer%output))then
+                      aliases_last_child = &
+                           this%output(1,1)%id.ne.0 .and. &
+                           this%output(1,1)%id.eq. &
+                           this%layers(last_child)%layer%output(1,1)%id
+                   end if
+                end if
+             end if
+          end if
+          if(.not.aliases_last_child) call this%output(1,1)%nullify_graph()
+       end if
+    end if
+
+  end subroutine nullify_graph_block
+!###############################################################################
+
+
+!###############################################################################
+  subroutine reset_state_block(this)
+    !! Reset persistent state in the block and its children
+    implicit none
+
+    ! Arguments
+    class(block_layer_type), intent(inout) :: this
+    !! Instance of the block container
+
+    ! Local variables
+    integer :: l
+    !! Loop index
+
+    if(.not.allocated(this%layers)) return
+    do l = 1, size(this%layers)
+       if(allocated(this%layers(l)%layer)) &
+            call this%layers(l)%layer%reset_state()
+    end do
+
+  end subroutine reset_state_block
+!###############################################################################
+
 
 !###############################################################################
   subroutine finalise_block(this)
@@ -124,7 +328,7 @@ contains
 
 !###############################################################################
   pure function get_params_block(this) result(params)
-    !! Get the parameters for block container
+    !! Get the parameters of all child layers
     implicit none
 
     ! Arguments
@@ -159,7 +363,7 @@ contains
 
 !###############################################################################
   subroutine set_params_block(this, params)
-    !! Set the parameters for block container
+    !! Set the parameters of all child layers
     implicit none
 
     ! Arguments
@@ -198,7 +402,7 @@ contains
 
 !###############################################################################
   pure function get_gradients_block(this, clip_method) result(gradients)
-    !! Get the gradients for block container
+    !! Get the gradients of all child layers
     implicit none
 
     ! Arguments
@@ -237,7 +441,7 @@ contains
 
 !###############################################################################
   subroutine set_gradients_block(this, gradients)
-    !! Set the gradients for block container
+    !! Set the gradients for all child layers
     implicit none
 
     ! Arguments
@@ -245,10 +449,6 @@ contains
     !! Instance of the block container
     real(real32), dimension(..), intent(in) :: gradients
     !! Gradients
-
-    ! Local variables
-    real(real32), allocatable, dimension(:) :: flat
-    !! Flat gradient vector
 
     if(.not.allocated(this%layers)) return
     if(this%num_params.ne.this%get_num_params())then
@@ -260,17 +460,9 @@ contains
 
     select rank(gradients)
     rank(0)
-       allocate(flat(this%num_params))
-       flat = gradients
+       call set_gradients_scalar(this, gradients)
     rank(1)
-       if(size(gradients).ne.this%num_params)then
-          call stop_program( &
-               "set_gradients_block: gradient size does not match block" &
-          )
-          return
-       end if
-       allocate(flat(this%num_params))
-       flat = gradients
+       call set_gradients_from_flat(this, gradients)
     rank default
        call stop_program( &
             "set_gradients_block: gradients must have rank 0 or 1" &
@@ -278,9 +470,34 @@ contains
        return
     end select
 
-    call set_gradients_from_flat(this, flat)
-
   end subroutine set_gradients_block
+!###############################################################################
+
+
+!###############################################################################
+  subroutine set_gradients_scalar(this, gradient)
+    !! Set a scalar gradient for all child layers
+    implicit none
+
+    ! Arguments
+    class(block_layer_type), intent(inout) :: this
+    !! Instance of the block container
+    real(real32), intent(in) :: gradient
+    !! Scalar gradient
+
+    ! Local variables
+    integer :: l
+    !! Loop index
+
+    do l = 1, size(this%layers)
+       if(.not.allocated(this%layers(l)%layer)) cycle
+       select type(layer => this%layers(l)%layer)
+       class is(learnable_layer_type)
+          call layer%set_gradients(gradient)
+       end select
+    end do
+
+  end subroutine set_gradients_scalar
 !###############################################################################
 
 
@@ -305,6 +522,14 @@ contains
        )
        return
     end if
+
+    if(size(flat).ne.this%num_params)then
+       call stop_program( &
+            "set_gradients_from_flat: gradient size does not match block" &
+       )
+       return
+    end if
+
     end_idx = 0
     do l = 1, size(this%layers)
        if(.not.allocated(this%layers(l)%layer)) cycle
@@ -319,6 +544,32 @@ contains
     end do
 
   end subroutine set_gradients_from_flat
+!###############################################################################
+
+
+!###############################################################################
+  subroutine reset_gradients_block(this)
+    !! Reset the gradients of all child layers
+    implicit none
+
+    ! Arguments
+    class(block_layer_type), intent(inout) :: this
+    !! Instance of the block container
+
+    ! Local variables
+    integer :: l
+    !! Loop index
+
+    if(.not.allocated(this%layers)) return
+    do l = 1, size(this%layers)
+       if(.not.allocated(this%layers(l)%layer)) cycle
+       select type(child => this%layers(l)%layer)
+       class is(learnable_layer_type)
+          call child%reset_gradients()
+       end select
+    end do
+
+  end subroutine reset_gradients_block
 !###############################################################################
 
 
@@ -525,6 +776,7 @@ contains
     !---------------------------------------------------------------------------
     ! Allocate arrays
     !---------------------------------------------------------------------------
+    call this%discard_history()
     if(allocated(this%output)) deallocate(this%output)
     ! set this based on the number of output layers
     allocate(this%output(1,1))

@@ -7,9 +7,13 @@ submodule(athena__container_layer) athena__container_layer_submodule
   !! that can be used for reading layers into a network model from a file.
   use athena__base_layer, only: learnable_layer_type
   use athena__actv_layer, only: read_actv_layer, create_from_onnx_actv_layer
+  use athena__block_layer, only: read_block_layer
+  use athena__add_layer, only: read_add_layer
+  use athena__concat_layer, only: read_concat_layer
   use athena__avgpool1d_layer, only: read_avgpool1d_layer
   use athena__avgpool2d_layer, only: read_avgpool2d_layer
   use athena__avgpool3d_layer, only: read_avgpool3d_layer
+  use athena__batchnorm0d_layer, only: read_batchnorm0d_layer
   use athena__batchnorm1d_layer, only: read_batchnorm1d_layer
   use athena__batchnorm2d_layer, only: read_batchnorm2d_layer
   use athena__batchnorm3d_layer, only: read_batchnorm3d_layer
@@ -123,12 +127,16 @@ contains
     list_of_layer_types = [ &
          list_of_layer_types, &
          read_layer_container('actv', read_actv_layer), &
+         read_layer_container('add', read_add_layer), &
          read_layer_container('avgpool1d', read_avgpool1d_layer), &
          read_layer_container('avgpool2d', read_avgpool2d_layer), &
          read_layer_container('avgpool3d', read_avgpool3d_layer), &
+         read_layer_container('batchnorm0d', read_batchnorm0d_layer), &
          read_layer_container('batchnorm1d', read_batchnorm1d_layer), &
          read_layer_container('batchnorm2d', read_batchnorm2d_layer), &
          read_layer_container('batchnorm3d', read_batchnorm3d_layer), &
+         read_layer_container('block', read_block_layer), &
+         read_layer_container('concat', read_concat_layer), &
          read_layer_container('block', read_block_layer), &
          read_layer_container('conv1d', read_conv1d_layer), &
          read_layer_container('conv2d', read_conv2d_layer), &

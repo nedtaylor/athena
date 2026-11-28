@@ -81,6 +81,39 @@ module athena__input_layer
 contains
 
 !###############################################################################
+  subroutine discard_history_input(this)
+    !! Release no expression history for an input layer
+    !!
+    !! The input output is a non-owning view of caller data, so releasing its
+    !! graph here would free records the caller still owns.
+    implicit none
+
+    ! Arguments
+    class(input_layer_type), intent(inout) :: this
+    !! Instance of the input layer
+
+  end subroutine discard_history_input
+!###############################################################################
+
+
+!###############################################################################
+  subroutine nullify_graph_input(this)
+    !! Do not release the caller's input graph from an input layer
+    implicit none
+
+    ! Arguments
+    class(input_layer_type), intent(inout) :: this
+    !! Instance of the input layer
+
+  end subroutine nullify_graph_input
+!###############################################################################
+
+
+!##############################################################################!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!##############################################################################!
+
+!###############################################################################
   module function layer_setup( &
        input_shape, index, use_graph_input, verbose &
   ) result(layer)
@@ -101,13 +134,16 @@ contains
     !! Instance of the input layer
 
     ! Local variables
-    integer :: index_ = 1
+    integer :: index_
     !! Index of the layer
-    integer :: verbose_ = 0
+    integer :: verbose_
     !! Verbosity level
-    logical :: use_graph_input_ = .false.
+    logical :: use_graph_input_
     !! Use graph input
 
+    index_ = 1
+    verbose_ = 0
+    use_graph_input_ = .false.
 
     if(present(verbose)) verbose_ = verbose
 
