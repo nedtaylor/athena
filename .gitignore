@@ -49,3 +49,4 @@ docs/ford
 docs/source/_static/ford
 *.html
 *.ttf
+build-*/
