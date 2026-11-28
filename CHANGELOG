@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## Added
+- Added layer container support in the form of block_layer_type, which allows for the construction of arbitrary layer sequences and sub-networks
+
 ### Fixed
 - Fixed activation layer rank-1 file I/O
 
