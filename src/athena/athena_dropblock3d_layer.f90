@@ -59,6 +59,8 @@ module athena__dropblock3d_layer
      !! Print 3D dropblock layer to unit
      procedure, pass(this) :: read => read_dropblock3d
      !! Read 3D dropblock layer from file
+     procedure, pass(this) :: build_from_onnx => build_from_onnx_dropblock3d
+     !! Build 3D dropblock layer from ONNX node and initialiser
 
      procedure, pass(this) :: forward => forward_dropblock3d
      !! Forward propagation derived type handler
